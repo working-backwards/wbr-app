@@ -1,0 +1,70 @@
+tests:
+  - test:
+      test_case_no : 1
+      x_axis_monthly_display: "fiscal_year"
+      week_ending: 09-JAN-2021
+      fiscal_year_end_month: DEC
+      metric_name: "PageViewsFiscal"
+
+      # 1 test
+      cy_6_weeks: [ 443483878, 431021307, 435436953, 421784733, 467715742, 532485819 ]
+
+      # 2 test
+      py_6_weeks: [ !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, 395917585 ]
+
+      # 3 test
+      cy_monthly: [ !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan,
+                    !!float .nan, !!float .nan, !!float .nan, !!float .nan ]
+
+      # 4 test
+      py_monthly: [ 1487877710, 1508255989, 1665665379, 1542530033, 1546099414, 1467102281, 1615446881, 1953063065,
+                    1708890199, 1807907694, 1820822982, 1922478407 ]
+
+      # 5 test
+      x_axis: [ "wk 48", "wk 49", "wk 50", "wk 51", "wk 52", "wk 1", "Jan", "Feb", "Mar", "Apr", "May",
+                "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ]
+
+      # 6 test
+      box_totals: [ 532485819, 13.84817127, 34.49410665, 678567325, 143.24, 678567325,143.24, 678567325, 143.24 ]
+
+      # 7 test
+      cy_monthly_data_frame_length: 24
+      # 8 test
+      py_monthly_data_frame_length: 24
+
+  - test:
+      test_case_no : 2
+      x_axis_monthly_display: "trailing_twelve_months"
+      week_ending: 09-JAN-2021
+      fiscal_year_end_month: DEC
+      metric_name: "PageViewsTrailing"
+
+      # 1 test
+      cy_6_weeks: [ 443483878, 431021307, 435436953, 421784733, 467715742, 532485819 ]
+
+      # 2 test
+      py_6_weeks: [ !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, 395917585 ]
+
+      # 3 test
+      cy_monthly: [ 1487877710, 1508255989, 1665665379, 1542530033, 1546099414, 1467102281, 1615446881, 1953063065, 1708890199,
+                    1807907694, 1820822982, 1922478407 ]
+
+      # 4 test
+      py_monthly: [ !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan,
+                    !!float .nan, !!float .nan, !!float .nan, !!float .nan ]
+
+      # 5 test
+      x_axis: [ "wk 48", "wk 49", "wk 50", "wk 51", "wk 52", "wk 1", "Jan", "Feb", "Mar", "Apr", "May",
+                "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ]
+
+      # 6 test
+      box_totals: [ 532485819, 13.84817127, 34.49410665, 678567325, 143.24, 678567325, 143.24 , 678567325, 143.24 ]
+
+      # 7 test
+      cy_monthly_data_frame_length: 24
+
+      # 8 test
+      py_monthly_data_frame_length: 24
+
+
+

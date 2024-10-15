@@ -1,0 +1,382 @@
+setup:
+  week_ending: 25-MAR-2023
+  week_number: 13
+  title: PracticePlus WBR
+  fiscal_year_end_month: DEC  
+  block_starting_number: 1
+
+metrics:
+#GRANULAR ACTUAL METRICS:
+  Booked_Sessions:
+    column: Booked_Sessions
+    aggf: sum
+
+  Total_PMs:
+    column: Total_PMs
+    aggf: last
+
+  minTotal_PMs:
+    column: Total_PMs
+    aggf: first
+
+  Total_PMsv2:
+    column: Total_PMsv2
+    aggf: last
+
+  Booked_Sessionsv2:
+    column: Booked_Sessionsv2
+    aggf: sum
+
+  Tele_Sessions:
+    column: Tele_Sessions
+    aggf: sum
+
+  Tele_NoShows:
+    column: Tele_NoShows
+    aggf: sum
+
+  Tele_OnTime:
+    column: Tele_OnTime
+    aggf: sum
+
+  Tele_Shows:
+    column: Tele_Shows
+    aggf: sum
+
+  Self_Serve:
+    column: SSS_Sessions
+    aggf: sum
+
+  Billed_Sessions:
+    column: Billed_Sessions
+    aggf: sum
+
+  Out_Of_Pocket_Sessions:
+    column: OOP_Sessions
+    aggf: sum
+
+  PO_LeadTime:
+    column: PO_LeadTime
+    aggf: mean
+
+  Perfect_Sessions:
+    column: Perfect_Sessions
+    aggf: sum
+
+  TeleSuccess:
+    column: TeleSuccess
+    aggf: sum
+
+  UniqueVisits:
+    column: UniqueVisits
+    aggf: sum
+
+  FTSignUps:
+    column: FTSignUps
+    aggf: sum
+
+  FTConversion:
+    column: FTConversion
+    aggf: mean
+
+  Churns:
+    column: Churns
+    aggf: sum
+
+  DAU:
+    column: DAU
+    aggf: mean
+
+  PlatinumPMs:
+    column: PlatinumPMs
+    aggf: max
+
+  MRR:
+    column: MRR
+    aggf: last
+
+
+#ACTUAL METRICS THAT REQUIRE CALCULATION:
+  Booked_Sessions_Per_PM:
+    function:
+      divide:
+        - metric:
+            name: Booked_Sessions
+        - metric:
+            name: Total_PMs
+
+  Tele_Sessions_Per_PM:
+    function:
+      divide:
+        - metric:
+            name: Tele_Sessions
+        - metric:
+            name: Total_PMsv2
+
+  Tele_Sessions_percent:
+    function:
+      divide:
+        - metric:
+            name: Tele_Sessions
+        - metric:
+            name: Booked_Sessionsv2
+
+  TeleSuccess_percent:
+    function:
+      divide:
+        - metric:
+            name: TeleSuccess
+        - metric:
+            name: Tele_Shows
+
+  Tele_NoShow_percent:
+    function:
+      divide:
+        - metric:
+            name: Tele_NoShows
+        - metric:
+            name: Tele_Sessions
+
+  Tele_OnTime_percent:
+    function:
+      divide:
+        - metric:
+            name: Tele_OnTime
+        - metric:
+            name: Tele_Shows
+
+  SSS_Sessions_percent:
+    function:
+      divide:
+        - metric:
+            name: Self_Serve
+        - metric:
+            name: Booked_Sessions
+
+  Billed_Session_percent:
+    function:
+      divide:
+        - metric:
+            name: Billed_Sessions
+        - metric:
+            name: Out_Of_Pocket_Sessions
+
+  Perfect_Sessions_percent:
+    function:
+      divide:
+        - metric:
+            name: Perfect_Sessions
+        - metric:
+            name: Booked_Sessionsv2
+
+  DAU_per_PM:
+    function:
+      divide:
+        - metric:
+            name: DAU
+        - metric:
+            name: minTotal_PMs
+
+  ChurnRate:
+    function:
+      divide:
+        - metric:
+            name: Churns
+        - metric:
+            name: minTotal_PMs
+
+  PlatinumPMs_percent:
+    function:
+      divide:
+        - metric:
+            name: PlatinumPMs
+        - metric:
+            name: Total_PMs
+
+#GRANULAR TARGET METRICS:
+  TeleSession TARGET:
+    column: TeleSession_Target
+    aggf: mean
+
+  TeleSuccess TARGET:
+    column: TeleSuccess_Target
+    aggf: mean
+
+  PO_Target:
+    column: PO_Target
+    aggf: mean
+
+  FTSignUps TARGET:
+    column: FTSignUps_Target
+    aggf: sum
+
+  FTConversion TARGET:
+    column: FTConversion_Target
+    aggf: mean
+
+  TotalPMs_TARGET:
+    column: Total_PMs_Target
+    aggf: first
+
+  Churns TARGET:
+    column: Churns_Target
+    aggf: sum
+
+  MRR_TARGET:
+    column: MRR_Target
+    aggf: last
+
+  PerfectSessions TARGET:
+    column: PerfectSessions_Target
+    aggf: mean
+
+#TARGET METRICS THAT REQUIRE CALCULATION:
+  ChurnRate TARGET:
+    function:
+      divide:
+        - metric:
+            name: Churns TARGET
+        - metric:
+            name: TotalPMs_TARGET
+
+  deltaChurnRate:
+    function:
+      difference:
+        - metric:
+            name: ChurnRate
+        - metric:
+            name: ChurnRate TARGET
+
+  vsChurnRate:
+    function:
+      divide:
+        - metric:
+            name: deltaChurnRate
+        - metric:
+            name: ChurnRate TARGET
+
+
+  deltaPerfectSessions:
+    function:
+      difference:
+        - metric:
+            name: Perfect_Sessions_percent
+        - metric:
+            name: PerfectSessions TARGET
+
+  vsPerfectSessions:
+    function:
+      divide:
+        - metric:
+            name: deltaPerfectSessions
+        - metric:
+            name: PerfectSessions TARGET
+
+  deltaFTSignUps:
+    function:
+      difference:
+        - metric:
+            name: FTSignUps
+        - metric:
+            name: FTSignUps TARGET
+
+  vsFTSignUps:
+    function:
+      divide:
+        - metric:
+            name: deltaFTSignUps
+        - metric:
+            name: FTSignUps TARGET
+
+  deltaFTConversion:
+    function:
+      difference:
+        - metric:
+            name: FTConversion
+        - metric:
+            name: FTConversion TARGET
+
+  vsFTConversion:
+    function:
+      divide:
+        - metric:
+            name: deltaFTConversion
+        - metric:
+            name: FTConversion TARGET
+
+  deltaTotalPMs:
+    function:
+      difference:
+        - metric:
+            name: Total_PMs
+        - metric:
+            name: TotalPMs_TARGET
+
+  vsTotalPMs:
+    function:
+      divide:
+        - metric:
+            name: deltaTotalPMs
+        - metric:
+            name: TotalPMs_TARGET
+
+  deltaMRR:
+    function:
+      difference:
+        - metric:
+            name: MRR
+        - metric:
+            name: MRR_TARGET
+
+  vsMRR:
+    function:
+      divide:
+        - metric:
+            name: deltaMRR
+        - metric:
+            name: MRR_TARGET
+
+#SLIDES LAYOUT:
+deck:
+  - block:
+      ui_type: 6_12Graph
+      title: Total_PMs
+      metrics:
+        Total_PMs:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: Total_PMsv2
+      metrics:
+        Total_PMsv2:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: MRR
+      metrics:
+        MRR:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: TotalPMs_TARGET
+      metrics:
+        TotalPMs_TARGET:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: MRR_TARGET
+      metrics:
+        MRR_TARGET:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: MRR_TARGET
+      metrics:
+        MRR_TARGET:
+          line_style: primary
+          graph_prior_year_flag: true

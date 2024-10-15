@@ -1,0 +1,99 @@
+setup:
+  week_ending: 25-MAR-2023
+  week_number: 13
+  title: PracticePlus WBR
+  fiscal_year_end_month: DEC
+  block_starting_number: 1
+  tooltip: true
+
+metrics:
+  Booked_Sessionsv2:
+    column: Booked_Sessionsv2
+    aggf: sum
+
+  Perfect_Sessions:
+    column: Perfect_Sessions
+    aggf: sum
+
+  Perfect_Sessions_percentFiscal:
+    box_total_scaling: "bps"
+    function:
+      divide:
+        - metric:
+            name: Perfect_Sessions
+        - metric:
+            name: Booked_Sessionsv2
+
+  Perfect_Sessions_percentTrailing:
+    box_total_scaling: "bps"
+    function:
+      divide:
+        - metric:
+            name: Perfect_Sessions
+        - metric:
+            name: Booked_Sessionsv2
+
+  Perfect_Sessions_percent_non_bpsFiscal:
+    function:
+      divide:
+        - metric:
+            name: Perfect_Sessions
+        - metric:
+            name: Booked_Sessionsv2
+  Perfect_Sessions_percent_non_bpsTrailing:
+    function:
+      divide:
+        - metric:
+            name: Perfect_Sessions
+        - metric:
+            name: Booked_Sessionsv2
+
+deck:
+  - block:
+      ui_type: 6_12Graph
+      x_axis_monthly_display: "trailing_twelve_months"
+      title: Perfect_Sessions_percentTrailing
+      metrics:
+        Perfect_Sessions_percentTrailing:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: Perfect_Sessions_percentFiscal
+      x_axis_monthly_display: "fiscal_year"
+      metrics:
+        Perfect_Sessions_percentFiscal:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: Perfect_Sessions_percent_non_bpsTrailing
+      x_axis_monthly_display: "trailing_twelve_months"
+      metrics:
+        Perfect_Sessions_percent_non_bpsTrailing:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: Perfect_Sessions_percent_non_bpsFiscal
+      x_axis_monthly_display: "fiscal_year"
+      metrics:
+        Perfect_Sessions_percent_non_bpsFiscal:
+          line_style: primary
+          graph_prior_year_flag: true
+  - block:
+      ui_type: 6_12Graph
+      title: Perfect_Sessions_percentTrailingWOW
+      x_axis_monthly_display: "trailing_twelve_months"
+      metrics:
+        Perfect_Sessions_percentTrailingWOW:
+          line_style: primary
+          graph_prior_year_flag: false
+  - block:
+      ui_type: 6_12Graph
+      title: Perfect_Sessions_percentTrailingYOY
+      x_axis_monthly_display: "trailing_twelve_months"
+      metrics:
+        Perfect_Sessions_percentTrailingYOY:
+          line_style: primary
+          graph_prior_year_flag: false

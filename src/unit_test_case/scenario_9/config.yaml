@@ -1,0 +1,101 @@
+
+setup:
+  week_ending: 25-SEP-2021
+  week_number: 38
+  title: WBR Daily
+  fiscal_year_end_month: DEC
+  block_starting_number: 1
+
+metrics:
+  PageViews:
+    column: PageViews
+    aggf: sum
+  MobilePage_Views:
+    column: MobilePageViews
+    aggf: sum
+  DesktopPageViews:
+    column: DesktopPageViews
+    aggf: sum
+  MobileAndDesktopPageViews:
+    function:
+      sum:
+        - metric:
+            name: MobilePage_Views
+        - metric:
+            name: DesktopPageViews
+  Fatals:
+    column: Fatals
+    aggf: sum
+  Desktop_Pct:
+    column: Desktop Pct
+    aggf: mean
+    metric_comparison_method: bps
+  Weekly404sDivideFatals:
+    function:
+      divide:
+        - metric:
+            name: MobileAndDesktopPageViews
+        - metric:
+            name: Fatals
+
+
+deck:
+  - block:
+      ui_type: 12_MonthsTable
+      title: "test_table"
+      rows:
+        - row:
+            header: "Weekly404sDivideFatals"
+            metric: Weekly404sDivideFatals
+            style: "font-weight:bold; text-align:left;"
+            y_scaling: "##MM"
+        - row:
+            header: "MobilePage_Views"
+            metric: MobilePage_Views
+            style: "text-align:center;"
+            y_scaling: "##MM"
+        - row:
+            header: "Desktop_Pct"
+            metric: Desktop_Pct
+            style: "text-align:center;"
+            y_scaling: "##%"
+        - row:
+            header: "PageViewsYOY"
+            metric: PageViewsYOY
+            style: "text-align:center;"
+            y_scaling: "##%"
+        - row:
+            header: "PageViewsMOM"
+            metric: PageViewsMOM
+            style: "text-align:center;"
+            y_scaling: "##%"
+        - row:
+            header: "MobileAndDesktopPageViews"
+            metric: MobileAndDesktopPageViews
+            style: "font-weight:bold; text-align:left;"
+            y_scaling: "##MM"
+        - row:
+            header: "DesktopPageViews"
+            metric: DesktopPageViews
+            style: "font-weight:bold; text-align:left;"
+            y_scaling: "##MM"
+        - row:
+            header: "DesktopPageViewsYOY"
+            metric: DesktopPageViewsYOY
+            style: "text-align:center;"
+            y_scaling: "##%"
+        - row:
+            header: "DesktopPageViewsMOM"
+            metric: DesktopPageViewsMOM
+            style: "text-align:center;"
+            y_scaling: "##%"
+        - row:
+            header: "MobilePage_ViewsYOY"
+            metric: MobilePage_ViewsYOY
+            style: "text-align:center;"
+            y_scaling: "##%"
+        - row:
+            header: "MobilePage_ViewsMOM"
+            metric: MobilePage_ViewsMOM
+            style: "text-align:center;"
+            y_scaling: "##%"

@@ -1,0 +1,138 @@
+setup:
+  title: Recruitment Deck
+  week_ending: 26-FEB-2022
+  week_number: 38
+  block_starting_number: 9
+
+# Here's an example of a filtering a column in the csv file A simple query
+# with a single where clause evaluation is supported. More complex data filtering should be
+# handled upstream in the system that houses the source data. Supported filters are
+#
+#           ==      (equal) 
+#           !=      (not equal)
+#           >       (greater than)
+#           <       (less than) 
+#           >=      (greater than or equal)
+#           <=      (less than or equal)
+
+metrics:
+  ApplicantsEngineering:
+    filter:
+      base_column: "Applicants"
+      query: "Department == 'Engineering'"
+    aggf: sum
+  ApplicantsSales:
+    filter:
+      base_column: "Applicants"
+      query: "Department == 'Sales'"
+    aggf: sum
+  ApplicantsOther:
+    filter:
+      base_column: "Applicants"
+      query: "Department == 'Other'"
+    aggf: sum
+
+deck: 
+- block:
+    ui_type: 6_12Graph
+    title: Engineering Job Applications
+    y_scaling: "##"
+    metrics:
+      ApplicantsEngineering:
+        line_style: primary
+        graph_prior_year_flag: true
+
+- block:
+    ui_type: 6_12Graph
+    title: Sales Job Applications
+    y_scaling: "##"
+    metrics:
+      ApplicantsSales:
+        line_style: primary
+        graph_prior_year_flag: true
+
+- block:
+    ui_type: 6_12Graph
+    title: Other Job Applications
+    y_scaling: "##"
+    metrics:
+      ApplicantsOther:
+        line_style: primary
+        graph_prior_year_flag: true
+
+- block:
+    ui_type: section
+    title: "Similar data, but in a table"
+
+- block:
+    ui_type: 6_WeeksTable
+    title: "Inbound Job Summary"
+    rows:
+      - row:
+          header: "Job Applications by Role"
+          style: "font-weight: bold; background-color: white;text-align:left;"    
+      - row:
+          header: "Engineering"
+          metric: ApplicantsEngineering
+          style: "text-align:right;"
+          y_scaling: "##"
+      - row:
+          header: "YOY"
+          metric: ApplicantsEngineeringYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##%"
+      - row:
+          header: "Sales"
+          metric: ApplicantsSales
+          style: "text-align:right;"
+          y_scaling: "##"
+      - row:
+          header: "YOY"
+          metric: ApplicantsSalesYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##%"
+      - row:
+          header: "Other"
+          metric: ApplicantsOther
+          style: "text-align:right;"
+          y_scaling: "##"
+      - row:
+          header: "YOY"
+          metric: ApplicantsOtherYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##%"
+     
+- block:
+    ui_type: 12_MonthsTable
+    title: "Inbound Job Summary"
+    rows:
+      - row:
+          header: "Job Applications by Role"
+          style: "font-weight: bold; background-color: white;text-align:left;"    
+      - row:
+          header: "Engineering"
+          metric: ApplicantsEngineering
+          style: "text-align:right;"
+      - row:
+          header: "YOY"
+          metric: ApplicantsEngineeringYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##%"
+      - row:
+          header: "Sales"
+          metric: ApplicantsSales
+          style: "text-align:right;"
+      - row:
+          header: "YOY"
+          metric: ApplicantsSalesYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##%"
+      - row:
+          header: "Other"
+          metric: ApplicantsOther
+          style: "text-align:right;"
+      - row:
+          header: "YOY"
+          metric: ApplicantsOtherYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##%"

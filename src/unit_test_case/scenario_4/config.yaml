@@ -1,0 +1,225 @@
+setup:
+  week_ending: 30-APR-2022
+  week_number: 16
+  title: WBR Test Cases
+
+metrics:
+  CumulativePaidCustomers:
+    column: "cumulative_paid_customers"
+    aggf: mean
+  PaidCustomers:
+    column: "new_paid_customers"
+    aggf: sum
+  ChurnedCustomers:
+    column: "new_churned_customers"
+    aggf: sum
+  CAC:
+    column: "cac_usd"
+    aggf: sum
+  FreeTrialStarts:
+    column: "free_trial_starts"
+    aggf: sum
+  TestDivisionMetric:
+    function:
+      divide:
+        - metric:
+            name: ChurnedCustomers
+        - metric:
+            name: CumulativePaidCustomers
+  TestProductMetric:
+    function:
+      product:
+        - metric:
+            name: CAC
+        - metric:
+            name: FreeTrialStarts
+  TestProductMetricTwo:
+    function:
+      product:
+        - metric:
+            name: CumulativePaidCustomers
+        - metric:
+            name: ChurnedCustomers
+  TestDifferenceMetric:
+    function:
+      difference:
+        - metric:
+            name: PaidCustomers
+        - metric:
+            name: ChurnedCustomers
+  CumulativeMRR:
+    column: "cumulative_mrr_usd"
+    aggf: mean
+  NewLogoMRR:
+    column: "new_logo_mrr_usd"
+    aggf: sum
+  UpsellMRR:
+    column: "upsell_mrr_usd"
+    aggf: sum
+  TestSumMetrics:
+    function:
+      sum:
+        - metric:
+            name: NewLogoMRR
+        - metric:
+            name: UpsellMRR
+  TestSumMetricColumn:
+    function:
+      sum:
+        - metric:
+            name: NewLogoMRR
+        - metric:
+            name: UpsellMRR
+  TestMaxMetric:
+    column: "latency"
+    aggf: max
+  TestMinMetric:
+    column: "latency"
+    aggf: min
+  TestSumDoubleMetric:
+    column: "latency"
+    aggf: sum
+  TestFilterMetricUS:
+    filter:
+      base_column: "latency"
+      query: "latency_country == 'US'"
+    aggf: mean
+  TestFilterMetricUK:
+    filter:
+      base_column: "latency"
+      query: "latency_country == 'UK'"
+    aggf: mean
+  DownsellMRR:
+    column: "downsell_mrr_usd"
+    aggf: sum
+  ChurnRevenueLost:
+    column: "churn_revenue_lost_usd"
+    aggf: sum
+  CumulativeARR:
+    column: "cumulative_arr_usd"
+    aggf: mean
+  NewARR:
+    column: "new_arr_usd"
+    aggf: sum
+  FreeTrialConversionRate:
+    column: "free_trial_conversion_rate"
+    aggf: mean
+  ChurnRate:
+    column: "churn_rate"
+    aggf: mean
+
+  DAU:
+    column: "daily_active_users"
+    aggf: mean
+  DailyActiveSubscribers:
+    column: "daily_active_subcribers"
+    aggf: mean
+  NumberOfSeats:
+    column: "new_seats"
+    aggf: sum
+  PercentActiveSubscribers:
+    function:
+      divide:
+        - metric:
+            name: DailyActiveSubscribers
+        - metric:
+            name: CumulativePaidCustomers
+
+deck:
+  - block:
+      ui_type: 6_12Graph
+      title: CumulativePaidCustomers
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        CumulativePaidCustomers:
+          graph_prior_year_flag: true
+          legend_name: CumulativePaidCustomers
+  - block:
+      ui_type: 6_12Graph
+      title: PaidCustomers
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        PaidCustomers:
+          graph_prior_year_flag: true
+          legend_name: PaidCustomers
+  - block:
+      ui_type: 6_12Graph
+      title: TestMaxMetric
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestMaxMetric:
+          graph_prior_year_flag: true
+          legend_name: TestMaxMetric
+  - block:
+      ui_type: 6_12Graph
+      title: TestMinMetric
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestMinMetric:
+          graph_prior_year_flag: true
+          legend_name: TestMinMetric
+  - block:
+      ui_type: 6_12Graph
+      title: TestSumMetrics
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestSumMetrics:
+          graph_prior_year_flag: true
+          legend_name: TestSumMetrics
+  - block:
+      ui_type: 6_12Graph
+      title: TestSumMetricColumn
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestSumMetricColumn:
+          graph_prior_year_flag: true
+          legend_name: TestSumMetricColumn
+  - block:
+      ui_type: 6_12Graph
+      title: TestDifferenceMetric
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestDifferenceMetric:
+          graph_prior_year_flag: true
+          legend_name: TestDifferenceMetric
+  - block:
+      ui_type: 6_12Graph
+      title: TestSumDoubleMetric
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestSumDoubleMetric:
+          graph_prior_year_flag: true
+          legend_name: TestSumDoubleMetric
+  - block:
+      ui_type: 6_12Graph
+      title: TestFilterMetricUS
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestFilterMetricUS:
+          graph_prior_year_flag: true
+          legend_name: TestFilterMetricUS
+  - block:
+      ui_type: 6_12Graph
+      title: TestProductMetric
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestProductMetric:
+          graph_prior_year_flag: true
+          legend_name: TestProductMetric
+  - block:
+      ui_type: 6_12Graph
+      title: TestDivisionMetric
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestDivisionMetric:
+          graph_prior_year_flag: true
+          legend_name: TestDivisionMetric
+  - block:
+      ui_type: 6_12Graph
+      title: TestProductMetricTwo
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        TestProductMetricTwo:
+          graph_prior_year_flag: true
+          legend_name: TestProductMetricTwo
+

@@ -1,0 +1,367 @@
+tests:
+#Test Case 1
+- test:
+    test_case_no : 1
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "CumulativePaidCustomers"
+
+    # 1
+    cy_6_weeks: [ 30147.42857, 30360.14286, 30446.85714, 30716.14286, 30933, 31028.71429 ]
+
+    # 2 test
+    py_6_weeks: [ 20104.71429,20187.28571,20316.85714,20465.14286,20568,20752.28571 ]
+
+    # 3 test
+    cy_monthly: [ 21259.58065, 22207.56667, 23048.48387, 23830.51613,24663.6,25970.58065,26876.06667,27603.12903,28152.70968,
+                  28959.85714,29950,30754.76667 ]
+
+    # 4 test
+    py_monthly: [ 16218.22581, 16399.93333, 16615.29032, 16840.25806, 17055.7, 17358.96774, 17815.16667,
+                  18460.54839, 18998.19355, 19461.64286, 19961.58065, 20484.43333 ]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr" ]
+
+    # 6 test
+    box_totals: [ 31028.71429, 0.309424517, 49.51950215, 30754.76667, 50.1372587, 30345.78689, 50.08756695, 30345.78689, 50.08756695 ]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 2
+    test_case_no : 2
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "PaidCustomers"
+
+    # 1 test
+    cy_6_weeks: [ 444, 305, 255, 508,304, 314 ]
+
+    # 2 test
+    py_6_weeks: [ 131, 222, 272, 182, 227, 331 ]
+
+    # 3 test
+    cy_monthly: [ 1273, 1248, 1201, 1071, 1543, 1555, 1258, 1336, 975, 1557, 1672, 1447 ]
+
+    # 4 test
+    py_monthly: [ 520, 487, 457, 657, 413, 715, 684, 990, 665, 799, 905, 1104 ]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr" ]
+
+    # 6 test
+    box_totals: [ 314, 3.289473684, -5.135951662, 1447, 31.06884058, 3119, 55.25136884, 3119, 55.25136884 ]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 3
+    test_case_no : 3
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestMaxMetric"
+
+    # 1 test
+    cy_6_weeks: [ 98, 87, 92, 96, 93, 98 ]
+
+    # 2 test
+    py_6_weeks: [ 94, 98, 111, 94, 104, 97 ]
+
+    # 3 test
+    cy_monthly: [ 106, 104, 103, 109, 105, 103, 99, 110, 105, 95, 103, 98 ]
+
+    # 4 test
+    py_monthly: [ 103, 101, 103, 105, 105, 99, 96, 98, 115, 101, 98, 111 ]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr" ]
+
+    # 6 test
+    box_totals: [ 98, 5.376344086, 1.030927835, 98, -11.71171171, 103, -7.207207207, 103, -7.207207207 ]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 4
+    test_case_no : 4
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestMinMetric"
+
+    # 1 test
+    cy_6_weeks: [60, 64, 68, 63, 67, 61]
+
+    # 2 test
+    py_6_weeks: [67, 69, 61, 67, 52, 64]
+
+    # 3 test
+    cy_monthly: [60, 53, 50, 58, 49, 55, 51, 58, 55, 54, 60, 61]
+
+    # 4 test
+    py_monthly: [58, 61, 58, 45, 55, 48, 56, 54, 49, 59, 58, 52]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [61, -8.955223881, -4.6875, 61, 17.30769231, 60, 15.38461538, 60, 15.38461538]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 5
+    test_case_no : 5
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestSumMetrics"
+
+    # 1 test
+    cy_6_weeks: [201267.255, 85864.74, 75772.485, 268613.655, 81676.305, 108304.5]
+
+    # 2 test
+    py_6_weeks: [19295.555, 61631.27, 88889.77, 35875.95, 62050.1, 123467.85]
+
+    # 3 test
+    cy_monthly: [599383.295, 548422.62, 540368, 450080.86, 694597.565, 546607.735, 398184.75, 471717.9,
+                 303411.315, 709816.89, 646804.11, 541729.125]
+
+    # 4 test
+    py_monthly: [87050.97, 100455.285, 82165.08, 177660.915, 99726.915, 228500.015, 262013.94, 444731.19,
+                   280387.77, 298792.975, 285780.23, 347115.81]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [108304.5, 32.60210535, -12.28121329, 541729.125, 56.06581705, 1188533.235, 87.79280638,
+                 1188533.235, 87.79280638]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 6
+    test_case_no : 6
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestSumMetricColumn"
+
+    # 1 test
+    cy_6_weeks: [201267.255, 85864.74, 75772.485, 268613.655, 81676.305, 108304.5]
+
+    # 2 test
+    py_6_weeks: [19295.555, 61631.27, 88889.77, 35875.95, 62050.1, 123467.85]
+
+    # 3 test
+    cy_monthly: [599383.295, 548422.62, 540368, 450080.86, 694597.565, 546607.735, 398184.75, 471717.9,
+                 303411.315, 709816.89, 646804.11, 541729.125]
+
+    # 4 test
+    py_monthly: [87050.97, 100455.285, 82165.08, 177660.915, 99726.915, 228500.015, 262013.94, 444731.19,
+                   280387.77, 298792.975, 285780.23, 347115.81]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [108304.5, 32.60210535, -12.28121329, 541729.125, 56.06581705, 1188533.235, 87.79280638,
+                 1188533.235, 87.79280638]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 7
+    test_case_no : 7
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestDifferenceMetric"
+
+    # 1 test
+    cy_6_weeks: [294, 124, 104, 355, 115, 149]
+
+    # 2 test
+    py_6_weeks: [31, 122, 171, 82, 124, 224]
+
+    # 3 test
+    cy_monthly: [893, 870, 837, 689, 1211, 1063, 769, 789, 463, 1013, 941, 733]
+
+    # 4 test
+    py_monthly: [183, 205, 166, 316, 184, 421, 435, 745, 443, 487, 468, 658]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [149, 29.56521739, -33.48214286, 733, 11.39817629, 1674, 48.6678508, 1674, 48.6678508]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 8
+    test_case_no : 8
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestSumDoubleMetric"
+
+    # 1 test
+    cy_6_weeks: [1054, 1120, 1081, 1126, 1154, 1098]
+
+    # 2 test
+    py_6_weeks: [1088, 1130, 1158, 1137, 1072, 1067]
+
+    # 3 test
+    cy_monthly: [5014, 4621, 4967, 5092, 4615, 4823, 4835, 4901, 5041, 4228, 4969, 4779]
+
+    # 4 test
+    py_monthly: [4767, 4732, 4773, 4886, 4766, 4744, 4640, 4911, 4563, 4409, 4806, 4721]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [1098, -4.852686308, 2.905342081, 4779, 1.228553273, 9748, 2.319722893, 9748, 2.319722893]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 9
+    test_case_no : 9
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestFilterMetricUS"
+
+    # 1 test
+    cy_6_weeks: [76.28571429, 80, 77.42857143, 80.57142857, 82.57142857, 78.14285714]
+
+    # 2 test
+    py_6_weeks: [76.85714286, 80.71428571, 83.4285714, 81.28571429, 77.42857143, 76.71428571]
+
+    # 3 test
+    cy_monthly: [81, 77, 80.19354839, 82.48387097, 77.1, 78.25806452, 80, 79.09677419, 81.5483871, 75.5, 80.70967742,
+                 79.7]
+
+    # 4 test
+    py_monthly: [76.80645161, 79.13333333, 77.12903226, 79.64516129, 79.83333333, 76.70967742, 78.03333333,
+                    79.51612903, 73.87096774, 78.96428571, 77.38709677, 79.3]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [78.14285714, -5.363321799, 1.862197393, 79.7, 0.504413619, 80.21311475, 2.406864797, 80.21311475, 2.406864797]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 10
+    test_case_no : 10
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestProductMetric"
+
+    # 1 test
+    cy_6_weeks: [1281928728, 761289243, 887745306, 1535720928, 877035132, 924282576]
+
+    # 2 test
+    py_6_weeks: [426367260, 926712228, 693976806, 518609000, 626809984, 1175951250]
+
+    # 3 test
+    cy_monthly: [16831379100, 19267299480, 17064862900, 11083768752, 19077113601, 17467114077, 13789406112,
+                16734973140, 14513631924, 21942751773, 20163274560, 19112863572]
+
+    # 4 test
+    py_monthly: [8041120656, 8224985856, 6491820390, 8848915056, 6270421248, 10463315360, 10831796100, 15778978464,
+                 10972970610, 10606476958, 12643732292, 14594582340]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [924282576, 5.387178036, -21.4, 19112863572, 30.95861962, 78865884828, 44.57646652, 78865884828, 44.57646652]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+#Test Case 11
+    test_case_no : 11
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 30-APR-2022
+    fiscal_year_end_month: FEB
+    metric_name: "TestDivisionMetric"
+
+    # 1 test
+    cy_6_weeks: [0.004975549, 0.005961764, 0.004959461, 0.004981094, 0.00610998, 0.005317655]
+
+    # 2 test
+    py_6_weeks: [0.004973958, 0.004953613, 0.004971241, 0.004886357, 0.005007779, 0.005156059]
+
+    # 3 test
+    cy_monthly: [0.017874294, 0.017021225, 0.015792796, 0.016029867, 0.013461133, 0.018944513, 0.018194627,
+                 0.019816594, 0.018186526, 0.018784623, 0.024407346, 0.023215913]
+
+    # 4 test
+    py_monthly: [0.020779092, 0.017195192, 0.017513988, 0.020249096, 0.013426596, 0.016936491, 0.013976855, 0.013271545,
+                 0.011685322, 0.016031535, 0.021892054, 0.021772631]
+
+    # 5 test
+    x_axis: [ "wk 11", "wk 12", "wk 13", "wk 14", "wk 15", "wk 16","May" , "Jun", "Jul", "Aug","Sep", "Oct", "Nov", "Dec", "Jan",
+              "Feb", "Mar", "Apr"]
+
+    # 6 test
+    box_totals: [0.005317655, -12.96771194, 3.134109768, 0.023215913, 6.628885785, 0.047617813, 9.03412084, 0.047617813, 9.03412084]
+
+    # 7 test
+    cy_monthly_data_frame_length: 12
+    # 8 test
+    py_monthly_data_frame_length: 22
+
