@@ -255,7 +255,9 @@ async function createPublishButtonElement(dynamicButtonDiv) {
             const response = await fetch(url, requestOptions);
             if (response.ok) {
                 const jsonResponse = await response.json();
-                swalFire(jsonResponse);
+                Swal.fire(swalConfigForCopyPopup(json_response.path));
+            } else {
+                Swal.fire(swalConfigForFailurePopup("Failed to publish the report!"))
             }
         } catch (error) {
             console.error('Error publishing report:', error);
@@ -284,11 +286,11 @@ function showPasswordFields(show) {
     });
 }
 
-function swalFire(json_response) {
-    Swal.fire({
+function swalConfigForCopyPopup(message) {
+    return {
         title: "Copy this URL and share it with with those who need to view the WBR report.",
         confirmButtonText: "COPY",
-        html: json_response.path,
+        html: message,
         showCancelButton: true,
         cancelButtonColor: "#6c757d",
         didOpen: () => {
@@ -301,7 +303,22 @@ function swalFire(json_response) {
         preConfirm: () => {
             return false; // Prevent confirmed
         }
-    });
+    }
+}
+
+function swalConfigForFailurePopup(message) {
+    return {
+        title: message,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonColor: "#6c757d",
+        cancelButtonText: "Close",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        preConfirm: () => {
+            return false; // Prevent confirmed
+        }
+    }
 }
 
 function clearInputFile(f) {
