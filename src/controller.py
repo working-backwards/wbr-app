@@ -161,14 +161,19 @@ def publish_report():
     filename = str(uuid.uuid4())[25:]
 
     # Upload the report to cloud storage
-    publisher.upload(data, which_env + "/" + filename)
-
-    # Create a response with the URL to access the uploaded data
-    response = app.response_class(
-        response=json.dumps({'path': base_url + '/build-wbr/publish?file=' + filename}, indent=4,
-                            cls=controller_util.Encoder),
-        status=200
-    )
+    try:
+        publisher.upload(data, which_env + "/" + filename)
+        # Create a response with the URL to access the uploaded data
+        response = app.response_class(
+            response=json.dumps({'path': base_url + '/build-wbr/publish?file=' + filename}, indent=4,
+                                cls=controller_util.Encoder),
+            status=200
+        )
+    except Exception as e:
+        logging.error("Error occurred while publishing the report", e, exc_info=True)
+        response = app.response_class(
+            status=500
+        )
 
     return response
 
@@ -294,15 +299,21 @@ def publish_protected_wbr():
     filename = str(uuid.uuid4())[21:]
 
     # Store the JSON data to cloud
-    publisher.upload(protected_data, which_env + "/" + filename)
+    try:
+        publisher.upload(protected_data, which_env + "/" + filename)
+        # Create the response containing the URL to access the protected report
+        response = app.response_class(
+            response=json.dumps(
+                {'path': base_url + '/build-wbr/publish/protected?file=' + filename}, indent=4,
+                cls=controller_util.Encoder),
+            status=200
+        )
+    except Exception as e:
+        logging.error("Error occurred while publishing the report", e, exc_info=True)
+        response = app.response_class(
+            status=500
+        )
 
-    # Create the response containing the URL to access the protected report
-    response = app.response_class(
-        response=json.dumps(
-            {'path': base_url + '/build-wbr/publish/protected?file=' + filename}, indent=4,
-            cls=controller_util.Encoder),
-        status=200
-    )
     return response
 
 
