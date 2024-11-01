@@ -16,4 +16,4 @@ boto3==1.35.49
 google-cloud-storage==2.18.2
 azure-storage-blob==12.23.1
 azure-identity==1.19.0
-waitress==3.0.0
+waitress==3.0.1
