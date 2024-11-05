@@ -1,0 +1,315 @@
+# There are three sections in a WBR yaml file: setup, metrics, and deck.
+#
+# The setup: section defines the information you need to start building the WBR deck.
+# The only two required values are week_ending and week_number.
+
+setup:
+  week_ending: 25-SEP-2021
+  week_number: 38
+  title: Weekly Business Review Sample Report
+  fiscal_year_end_month: DEC  # set to last month of fiscal year. If no value is provided, DEC is used.
+  block_starting_number: 1    # Default is 1. Use this if you need multiple yaml files for a single WBR deck.
+
+
+# The metrics: section defines all the metrics you'll use in the WBR deck.
+# The two key components of a metric are 1) the source data and 2) the aggregation function.
+#
+# 1) source data
+# A metric needs to be derived from source data. The source data can be based on columns in the csv file,
+# other metrics, or a combination of both. Valid metrics definitions instructions include
+#     a) a one-to-one mapping with a column in the csv file
+#     b) a function based on one or more columns in the csv file or metrics. The supported functions are
+#           divide
+#           sum
+#           difference
+#           product
+#     c) an aggregation (filter) of a column in the csv file or a previously defined metric. A simple query
+#        with a single where clause evaluation is supported. More complex data filtering should be handled
+#        upstream in the system that houses the source data.
+#        where "==" is a relation
+#        possible relations ->
+#           ==      (equal)
+#           !=      (not equal)
+#           >       (greater than)
+#           <       (less than)
+#           >=      (greater than or equal)
+#           <=      (less than or equal)
+#
+# 2) aggregation function (aggf)
+# The aggf tells the system what function to use when resampling the daily data values to the weekly,
+# monthly, month-to-date, quarter-to-date and year-to-date transformations needed in a WBR deck.
+# The most common aggf functions are
+#           sum
+#           mean
+#           min
+#           max
+#
+# You can build your own custom functions.
+#
+#
+
+metrics:
+
+# Here's a simple example of a 1-1 mapping from a column in the csv file to a metric.
+# We will aggregate the metric by summing it.
+  Impressions:
+    column: Impressions
+    aggf: sum
+
+  Clicks:
+    column: Clicks
+    aggf: sum
+
+# Here's a simple example of a 1-1 mapping from a column in the csv file to a metric.
+# We will aggregate the metric by caluculating the mean. Mean is typically used for
+# metrics like Daily Active Users, Monthly Active Users,...
+
+  Defects/Million:
+    column: "Defects/Million"
+    aggf: mean
+
+# Here's an example using a function from two previously defined metrics to define a new metric.
+# ClickThruRate is calcluated by summing the Clicks  and dividing it by the sum of the
+# Impressions in each of the relevant time periods.
+
+  ClickThruRate:
+    function:
+      divide:
+        - metric:
+            name: Clicks
+        - metric:
+            name: Impressions
+
+  PageViews:
+    column: "PageViews"
+    aggf: sum
+
+# Some metrics you track will also have a plan (or target). A plan metric is treated the same
+# as any other type of metric. In the visualization section below, you'll see various ways
+# to display actual and plan metrics together.
+
+  PageViews Target:
+    column: "PageViews__Target"
+    aggf: sum
+
+  MobilePage_Views:
+    column: "MobilePageViews"
+    aggf: sum
+
+# VarianceToPlanPageViews is the difference between actual and plan (target)
+
+  VarianceToPlanPageViews:
+    function:
+      difference:
+        - metric:
+            name: PageViews
+        - metric:
+            name: PageViews Target
+
+# PercentageVarianceToPlanPageViews is the % variance between actual and plan (target)
+
+  PercentageVarianceToPlanPageViews:
+    function:
+      divide:
+        - metric:
+            name: VarianceToPlanPageViews
+        - metric:
+            name: PageViews Target
+
+  PercentageCustomerGroupGreen:
+    column: "pct_customer_group_1"
+    aggf: mean
+  PercentageCustomerGroupOrange:
+    column: "pct_customer_group_2"
+    aggf: mean
+  PercentageCustomerGroupRed:
+    column: "pct_customer_group_3"
+    aggf: mean
+
+
+# The deck: section defines how each block in the deck will be rendered. The required elements needed to
+# render a block are the ui_type and one or more metrics defined in the metrics: section above.
+# Note, that for each metric that was defined, we also create three period-over-period comparisions
+# that are also available to display in the deck. For instance if you have a metric my_metric, we also create
+#    my_metricYOY (a year-over-year percentage comparison)
+#    my_metricMOM (a month-over-month percentage comparison)
+#    my_metricWOW (a week-over-week percentage comparison)
+#
+# The supported ui_types for the WBR data are
+#
+#    6_12Graph - The most common WBR chart. It displays the trailing 6 weeks of data along with the
+#                trailing 12 months of data on the same x-axis. It also has a summary table below the
+#                chart that lists the last week, month-to-date, quarter-to-date, and year-to-date data
+#                along with the relevent period-over-over-period comparisons expressed as a percentage.
+#
+#    6_WeeksTable - Displays the trailing 6 weeks of data along with the quarter-to-date and
+#                 year-to-date data for metrics. You will need to define each row in the table.
+#                 A row can contain metrics or text for headers and blank lines.
+#
+#    12_MonthsTable -  Displays the trailing 12 months of data. The 6_WeeksTable and 12_MonthsTable
+#                 work best when displayed together side-by-side.
+#
+#    section - used to display text such as titles, section headers, or blank lines for enhanced readability.
+#
+# Any CSS style can be passed and will be rendered for the header column in 6_WeeksTable and 12_MonthsTable.
+#
+# There are three line_styles for the 6_12Graph: primary, secondary, and target. The primary and secondary
+# line_styles graph both current year and prior year values by default (with different colors and line markers.
+# The target line_style plots line markers (no connecting lines) and only plots the current year values.
+#
+# See below for various y-axis scaling options.
+#
+
+deck:
+- block:
+    ui_type: 6_12Graph
+    title: Ad Impressions (Millions)
+    y_scaling: "##.2MM"
+    metrics:
+      Impressions:
+        line_style: primary
+        graph_prior_year_flag: true
+
+- block:
+    ui_type: 6_12Graph
+    title: Clicks from Ads (Thousands)
+    y_scaling: "##KK"
+    metrics:
+      Clicks:
+        line_style: primary
+        graph_prior_year_flag: true
+
+- block:
+    ui_type: 6_12Graph
+    title: Click Through Rate
+    y_scaling: "##.1%"
+    metrics:
+      ClickThruRate:
+        line_style: primary
+        graph_prior_year_flag: true
+        legend_name: CTR (%)
+
+- block:
+    ui_type: 6_12Graph
+    title: Defects/Million
+    y_scaling: "##.1KK"
+    metrics:
+      Defects/Million:
+        line_style: primary
+        graph_prior_year_flag: false
+        legend_name: Defects/Million
+
+# You can put more than one metric in a 6_12Graph. Here we are displaying 3 different metrics.
+# The target line style shows only the point markers with no line connecting data points.
+# Since it's a target, we choose not plot the prior year value.
+# The third metric is using a different line_style from the primary (default) line_style.
+
+- block:
+    ui_type: 6_12Graph
+    title: Total Page Views (Millions)
+    y_scaling: "##MM"
+    metrics:
+      PageViews:
+        graph_prior_year_flag: true
+        legend_name: Page Views
+      PageViews Target:
+        line_style: target
+        graph_prior_year_flag: false
+        legend_name: Page Views - Target
+      MobilePage_Views:
+        line_style: secondary
+        graph_prior_year_flag: true
+        legend_name: Mobile Page Views
+
+- block:
+    ui_type: section
+    title: ""
+
+- block:
+    ui_type: 6_WeeksTable
+    title: "Page Views Actual vs Plan Summary"
+    rows:
+      - row:
+          header: "Page Views"
+          style: "font-weight: bold; background-color: LightGrey; text-align:left;"
+      - row:
+          header: "Actual"
+          metric: PageViews
+          style: "text-align:right;"
+          y_scaling: "##MM"
+      - row:
+          header: "Plan"
+          metric: PageViews Target
+          style: "text-align:right;"
+          y_scaling: "##MM"
+      - row:
+          header: "Variance to Plan"
+          metric: VarianceToPlanPageViews
+          style: "text-align:right;"
+          y_scaling: "##MM"
+      - row:
+          header: "Variance to Plan (%)"
+          metric: PercentageVarianceToPlanPageViews
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##.1%"
+      - row:
+          header: "YOY"
+          metric: PageViewsYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##.1%"
+      - row:
+          header: "WOW"
+          metric: PageViewsWOW
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##.1%"
+- block:
+    ui_type: 12_MonthsTable
+    title: "Page Views Actual vs Plan Summary"
+    rows:
+      - row:
+          header: "Page Views"
+          style: "font-weight: bold; background-color: LightGrey; text-align:left;"
+      - row:
+          header: "Actual"
+          metric: PageViews
+          style: "text-align:right;"
+          y_scaling: "##MM"
+      - row:
+          header: "Plan"
+          metric: PageViews Target
+          style: "text-align:right;"
+          y_scaling: "##MM"
+      - row:
+          header: "Variance to Plan"
+          metric: VarianceToPlanPageViews
+          style: "text-align:right;"
+          y_scaling: "##MM"
+      - row:
+          header: "Variance to Plan (%)"
+          metric: PercentageVarianceToPlanPageViews
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##.1%"
+      - row:
+          header: "YOY"
+          metric: PageViewsYOY
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##.1%"
+      - row:
+          header: "MOM"
+          metric: PageViewsMOM
+          style: "font-style: italic; text-align:right;"
+          y_scaling: "##.1%"
+
+# This 6_12Graph displays the YOY growth for the metric PageViews. We don't calculate the
+# WOW and YOY percentages in the summary table for this type of derived metric, and the
+# WOW and YOY percentages are dispayed as 0.
+
+- block:
+    ui_type: 6_12Graph
+    title: Page View YOY Growth Rate
+    y_scaling: "##.1%"
+    metrics:
+      PageViewsYOY:
+        line_style: primary
+        graph_prior_year_flag: false
+        legend_name: PV YOY

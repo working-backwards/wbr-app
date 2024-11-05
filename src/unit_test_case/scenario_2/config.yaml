@@ -1,0 +1,32 @@
+setup:
+  week_ending: 09-JAN-2021
+  week_number: 1
+  title: WBR Daily
+  fiscal_year_end_month: DEC  # set to last month of fiscal year. If no value is provided, DEC is used.
+  block_starting_number: 1    # Default is 1. Use this if you need multiple yaml files for a single WBR deck.
+
+metrics:
+  PageViewsFiscal:
+    column: "PageViews"
+    aggf: sum
+  PageViewsTrailing:
+    column: "PageViews"
+    aggf: sum
+
+deck:
+  - block:
+      ui_type: 6_12Graph
+      title: PageViewsFiscal
+      x_axis_monthly_display: fiscal_year
+      metrics:
+        PageViewsFiscal:
+          graph_prior_year_flag: true
+          legend_name: Page Views
+  - block:
+      ui_type: 6_12Graph
+      title: PageViewsTrailing
+      x_axis_monthly_display: trailing_twelve_months
+      metrics:
+        PageViewsTrailing:
+          graph_prior_year_flag: true
+          legend_name: Page Views

@@ -1,0 +1,168 @@
+tests:
+- test:
+    test_case_no: 1
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 25-MAR-2023
+    fiscal_year_end_month: DEC
+    metric_name: "Total_PMs"
+
+    # 1 test
+    cy_6_weeks: [ 56509.43122, 56666.43122, 57126.43122, 57791.43122, 58373.43122, 59012.43122 ]
+
+    # 2 test
+    py_6_weeks: [ 43832.43122, 44014.43122, 44162.43122, 44260.43122, 44392.43122, 44513.43122 ]
+
+    # 3 test
+    cy_monthly:  [44606.43, 45499.43, 47317.43, 49007.43, 49986.43, 50486.43, 51458.43, 52488.43,
+                  53014.43, 55062.43, 56165.43, 56725.43]
+
+    # 4 test
+    py_monthly:  [35118.43, 36173.43, 37257.43, 38549.43, 38933.43, 39324.43, 39604.43,
+                  40397.43, 41609.43, 42708.43, 43329.43, 44070.43]
+
+    # 5 test
+    x_axis: ['wk 8', 'wk 9', 'wk 10', 'wk 11', 'wk 12', 'wk 13', 'Mar', 'Apr', "May", "Jun", "Jul", "Aug",
+                "Sep", "Oct", "Nov", "Dec", "Jan", "Feb"]
+
+
+    # 6 test
+    box_totals: [59012.43, 1.09, 32.57, 59012.43, 32.63, 59012.43, 32.63, 59012.43, 32.63]
+
+    # 7 test
+    cy_monthly_data_frame_length: 14
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+    test_case_no: 2
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 25-MAR-2023
+    fiscal_year_end_month: DEC
+    metric_name: "Total_PMsv2"
+
+    # 1 test
+    cy_6_weeks: [56509.0, 56666.0, 57126.0, 57791.0, 58373.0, 59012.0]
+
+    # 2 test
+    py_6_weeks:  [43832.0, 44014.0, 44162.0, 44260.0, 44392.0, 44513.0]
+
+    # 3 test
+    cy_monthly: [44606.0, 45499.0, 47317.0, 49007.0, 49986.0, 50486.0, 51458.0, 52488.0, 53014.0, 55062.0,
+                 56165.0, 56725.0]
+
+    # 4 test
+    py_monthly: [0.0, 0.0, 0.0, 38549.0, 38933.0, 39324.0, 39604.0, 40397.0, 41609.0, 42708.0, 43329.0, 44070.0]
+
+    # 5 test
+    x_axis: [ 'wk 8', 'wk 9', 'wk 10', 'wk 11', 'wk 12', 'wk 13', 'Mar', 'Apr', "May", "Jun", "Jul", "Aug",
+              "Sep", "Oct", "Nov", "Dec", "Jan", "Feb" ]
+
+    # 6 test
+    box_totals: [59012.0, 1.09, 32.57, 59012.0, 32.63, 59012.0, 32.63, 59012.0, 32.63]
+
+    # 7 test
+    cy_monthly_data_frame_length: 14
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+    test_case_no: 3
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 25-MAR-2023
+    fiscal_year_end_month: DEC
+    metric_name: "MRR"
+
+    # 1 test
+    cy_6_weeks: [4012169.62, 4023316.62, 4113103.05, 4160983.05, 4202887.05, 4248895.05]
+
+    # 2 test
+    py_6_weeks: [3068270.19, 3081010.19, 3091370.19, 3098230.19, 3107470.19, 3115940.19]
+
+    # 3 test
+    cy_monthly:  [3122450.19, 3184960.19, 3312220.19, 3430520.19, 3499050.19, 3534050.19, 3602090.19,
+                    3674190.19, 3711010.19, 3854370.19, 3987745.62, 4027505.62]
+
+    # 4 test
+    py_monthly: [2454427.16, 2546247.82, 2622550.58, 2713494.46, 2729622.86, 2757035.87, 2776666.67, 2829840.06, 2914740.66, 2991725.61, 3033060.19, 3084930.19]
+
+    # 5 test
+    x_axis: [ 'wk 8', 'wk 9', 'wk 10', 'wk 11', 'wk 12', 'wk 13', 'Mar', 'Apr', "May", "Jun", "Jul", "Aug",
+            "Sep", "Oct", "Nov", "Dec", "Jan", "Feb" ]
+
+
+    # 6 test
+    box_totals: [4248895.05, 1.09, 36.36, 4248895.05, 36.42, 4248895.05, 36.42, 4248895.05, 36.42]
+
+    # 7 test
+    cy_monthly_data_frame_length: 14
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+    test_case_no: 4
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 25-MAR-2023
+    fiscal_year_end_month: DEC
+    metric_name: "TotalPMs_TARGET"
+
+    # 1 test
+    cy_6_weeks: [57745.0, 58200.0, 58655.0, 59110.0, 59565.0, 60020.0]
+
+    # 2 test
+    py_6_weeks: [!!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan]
+
+    # 3 test
+    cy_monthly: [!!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan,
+                 !!float .nan, !!float .nan, !!float .nan, 55015.0, 57030.0]
+
+    # 4 test
+    py_monthly: [!!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan,
+                 !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan]
+
+    # 5 test
+    x_axis: [ 'wk 8', 'wk 9', 'wk 10', 'wk 11', 'wk 12', 'wk 13', 'Mar', 'Apr', "May", "Jun", "Jul", "Aug",
+            "Sep", "Oct", "Nov", "Dec", "Jan", "Feb" ]
+
+    # 6 test
+    box_totals: [60020.0, 0.76, 0.0, 58850.0, 0.0, 55015.0, 0.0, 55015.0, 0.0]
+
+    # 7 test
+    cy_monthly_data_frame_length: 14
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+- test:
+    test_case_no: 5
+    x_axis_monthly_display: "trailing_twelve_months"
+    week_ending: 25-MAR-2023
+    fiscal_year_end_month: DEC
+    metric_name: "MRR_TARGET"
+
+    # 1 test
+    cy_6_weeks:  [4072428.57, 4106428.57, 4138032.26, 4167838.71, 4197645.16, 4227451.61]
+
+    # 2 test
+    py_6_weeks: [!!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan]
+
+    # 3 test
+    cy_monthly: [!!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan,
+                 !!float .nan, !!float .nan, !!float .nan, 3985000.0, 4121000.0]
+
+    # 4 test
+    py_monthly: [!!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan,
+                 !!float .nan, !!float .nan, !!float .nan, !!float .nan, !!float .nan]
+
+    # 5 test
+    x_axis: [ 'wk 8', 'wk 9', 'wk 10', 'wk 11', 'wk 12', 'wk 13', 'Mar', 'Apr', "May", "Jun", "Jul", "Aug",
+            "Sep", "Oct", "Nov", "Dec", "Jan", "Feb" ]
+
+    # 6 test
+    box_totals: [4227451.61, 0.71, 0.0, 4227451.61, 0.0, 4227451.61, 0.0, 4227451.61, 0.0]
+
+    # 7 test
+    cy_monthly_data_frame_length: 14
+    # 8 test
+    py_monthly_data_frame_length: 22
+
+
+

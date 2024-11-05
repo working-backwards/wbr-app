@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title> Login Page </title>
+<style>
+body {
+  background-color: #9f9da7;
+  font-size: 1.6rem;
+  font-family: "Open Sans", sans-serif;
+  color: #2b3e51;
+}
+
+h2 {
+  font-weight: 300;
+  text-align: center;
+}
+
+p {
+  position: relative;
+}
+
+a,
+a:link,
+a:visited,
+a:active {
+  color: #3ca9e2;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+}
+a:focus, a:hover,
+a:link:focus,
+a:link:hover,
+a:visited:focus,
+a:visited:hover,
+a:active:focus,
+a:active:hover {
+  color: #329dd5;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+#login-form-wrap {
+  background-color: #fff;
+  width: 35%;
+  margin: 30px auto;
+  text-align: center;
+  padding: 20px;
+  border-radius: 6px;
+  box-shadow: 0px 30px 50px 0px rgba(0, 0, 0, 0.2);
+}
+
+#login-form {
+  padding: 0 60px;
+}
+
+input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  outline: none;
+  font-size:16px;
+  height: 60px;
+  line-height: 60px;
+  border-radius: 4px;
+}
+
+input[type="text"],
+input[type="email"] {
+  width: 100%;
+  padding: 0 0 0 10px;
+  margin: 0;
+  color: #161719;
+  border: 4px normal #161719;
+  font-style: normal;
+  font-size: 16px;
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
+  position: relative;
+  display: inline-block;
+  background: none;
+}
+input[type="text"]:focus,
+input[type="email"]:focus {
+  border-color: #3ca9e2;
+}
+input[type="text"]:focus:invalid,
+input[type="email"]:focus:invalid {
+  color: #cc1e2b;
+  border-color: #cc1e2b;
+}
+input[type="text"]:valid ~ .validation,
+input[type="email"]:valid ~ .validation {
+  display: block;
+  border-color: #0C0;
+}
+input[type="text"]:valid ~ .validation span,
+input[type="email"]:valid ~ .validation span {
+  background: #0C0;
+  position: absolute;
+  border-radius: 6px;
+}
+input[type="text"]:valid ~ .validation span:first-child,
+input[type="password"]:valid ~ .validation span:first-child {
+  top:30px;
+  left: 14px;
+  width: 20px;
+  height: 3px;
+  -webkit-transform: rotate(-45deg);
+          transform: rotate(-45deg);
+}
+input[type="text"]:valid ~ .validation span:last-child,
+input[type="<password></password>"]:valid ~ .validation span:last-child {
+  top: 35px;
+  left: 8px;
+  width: 11px;
+  height: 3px;
+  -webkit-transform: rotate(45deg);
+          transform: rotate(45deg);
+}
+
+.validation {
+  display: none;
+  position: absolute;
+  content: " ";
+  height: 60px;
+  width: 30px;
+  right: 15px;
+  top: 0px;
+}
+
+#submit_button{
+width:100px;
+height:25px;
+font-size:16px;
+border:5px;
+border-color: #161719;
+}
+
+input[type="submit"] {
+  border: none;
+  display: block;
+  background-color: #3ca9e2;
+  color: #fff;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+  font-size: 18px;
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  width:50px;
+  height:20px;
+  text-align: center;
+}
+input[type="submit"]:hover {
+  background-color: #329dd5;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+#create-account-wrap {
+  background-color: #eeedf1;
+  color: #8a8b8e;
+  font-size: 14px;
+  width: 100%;
+  padding: 10px 0;
+  border:thick solid black
+  border-radius: 0 0 4px 4px;
+}
+
+input[type="checkbox"] {
+    position: relative;
+    height: 23px;
+    width: 20px;
+    top: 54%;
+    left: -5px;
+}
+
+#label0{
+    text-align: left;
+    float: left;
+    margin-right: 15px;
+    font-size: 16px;
+    position: relative;
+    width: fit-content;
+    left: 1%;
+    margin-top: 3px;
+}
+
+label {
+  display: block;
+  font-weight:inherit;
+  width: 52px;
+  text-align: left;
+}
+</style>
+</head>
+<body>
+    <form>
+        <div id="login-form-wrap">
+          <h2>Login</h2>
+          <form id="login-form">
+            <div>
+                <input type="text" id="filename" name="file" value={{ fileName }} placeholder="Enter Filename" required><i class="validation"><span></span><span></span></i>
+            </div>
+              <br>
+            <div>
+                <input type="password" id="password" name="password" placeholder="Enter Password" required><i class="validation"><span></span><span></span></i>
+            </div>
+              <br>
+            <div>
+                <label id="label0">Show Password</label>
+                <input id="checkbox1" type="checkbox" onclick="myFunction()">
+            </div>
+              <br>
+            <div>
+                <button id="submit_button">Login</button>
+            </div>
+          </form>
+        </div>
+    </form>
+        <script language="JavaScript">
+            var formDiv = document.getElementById("form_div");
+
+            label1 = document.createElement("label");
+            label1.innerHTML = "File : ";
+            formDiv.appendChild(label1);
+
+            inputBox = document.createElement("input");
+            inputBox.value = document.getElementById("file").innerHTML;
+            inputBox.setAttribute("type", "text");
+            inputBox.setAttribute("name", "file");
+
+            formDiv.appendChild(inputBox);
+
+            final_button = document.createElement("button");
+            final_button.id = "submit_button";
+            final_button.innerHTML = "SUBMIT"
+            formDiv.appendChild(final_button);
+
+            console.log(document.getElementById("file").innerHTML);
+            const fileName = document.getElementById("file").innerHTML;
+            var submitButton = document.getElementById("submit_button");
+            var password = document.getElementById("password1").value;
+
+            function myFunction() {
+            var x = document.getElementById("password");
+            if (x.type === "password") {
+            x.type = "text";
+              } else {
+                x.type = "password";
+              }
+            }
+        </script>
+    </body>
+</html>
