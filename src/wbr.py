@@ -3,8 +3,9 @@ from itertools import groupby
 
 import fiscalyear
 import numpy as np
-import pandas as pd
 from dateutil import relativedelta
+
+import pandas as pd
 
 import src.wbr_utility as wbr_util
 
@@ -81,7 +82,6 @@ class WBR:
             function_percentile_metrics (list): The list of metrics with function for percentile comparison.
             graph_axis_label (str): The graph axis label.
         """
-
     def __init__(self, cfg, daily_df=None, csv=None):
         self.__function_cal_dict = {
             "product": lambda columns, py_columns, metric:
@@ -102,7 +102,7 @@ class WBR:
         self.cfg = cfg
         self.cy_week_ending = datetime.strptime(self.cfg['setup']['week_ending'], '%d-%b-%Y')
         self.week_number = self.cfg['setup']['week_number']
-        self.fiscal_month = self.cfg['setup']['fiscal_year_end_month'] if 'fiscal_year_end_month' in self.cfg['setup'] \
+        self.fiscal_month = self.cfg['setup']['fiscal_year_end_month'] if 'fiscal_year_end_month' in self.cfg['setup']\
             else "DEC"
         self.metrics_configs = self.cfg['metrics']
 
@@ -127,13 +127,13 @@ class WBR:
             self.cy_week_ending - relativedelta.relativedelta(years=1),
             self.metric_aggregation).add_prefix('PY__')
 
-        self.function_bps_metrics, self.bps_metrics, self.function_percentile_metrics, self.percentile_metrics = \
+        self.function_bps_metrics, self.bps_metrics, self.function_percentile_metrics, self.percentile_metrics =\
             get_bps_and_percentile_metrics(self.metrics_configs)
 
         self.box_totals, self.py_box_total, self.yoy_required_metrics_data = self.calculate_box_totals()
         self.compute_extra_months()
         self.compute_functional_metrics()
-        self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number,
+        self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number, 
                                                            len(self.cy_trailing_twelve_months['Date']))
         self.metrics = self.create_wbr_metrics()
         # init end
@@ -947,7 +947,7 @@ class WBR:
 
     def calculate_yoy_box_total(self, operand_1, operand_2, metric_name):
         return (operand_1 - operand_2) * 10000 if metric_name in self.function_bps_metrics else (
-                ((operand_1 / operand_2) - 1) * 100)
+                ((operand_1/operand_2) - 1) * 100)
 
     def compute_extra_months(self):
         if not wbr_util.is_last_day_of_month(self.cy_week_ending):

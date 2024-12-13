@@ -57,8 +57,8 @@ def get_wbr_metrics():
             response = app.response_class(
                 response=json.dumps(
                     {
-                        "description": f"Could not create WBR metrics due to incorrect yaml, caused due to error in "
-                                       f"{error_message}"
+                        "description":
+                            f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}"
                     }
                 ),
                 status=500
