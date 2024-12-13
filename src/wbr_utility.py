@@ -50,6 +50,7 @@ def apply_operation_and_return_denominator_values(operation, columns, yoy_requir
 
     Returns:
         list: A list of calculated values resulting from the specified operation.
+
     """
     value_list = []
 
