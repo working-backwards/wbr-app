@@ -255,7 +255,7 @@ async function createPublishButtonElement(dynamicButtonDiv) {
             const response = await fetch(url, requestOptions);
             if (response.ok) {
                 const jsonResponse = await response.json();
-                Swal.fire(swalConfigForCopyPopup(json_response.path));
+                Swal.fire(swalConfigForCopyPopup(jsonResponse.path));
             } else {
                 Swal.fire(swalConfigForFailurePopup("Failed to publish the report!"))
             }
