@@ -1,20 +1,365 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.1/dist/sweetalert2.all.min.js"></script>
-      <link rel="stylesheet" href="/wbr.css">
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-	  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.2.1/dist/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
-	  <link href="https://cdnjs.cloudflare.com/ajax/libs/hamburgers/0.9.3/hamburgers.css" rel="stylesheet"/>
-	  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-	  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.1/dist/sweetalert2.all.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/bootstrap@4.2.1/dist/css/bootstrap.min.css"
+          integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/hamburgers/0.9.3/hamburgers.css" rel="stylesheet"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta content="ie=edge" http-equiv="X-UA-Compatible"/>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+
+    <style>
+        @media screen {
+          div.divFooter {
+            display: none;
+          }
+        }
+        @media print {
+            div.divFooter {
+                position: fixed;
+                bottom: 0;
+            }
+            @page {
+                margin-top: 0;
+                margin-bottom: 0;
+            }
+            body  {
+                padding-top: 72px;
+                padding-bottom: 72px ;
+            }
+        }
+        @media print {
+            a[href]:after {
+                content: none !important;
+            }
+        }
+
+        @media print { @page {size: auto !important} }
+        #chartdiv {
+            width: 980px;
+        }
+
+        @media print {
+          .deckset {
+            break-inside: avoid;
+          }
+        }
+
+        .chartdiv {
+            width: 48vw;
+            height: 340px;
+            display: block;
+            padding-top: 10px
+        }
+
+        .blockTableDiv {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .tablediv {
+            width: 100%;
+            height: 52px;
+            display: block;
+            margin-top:10px;
+        }
+
+        .weekTableDiv {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid black;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        table {
+            font-size: 0.7vw
+        }
+
+        td {
+            text-align:center;
+        }
+        .rowData {
+            text-align: center;
+            max-width: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        tr {
+            text-align:center !important;
+        }
+
+        .counterdiv {
+          position:relative; /* Stay in place */
+          z-index: 1; /* Sit on top */
+        }
+
+        iframe {
+            border: none;
+        }
+
+        .maindivTable {
+            table {
+                margin-bottom: 0px
+            }
+            width: 49%;
+            padding-right: 0px;
+            padding-left: 0px;
+            padding-bottom: 0px;
+            display: inline-grid;
+            margin-left: 5px;
+            margin-right: 5px;
+            margin-top: 0px;
+            margin-bottom: 0px;
+        }
+
+        .maindiv {
+            width: 49%;
+            padding-left: 0px;
+            padding-right: 0px;
+            padding-bottom: 10px;
+            border: 1px solid black;
+            display: inline-grid;
+            margin-left: 5px;
+            margin-right: 5px;
+            margin-top: 0px;
+            margin-bottom: 0px;
+        }
+
+        .sectionDiv{
+            padding: 10px;
+            border: 1px solid black;
+            margin-left: 5px;
+            margin-right: 5px;
+            margin-top: 10px;
+            margin-bottom: 0px;
+            text-align: center;
+            width: 98.5%;
+        }
+
+        #container {
+            height: 400px;
+        }
+
+        .contentHolder{
+          width=100%;
+          display=inline-block;
+        }
+
+        .weekEnding {
+          padding-top: 10px;
+          text-align: right;
+          font-family: "Lucida Grande", "Lucida Sans Unicode", Arial, Helvetica, sans-serif;
+          position: relative;
+          top: -20px;
+          left: -27px;
+          text-align: right;
+          color: #FF0000;
+        }
+
+        .title {
+            padding-top: 10px;
+            text-align: center;
+            font-family: "Lucida Grande", "Lucida Sans Unicode", Arial, Helvetica, sans-serif;
+        }
+
+        .blockTable {
+          height: 26px;
+        }
+
+        .dashboard {
+          top: -20px;
+        }
+
+        .container {
+            overflow:hidden;
+            height: 60px;
+        }
+        .one {
+            position: relative;
+            top: 0;
+            z-index: 1;
+            cursor:pointer;
+        }
+        .two {
+            position: relative;
+            top: -40px;
+            z-index: -1;
+            -webkit-transition: top 1s;
+            -moz-transition: top 1s;
+            -o-transition: top 1s;
+            transition: top 1s;
+        }
+
+        .bs-canvas-overlay {
+           opacity: 0;
+           z-index: -1;
+        }
+
+        .bs-canvas-overlay.show {
+           opacity: 0.85;
+           z-index: 1100;
+        }
+
+        .bs-canvas {
+           top: 0;
+           width: 0;
+           z-index: 1110;
+           overflow-x: hidden;
+           overflow-y: auto;
+        }
+
+        .bs-canvas-left {
+           left: 0;
+        }
+
+        .bs-canvas-right {
+           right: 0;
+        }
+
+        .bs-canvas-anim {
+           transition: all .4s ease-out;
+           -webkit-transition: all .4s ease-out;
+           -moz-transition: all .4s ease-out;
+           -ms-transition: all .4s ease-out;
+        }
+
+        .nav-bar-buttons {
+            display: inline-block;
+            font-weight: 400;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            border: 1px solid transparent;
+            padding: 0.375 rem 0.75 rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            border-radius: 0.25 rem;
+            transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+            color: #f8f9fa
+        }
+
+        .loader {
+            position: fixed;
+            left: 44%;
+            top: 32%;
+            width: 50px;
+            padding: 8px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background: #b59154;
+            --_m:
+            conic-gradient(#0000 10%,#000),
+            linear-gradient(#000 0 0) content-box;
+            -webkit-mask: var(--_m);
+                  mask: var(--_m);
+            -webkit-mask-composite: source-out;
+                  mask-composite: subtract;
+            animation: l3 1s infinite linear;
+        }
+
+        @keyframes l3 {
+            to{transform: rotate(1turn)}
+        }
+
+        input[type=password],
+        input[type=text] {
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          display: block;
+          font-size: 18px;
+          margin: 5px 0px 10px;
+          padding: 8px;
+          width: 250px;
+        }
+        label {
+          vertical-align: middle;
+        }
+
+        .loader-hori{
+          width: 100%;
+          height: 12px;
+          display: none;
+          background-color: #FFF;
+          background-image: linear-gradient(45deg, rgba(0, 0, 0, 0.25) 25%, transparent 25%, transparent 50%, rgba(0, 0, 0, 0.25) 50%, rgba(0, 0, 0, 0.25) 75%, transparent 75%, transparent);
+          font-size: 30px;
+          background-size: 1em 1em;
+          box-sizing: border-box;
+          animation: barStripe 1s linear infinite;
+        }
+
+        @keyframes barStripe {
+          0% {
+            background-position: 1em 0;
+          }
+          100% {
+            background-position: 0 0;
+          }
+        }
+
+        .error-message {
+          color: red;
+          padding-top: 60px;
+          text-align: center;
+          font-family: 'Lucida Grande', 'Lucida Sans Unicode', Arial, Helvetica, sans-serif;
+        }
+
+        .dynamic-buttons {
+          position: fixed;
+          z-index: 999999;
+          top: 25px;
+          left: 75%;
+          width: 300px;
+          display: inline-flex;
+          justify-content: space-around;
+        }
+
+        .json-download-button {
+          margin: 0px 5px !important;
+          font-size: 15px !important;
+          background-color: #b59154 !important;
+          border-color: #b59154 !important;
+          outline: none !important;
+        }
+
+        .publish-button {
+          margin: 0px 5px !important;
+          font-size: 15px !important;
+          background-color: #b59154 !important;
+          border-color: #b59154 !important;
+          outline: none !important;
+        }
+
+        .titleDiv {
+          position: relative
+        }
+
+        .tableTitle {
+          text-align: center;
+          color: rgb(51, 51, 51);
+          font-size: 18px;
+          fill: rgb(51, 51, 51);
+          border: 1px;
+        }
+        ||
+
+    </style>
+
 </head>
 <body>
 
     <div>
         <div id="charts" class="contentHolder"></div>
-	</div>
+    </div>
 
     <script lang="javascript">
 
@@ -26,6 +371,30 @@
     const cyColorMap = new Map([ ["primary", "#3944BC"], ["secondary", "#3141f5"], ["tertiary", "#6975fa"], ["quaternary", "#7c86fc"], ["quinary", "#979ffc"]]);
     const pyColorMap = new Map([ ["primary", "#FFC0CB"], ["secondary", "#ffd6dd"], ["tertiary", "#fad9df"], ["quaternary", "#fae1e5"], ["quinary", "#fff0f2"]]);
     const labelMap = new Map([ ["MM", "M"], ["BB", "B"], ["KK", "K"], ["bps", "bps"], ["%", "%"] ])
+
+    const formatCellData = (value, formatMask, precision) => {
+        if (value === " ") return value;
+
+        if (formatMask.includes("MM")) {
+            return (value / 1000000).toFixed(precision) + "M"
+        }
+        else if (formatMask.includes("BB") || value >= 1E9 && value <= 1E12) {
+            return (value / 1000000000).toFixed(precision) + "B"
+        }
+        else if (formatMask.includes("KK")) {
+            return (value / 1000).toFixed(precision) + "K"
+        }
+        else if (formatMask.includes("bps")) {
+            return (value * 10000).toFixed(precision) + "bps"
+        }
+        else if (formatMask.includes("%")) {
+            return (value * 100).toFixed(precision) + "%"
+        }
+        else {
+            return parseFloat(value).toFixed(precision)
+        }
+    };
+
 
     var data = {{ data|tojson|safe }};
     if (data === undefined || !Array.isArray(data)) {
@@ -76,30 +445,38 @@
                     break;
             }
         });
+
+        if (data.eventErrors !== undefined && data.eventErrors != null) {
+            const sectionDivId = `charDiv_${Math.random()}`;
+            const sectionDiv = document.createElement('div');
+            sectionDiv.id = sectionDivId;
+            sectionDiv.className = 'sectionDiv';
+            deckDiv.appendChild(sectionDiv);
+
+            plotSectionErrors(sectionDivId, data.eventErrors)
+        }
     }
 
-    function formatCellData(value, formatMask, precision) {
-        if (value === " ") return value;
+    function plotSectionErrors(sectionDivId, errors) {
+        var div = document.createElement('div');
+        div.classList.add('section_div');
 
-        if (formatMask.includes("MM")) {
-            return (value / 1000000).toFixed(precision) + "M"
-        }
-        else if (formatMask.includes("BB") || value >= 1E9 && value <= 1E12) {
-            return (value / 1000000000).toFixed(precision) + "B"
-        }
-        else if (formatMask.includes("KK")) {
-            return (value / 1000).toFixed(precision) + "K"
-        }
-        else if (formatMask.includes("bps")) {
-            return (value * 10000).toFixed(precision) + "bps"
-        }
-        else if (formatMask.includes("%")) {
-            return (value * 100).toFixed(precision) + "%"
-        }
-        else {
-            return parseFloat(value).toFixed(precision)
-        }
-    };
+        var h4 = document.createElement('h4');
+        var errorText = document.createTextNode("Event Errors");
+        h4.style.cssText = "color: red;";
+        h4.appendChild(errorText);
+
+        var p = document.createElement('p');
+        var text = document.createTextNode(errors);
+        p.appendChild(text);
+
+        div.appendChild(h4);
+        div.appendChild(p);
+
+        var divShow = document.getElementById(sectionDivId);
+        divShow.innerHTML = "";
+        divShow.appendChild(div)
+    }
 
     function createTitle(data) {
         const titleDiv = document.createElement('div');
@@ -386,7 +763,7 @@
         });
 
         // Helper function to format cell data.
-        let formatCellData = (data, index) => {
+        const formatCellData = (data, index) => {
             if (data === "N/A") return data;
 
             const { yScale: formatMask, boxTotalScale: boxTotalMask } = subData;
@@ -676,23 +1053,23 @@
         fraction = range / Math.pow(10, exponent);
 
         if (round) {
-          if (fraction < 1.5)
-            niceFraction = 1;
-          else if (fraction < 3)
-            niceFraction = 2;
-          else if (fraction < 7)
-            niceFraction = 5;
-          else
-            niceFraction = 10;
+            if (fraction < 1.5)
+                niceFraction = 1;
+            else if (fraction < 3)
+                niceFraction = 2;
+            else if (fraction < 7)
+                niceFraction = 5;
+            else
+                niceFraction = 10;
         } else {
-          if (fraction <= 1)
-            niceFraction = 1;
-          else if (fraction <= 2)
-            niceFraction = 2;
-          else if (fraction <= 5)
-            niceFraction = 5;
-          else
-            niceFraction = 10;
+            if (fraction <= 1)
+                niceFraction = 1;
+            else if (fraction <= 2)
+                niceFraction = 2;
+            else if (fraction <= 5)
+                niceFraction = 5;
+            else
+                niceFraction = 10;
         }
 
         return niceFraction * Math.pow(10, exponent);

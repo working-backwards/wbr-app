@@ -23,8 +23,8 @@ const cyColorMap = new Map([["primary", "#3A2FDE"], ["secondary", "#5B75F6"], ["
 const pyColorMap = new Map([["primary", "#DA5069"], ["secondary", "#ffd6dd"], ["tertiary", "#fad9df"], ["quaternary", "#fae1e5"], ["quinary", "#fff0f2"]]);
 const labelMap = new Map([["MM", "M"], ["BB", "B"], ["KK", "K"], ["bps", "bps"], ["%", "%"]])
 
-var env = window.env;
-var domain = window.location.hostname;
+const env = window.env;
+const domain = window.location.hostname;
 var docsAnchorTag = document.createElement('a');
 docsAnchorTag.href = "https://app.workingbackwards.com/docs/index.html";
 
@@ -322,7 +322,7 @@ function swalConfigForFailurePopup(message) {
 }
 
 function clearInputFile(f) {
-    if (f.value) {
+    if (f !== undefined && f.value) {
         try {
             f.value = ''; //for IE11, latest Chrome/Firefox/Opera...
         } catch (err) { }

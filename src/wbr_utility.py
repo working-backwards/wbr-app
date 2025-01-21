@@ -1,11 +1,11 @@
+import calendar
+import datetime
 from typing import Any, Callable
 
-import pandas as pd
-import numpy as np
-import datetime
-from dateutil import relativedelta
 import dateutil
-import calendar
+import numpy as np
+import pandas as pd
+from dateutil import relativedelta
 
 
 def append_to_list(data: Any, to_append_list: list):
@@ -50,7 +50,6 @@ def apply_operation_and_return_denominator_values(operation, columns, yoy_requir
 
     Returns:
         list: A list of calculated values resulting from the specified operation.
-
     """
     value_list = []
 
