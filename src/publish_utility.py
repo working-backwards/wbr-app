@@ -68,7 +68,7 @@ class PublishWbr:
         Uploads data to the selected object storage or saves it locally if no storage option is selected.
 
         Args:
-            data (dict): The data to upload.
+            data (list|dict): The data to upload.
             destination_file_path (str): The destination file path in the object storage or local directory.
 
         Raises:

@@ -56,7 +56,7 @@
 									aggregator</p>
 							</div>
 						</div>
-						<div class="card-body" style="padding-left: 28px; padding-bottom: 112px; text-align:center">
+						<div class="card-body-bottom card-body" style="text-align:center">
 							<p class="card-text" style="color:#051B38; font-size:larger">Upload a new one every week.</p>
 						</div>
 					</div>
@@ -77,8 +77,9 @@
 										style="color:#051B38">how your WBR deck is built</strong></p>
 							</div>
 						</div>
-						<div class="card-body" style="padding-left: 28px;">
-							<p class="card-text" style="color:#051B38; font-size:larger; text-align: center;">Update the week_ending and week_number in your configuration file, then upload.</p>
+						<div class="card-body-bottom card-body" style="text-align: center;">
+							<p class="card-text" style="color:#051B38; text-align: center; font-size:larger">Update the
+								week_ending and week_number in your configuration file, then upload</p>
 							<p class="card-text" style="color:#768EAA">You can always upload a new when you want to
 								update a structure of your report</p>
 						</div>
@@ -295,12 +296,13 @@
 							<div class="form-group">
 								<label>Click the checkbox to require a Password</label> <input type="checkbox"
 									value="leftSideCheckbox" id="data0" />
-								<label for="password" id="pass_text" style="display:none">Password</label>
-								<input type="password" class="form-control" id="password" placeholder="password"
+								<label id="pass_text" style="display:none">Password</label>
+								<input class="form-control" id="password" placeholder="Password" type="password"
 									style="display:none" />
-								<input type="checkbox" id="showPassword" style="display:none" />
-								<label for="showPassword" id="showPassword_Text" style="display:none">Show
-									password</label>
+								<div style="display:flex; align-items:baseline;">
+									<input id="showPassword" style="display:none;margin-right:10px" type="checkbox"/>
+									<label id="showPassword_Text" style="display:none">Show password</label>
+								</div>
 							</div>
 						</form>
 					</div>

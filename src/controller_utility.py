@@ -1,5 +1,7 @@
 import datetime
 import logging
+import tempfile
+import traceback
 from json import JSONEncoder
 from typing import List
 
@@ -8,8 +10,10 @@ import dateutil.relativedelta
 import numpy
 import numpy as np
 import pandas as pd
+import requests
 import yaml
 from yaml import SafeLoader
+from yaml._yaml import ScannerError
 
 from src.wbr import WBR
 from src.wbr_utility import if_else, put_into_map, if_else_supplier, append_to_list, is_last_day_of_month
@@ -194,8 +198,15 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number):
     metrices = plotting_dict['metrics']
 
     # Iterate over each metric in the metrics dictionary to populate the chart.
-    is_single_axis = process_metric(block_number, fiscal_start, is_single_axis,
-                                    is_trailing_twelve_months, metrices, six_twelve_chart, wbr1)
+    is_single_axis = process_metric(
+        block_number,
+        fiscal_start,
+        is_single_axis,
+        is_trailing_twelve_months,
+        metrices,
+        six_twelve_chart,
+        wbr1
+    )
 
     # Set the number of axes based on whether a single or dual-axis is needed.
     six_twelve_chart.axes = plotting_dict['axes'] if 'axes' in plotting_dict else (1 if is_single_axis else 2)
@@ -361,7 +372,7 @@ def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twe
 
     # Configure the box total scale based on whether the metric is a BPS metric.
     six_twelve_chart.boxTotalScale = 'bps' if (
-                metric in wbr1.bps_metrics or metric in wbr1.function_bps_metrics) else "%"
+            metric in wbr1.bps_metrics or metric in wbr1.function_bps_metrics) else "%"
 
     # Append the box total values for the metric, handling NaN and string values.
     if metrics_dictionary['lineStyle'] != 'target':
@@ -387,6 +398,7 @@ def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1):
         # Default to a 12-month trailing view.
         month_start = (end_date - dateutil.relativedelta.relativedelta(months=11)).strftime("%b")
         is_trailing_twelve_months = True
+
     return is_trailing_twelve_months, month_start
 
 
@@ -524,8 +536,8 @@ def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months
     # Iterate through the months data to collect up to 12 months of aligned metric data.
     for i in range(len(months_data)):
         # Check if the current date aligns with the fiscal start date or the trailing twelve months condition is met.
-        if (str(axis_data[i]).replace(' 00:00:00', '').lower() == str(fiscal_start) or
-                is_trailing_twelve_months or month_cond) and total_months <= 12:
+        if ((str(axis_data[i]).replace(' 00:00:00', '').lower() == str(
+                fiscal_start) or is_trailing_twelve_months or month_cond) and total_months <= 12):
             # Set month condition to True after the first match, and increment total_months.
             month_cond = True
             total_months += 1
@@ -674,7 +686,13 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number):
     decks.blocks.append(six_weeks_table)
 
 
-def build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1):
+def build_six_weeks_table(
+        block_number: str,
+        plotting_dict: dict,
+        six_weeks_table: TrailingTable,
+        table_column_header: list,
+        wbr1: WBR
+):
     """
     Builds a six weeks table using the specified plotting configuration.
 
@@ -709,7 +727,7 @@ def build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_co
                                 f"{row_configs['__line__']}")
 
 
-def build_six_week_table_row(row_configs, wbr1):
+def build_six_week_table_row(row_configs: dict, wbr1: WBR):
     """
     Constructs a row for the six weeks table based on the provided configuration.
 
@@ -899,7 +917,7 @@ def append_embedded_content_to_deck(decks, plot):
     decks.blocks.append(embedded_content)
 
 
-def get_wbr_deck(wbr1):
+def get_wbr_deck(wbr1: WBR) -> Deck:
     """
     Constructs a Deck object based on the configuration provided in the wbr1 object.
 
@@ -929,7 +947,7 @@ def get_wbr_deck(wbr1):
     return deck
 
 
-def build_a_block(deck: Deck, i, plots, wbr1):
+def build_a_block(deck: Deck, i: int, plots: list, wbr1: WBR):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1055,3 +1073,35 @@ def generate_custom_yaml(temp_file, csv_data):
 
     with open(temp_file.name, 'a') as file:
         yaml.dump(configs, file, sort_keys=False)
+
+
+def load_yaml_from_stream(config_file):
+    # Create a temporary file to save the configuration file
+    with tempfile.NamedTemporaryFile(mode="a", delete=False) as temp_file:
+        config_file.save(temp_file.name)
+        try:
+            # Load the YAML configuration from the temporary file
+            return yaml.load(open(temp_file.name), SafeLineLoader)
+        except (ScannerError, yaml.YAMLError) as e:
+            logging.error(e, exc_info=True)
+            error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
+            # Return an error response if there is an issue with the YAML configuration
+            raise Exception(
+                f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
+        finally:
+            temp_file.close()
+
+
+def load_yaml_from_url(url: str):
+    # Retrieve the file content from the URL
+    response = requests.get(url, allow_redirects=True)
+    # Convert bytes to string
+    content = response.content.decode("utf-8")
+    try:
+        # Load the yaml
+        return yaml.load(content, SafeLineLoader)
+    except (ScannerError, yaml.YAMLError) as e:
+        logging.error(e, exc_info=True)
+        error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
+        # Return an error response if there is an issue with the YAML configuration
+        raise Exception(f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")

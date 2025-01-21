@@ -1,19 +1,18 @@
-﻿import json
+﻿import io
+import json
 import logging
 import os
 import tempfile
-import traceback
 import uuid
 from pathlib import Path
 
 import flask
 import pandas
-import yaml
+import requests
 from cryptography.fernet import Fernet
 from flask import Flask, request, send_file, render_template
 from flask_cors import CORS
 from werkzeug.utils import redirect
-from yaml.scanner import ScannerError
 
 import src.controller_utility as controller_util
 import src.test as test
@@ -44,76 +43,55 @@ def get_wbr_metrics():
     config_file = request.files['configfile']
     csv_data_file = request.files['csvfile']
 
-    # Create a temporary file to save the configuration file
-    with tempfile.NamedTemporaryFile(mode="a", delete=False) as temp_file:
-        config_file.save(temp_file.name)
-        try:
-            # Load the YAML configuration from the temporary file
-            cfg = yaml.load(open(temp_file.name), controller_util.SafeLineLoader)
-        except (ScannerError, yaml.YAMLError) as e:
-            logging.error(e, exc_info=True)
-            error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
-            # Return an error response if there is an issue with the YAML configuration
-            response = app.response_class(
-                response=json.dumps(
-                    {
-                        "description":
-                            f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}"
-                    }
-                ),
-                status=500
-            )
-            return response
-        temp_file.close()
+    try:
+        cfg = controller_util.load_yaml_from_stream(config_file)
+    except Exception as e:
+        return app.response_class(
+            response=json.dumps({"description": e.__str__()}),
+            status=500
+        )
 
     try:
-        wbr_validator = validator.WBRValidator(csv_data_file, cfg)
+        deck = process_input(csv_data_file, cfg)
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return app.response_class(
+            response=json.dumps({"description": e.__str__()}),
+            status=500
+        )
+
+    # Return the WBR deck as a JSON response
+    return app.response_class(
+        response=json.dumps(deck, indent=4, cls=controller_util.Encoder),
+        status=200,
+        mimetype='application/json'
+    )
+
+
+def process_input(data, cfg):
+    try:
+        wbr_validator = validator.WBRValidator(data, cfg)
         wbr_validator.validate_yaml()
     except Exception as e:
         logging.error("Yaml validation failed", e, exc_info=True)
-        response = app.response_class(
-            response=json.dumps({"description": "Invalid configuration provided: " + e.__str__()}),
-            status=500
-        )
-        return response
+        raise Exception(f"Invalid configuration provided: {e.__str__()}")
+
     try:
         # Create a WBR object using the CSV data and configuration
         wbr1 = wbr.WBR(cfg, daily_df=wbr_validator.daily_df)
     except Exception as error:
         logging.error(error, exc_info=True)
-        # Return an error response if there is an issue creating the WBR object
-        response = app.response_class(
-            response=json.dumps({"description": "Could not create WBR metrics due to: " + error.__str__()}),
-            status=500
-        )
-        return response
+        raise Exception(f"Could not create WBR metrics due to: {error.__str__()}")
 
     try:
         # Generate the WBR deck using the WBR object
         deck = controller_util.get_wbr_deck(wbr1)
     except Exception as err:
         logging.error(err, exc_info=True)
-        # Return an error response if there is an issue creating the deck
-        response = app.response_class(
-            response=json.dumps({"description": "Error while creating deck, caused by: " + err.__str__()}),
-            status=500
-        )
-        return response
+        raise Exception(f"Error while creating deck, caused by: {err.__str__()}")
 
-    # Return the WBR deck as a JSON response
-    response = app.response_class(
-        response=json.dumps(deck, indent=4, cls=controller_util.Encoder),
-        status=200,
-        mimetype='application/json'
-    )
+    return deck
 
-    return response
-
-
-def str_presenter(dumper, data):
-    if '\n' in data:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
 
 @app.route('/download_yaml', methods=['POST'])
@@ -142,7 +120,7 @@ def download_yaml_for_csv():
 
 
 @app.route('/publish-wbr-report', methods=['POST'])
-def publish_report():
+def publish_report(url=None, deck=None):
     """
     Fetch JSON file from the HTTP request, save the file to S3 bucket and publish the WBR to a public URL.
 
@@ -150,32 +128,55 @@ def publish_report():
         A Flask response object with the URL to access the uploaded data.
     """
     # Parse the JSON data from the request
-    data = json.loads(request.data)
+    data = json.loads(deck or request.data)
 
     # Modify the base URL to use HTTPS instead of HTTP
-    base_url = request.base_url.replace('/publish-wbr-report', '')
+    base_url = url or request.base_url.replace('/publish-wbr-report', '')
     if "localhost" not in base_url and "127.0.0.1" not in base_url:
         base_url = base_url.replace("http", "https")
 
+    return publish_and_get(base_url, '/build-wbr/publish?file=', data)
+
+
+@app.route("/publish-protected-report", methods=['POST'])
+def publish_protected_wbr(url=None, deck=None):
+    """
+    Saves the generated WBR report with a password
+    :return: Redirect URL for the published report
+    """
+    # Get the password from the request arguments
+    password = request.args['password']
+
+    # Load the JSON data from the request body
+    data = json.loads(deck or request.data)
+
+    # Add the password to the JSON data
+    protected_data = {"data": data, "password": password}
+
+    # Get the base URL and replace 'http' with 'https'
+    base_url = url or request.base_url.replace('/publish-protected-report', '')
+    if "localhost" not in base_url and "127.0.0.1" not in base_url:
+        base_url = base_url.replace("http", "https")
+    return publish_and_get(base_url, '/build-wbr/publish/protected?file=', protected_data)
+
+
+def publish_and_get(base_url: str, trailing_url: str, data: list | dict):
     # Generate a unique filename for the JSON data
     filename = str(uuid.uuid4())[25:]
-
     # Upload the report to cloud storage
     try:
         publisher.upload(data, which_env + "/" + filename)
         # Create a response with the URL to access the uploaded data
-        response = app.response_class(
-            response=json.dumps({'path': base_url + '/build-wbr/publish?file=' + filename}, indent=4,
+        return app.response_class(
+            response=json.dumps({'path': f"{base_url}{trailing_url}{filename}"}, indent=4,
                                 cls=controller_util.Encoder),
             status=200
         )
     except Exception as e:
         logging.error("Error occurred while publishing the report", e, exc_info=True)
-        response = app.response_class(
+        return app.response_class(
             status=500
         )
-
-    return response
 
 
 @app.route('/build-wbr/publish', methods=['GET'])
@@ -185,7 +186,15 @@ def build_wbr():
     :return: Rendered template of already generated report
     """
     filename = request.args['file']
-    data = publisher.download(which_env + "/" + filename)
+    logging.info(f"Received request to download {filename}")
+    try:
+        data = publisher.download(which_env + "/" + filename)
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return app.response_class(
+            response=json.dumps({"message": "Failed to download your report!"}),
+            status=500
+        )
     return flask.render_template('wbr_share.html', data=data)
 
 
@@ -219,11 +228,10 @@ def login():
                             "&password=" + str(token))
         else:
             # If the provided password does not match the password in the JSON file
-            response = app.response_class(
+            return app.response_class(
                 response=json.dumps({"message": "Unauthorised"}),
                 status=403
             )
-            return response
     else:
         # If password is not provided in the request arguments
         return render_template("login.html", fileName=file_name)
@@ -267,54 +275,11 @@ def get_file_name():
     data_folder = Path(os.path.dirname(__file__)) / 'web/static/demo_uploads'
     files = os.listdir(data_folder)
     files.sort()
-    response = app.response_class(
+    return app.response_class(
         response=json.dumps(files, indent=4, cls=controller_util.Encoder),
         status=200,
         mimetype='application/json'
     )
-    return response
-
-
-@app.route("/publish-protected-report", methods=['POST'])
-def publish_protected_wbr():
-    """
-    Saves the generated WBR report with a password
-    :return: Redirect URL for the published report
-    """
-    # Get the password from the request arguments
-    password = request.args['password']
-
-    # Load the JSON data from the request body
-    data = json.loads(request.data)
-
-    # Add the password to the JSON data
-    protected_data = {"data": data, "password": password}
-
-    # Get the base URL and replace 'http' with 'https'
-    base_url = request.base_url.replace('/publish-protected-report', '')
-    if "localhost" not in base_url and "127.0.0.1" not in base_url:
-        base_url = base_url.replace("http", "https")
-
-    # Generate a unique filename for the JSON data
-    filename = str(uuid.uuid4())[21:]
-
-    # Store the JSON data to cloud
-    try:
-        publisher.upload(protected_data, which_env + "/" + filename)
-        # Create the response containing the URL to access the protected report
-        response = app.response_class(
-            response=json.dumps(
-                {'path': base_url + '/build-wbr/publish/protected?file=' + filename}, indent=4,
-                cls=controller_util.Encoder),
-            status=200
-        )
-    except Exception as e:
-        logging.error("Error occurred while publishing the report", e, exc_info=True)
-        response = app.response_class(
-            status=500
-        )
-
-    return response
 
 
 @app.route('/wbr-unit-test', methods=["GET"])
@@ -324,12 +289,114 @@ def run_unit_test():
     :return: Test results
     """
     test_result = test.test_wbr()
-    response = app.response_class(
+    return app.response_class(
         response=json.dumps(test_result, indent=4, cls=controller_util.Encoder),
         status=200,
         mimetype='application/json'
     )
-    return response
+
+
+@app.route('/report', methods=["POST"])
+def build_report():
+    output_type = request.args["outputType"] if 'outputType' in request.args else None
+
+    # Validate if data file or data file url is present in the request
+    if 'dataUrl' not in request.args and 'dataFile' not in request.files:
+        return app.response_class(
+            response=json.dumps(
+                {'error': 'Either dataUrl or dataFile required!'}, indent=4,
+                cls=controller_util.Encoder
+            ),
+            status=400
+        )
+
+    # Validate if config file or config file url is present in the request
+    if 'configUrl' not in request.args and 'configFile' not in request.files:
+        return app.response_class(
+            response=json.dumps(
+                {'error': 'Either configUrl or configFile required!'}, indent=4,
+                cls=controller_util.Encoder
+            ),
+            status=400
+        )
+
+    # Load config
+    try:
+        cfg = controller_util.load_yaml_from_url(request.args["configUrl"]) \
+            if 'configUrl' in request.args else controller_util.load_yaml_from_stream(request.files['configFile'])
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return app.response_class(
+            response=json.dumps({"error": f"Failed to load yaml, due to {e.__str__()}"}),
+            status=500
+        )
+
+    # Load data
+    try:
+        data = request.files['dataFile'] if 'dataFile' in request.files \
+            else io.StringIO(requests.get(request.args["dataUrl"]).content.decode('utf-8'))
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return app.response_class(
+            response=json.dumps({"error": f"Failed to load the data csv, due to {e.__str__()}"}),
+            status=500
+        )
+
+    # Load events data
+    try:
+        events_data = request.files['eventsFile'] if 'eventsFile' in request.files else (
+            io.StringIO(requests.get(request.args["eventsFileUrl"]).content.decode('utf-8'))
+            if "eventsFileUrl" in request.args else None
+        )
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return app.response_class(
+            response=json.dumps({"error": f"Failed to load the events csv, due to {e.__str__()}"}),
+            status=500
+        )
+
+    # Override the config setup based on the url query parameters
+    if 'week_ending' in request.args:
+        cfg["setup"]["week_ending"] = request.args["week_ending"]
+    if 'week_number' in request.args:
+        cfg["setup"]["week_number"] = int(request.args["week_number"])
+    if 'title' in request.args:
+        cfg["setup"]["title"] = request.args["title"]
+    if 'fiscal_year_end_month' in request.args:
+        cfg["setup"]["fiscal_year_end_month"] = request.args["fiscal_year_end_month"]
+    if 'block_starting_number' in request.args:
+        cfg["setup"]["block_starting_number"] = int(request.args["block_starting_number"])
+    if 'tooltip' in request.args:
+        cfg["setup"]["tooltip"] = bool(request.args["tooltip"])
+
+    try:
+        deck = process_input(data, cfg, events_data)
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        return app.response_class(
+            response=json.dumps({"error": e.__str__()}),
+            status=500
+        )
+
+    if output_type == "JSON":
+        # Return the WBR deck as a JSON response
+        return app.response_class(
+            response=json.dumps([deck], indent=4, cls=controller_util.Encoder),
+            status=200,
+            mimetype='application/json'
+        )
+    elif output_type == "HTML":
+        # Return the WBR deck as a JSON response
+        return flask.render_template(
+            'wbr_share.html',
+            data=json.loads(json.dumps([deck], indent=4, cls=controller_util.Encoder))
+        )
+    else:
+        return publish_protected_wbr(request.base_url.replace('/report', ''),
+                                     json.dumps([deck], indent=4, cls=controller_util.Encoder)) \
+            if "password" in request.args \
+            else publish_report(request.base_url.replace('/report', ''),
+                                json.dumps([deck], indent=4, cls=controller_util.Encoder))
 
 
 def start():
