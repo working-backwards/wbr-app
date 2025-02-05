@@ -294,6 +294,9 @@ A web user interface is been developed to run the test cases, route your browser
 ## Additional Information
 * For queries on customizing or building additional WBR metrics, contact [developers@workingbackwards.com]().
 
+## API Documentation
+For detailed information on how to use the WBR App's API, please refer to the [API Documentation](docs/API_DOCUMENTATION.md). This document provides comprehensive details on the available endpoints, request parameters, and response formats.
+
 
 ## Toolchain used for developing WBR
 * [Python 3.12.x compiler](https://www.python.org/)
