@@ -376,7 +376,7 @@ def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twe
 
     # Append the box total values for the metric, handling NaN and string values.
     if metrics_dictionary['lineStyle'] != 'target':
-        box_value_list.append([value if not isinstance(value, str) and not numpy.isnan(value) else value
+        box_value_list.append([value if not isinstance(value, str) and not numpy.isnan(value) else "N/A"
                                for value in wbr1.box_totals[metric]])
 
     return box_value_list
