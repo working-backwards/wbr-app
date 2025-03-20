@@ -11,7 +11,7 @@ pytest==8.3.3
 setuptools==75.2.0
 flask_cors==5.0.0
 fiscalyear==0.4.0
-cryptography==43.0.3
+cryptography==44.0.1
 boto3==1.35.49
 google-cloud-storage==2.18.2
 azure-storage-blob==12.23.1
