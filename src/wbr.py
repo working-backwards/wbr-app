@@ -3,9 +3,8 @@ from itertools import groupby
 
 import fiscalyear
 import numpy as np
-from dateutil import relativedelta
-
 import pandas as pd
+from dateutil import relativedelta
 
 import src.wbr_utility as wbr_util
 
@@ -111,21 +110,29 @@ class WBR:
         self.metric_aggregation = dict(filter(None, list(map(build_agg, self.metrics_configs.items()))))
         self.dyna_data_frame = wbr_util.create_dynamic_data_frame(self.daily_df, self.metrics_configs)
 
-        self.cy_trailing_six_weeks = wbr_util.create_trailing_six_weeks(self.dyna_data_frame, self.cy_week_ending,
-                                                                        self.metric_aggregation)
+        self.cy_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
+            self.dyna_data_frame,
+            self.cy_week_ending,
+            self.metric_aggregation
+        )
 
-        self.py_trailing_six_weeks = wbr_util.create_trailing_six_weeks(self.dyna_data_frame,
-                                                                        self.cy_week_ending - timedelta(days=364),
-                                                                        self.metric_aggregation).add_prefix('PY__')
+        self.py_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
+            self.dyna_data_frame,
+            self.cy_week_ending - timedelta(days=364),
+            self.metric_aggregation
+        ).add_prefix('PY__')
 
-        self.cy_trailing_twelve_months = wbr_util.create_trailing_twelve_months(self.dyna_data_frame,
-                                                                                self.cy_week_ending,
-                                                                                self.metric_aggregation)
+        self.cy_trailing_twelve_months = wbr_util.create_trailing_twelve_months(
+            self.dyna_data_frame,
+            self.cy_week_ending,
+            self.metric_aggregation
+        )
 
         self.py_trailing_twelve_months = wbr_util.create_trailing_twelve_months(
             self.dyna_data_frame,
             self.cy_week_ending - relativedelta.relativedelta(years=1),
-            self.metric_aggregation).add_prefix('PY__')
+            self.metric_aggregation
+        ).add_prefix('PY__')
 
         self.function_bps_metrics, self.bps_metrics, self.function_percentile_metrics, self.percentile_metrics =\
             get_bps_and_percentile_metrics(self.metrics_configs)
@@ -133,7 +140,7 @@ class WBR:
         self.box_totals, self.py_box_total, self.yoy_required_metrics_data = self.calculate_box_totals()
         self.compute_extra_months()
         self.compute_functional_metrics()
-        self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number, 
+        self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number,
                                                            len(self.cy_trailing_twelve_months['Date']))
         self.metrics = self.create_wbr_metrics()
         # init end
@@ -189,6 +196,20 @@ class WBR:
         metrics = self.append_yoy_values(cy_wbr_graph_data_with_weekly, py_wbr_graph_data_with_weekly, metrics)
         metrics = self.append_wow_values(metrics)
         metrics = self.append_mom_values(metrics)
+
+        self.cy_trailing_six_weeks.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.py_trailing_six_weeks.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.cy_trailing_twelve_months.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.py_trailing_twelve_months.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        self.box_totals.replace([np.inf, -np.inf], "N/A", inplace=True)
+        self.py_box_total.replace([np.inf, -np.inf], "N/A", inplace=True)
+
+        self.box_totals = self.box_totals.fillna("N/A")
+        self.py_box_total = self.py_box_total.fillna("N/A")
+
+        metrics.replace([np.inf, -np.inf], np.nan, inplace=True)
+
         return metrics
 
     def append_wow_values(self, metric_df):
@@ -233,26 +254,27 @@ class WBR:
         )
 
         # Rename columns to indicate WOW values
-        for j in range(len(operated_data_frame.columns)):
-            old = operated_data_frame.columns[j]
-            operated_data_frame = operated_data_frame.rename(columns={old: old + 'WOW'})
+        operated_data_frame = operated_data_frame.rename(
+            columns={col: col + 'WOW' for col in operated_data_frame.columns})
+
+        rows_to_add = len(metric_df) - len(operated_data_frame)
 
         # Append None values to align the index with metric_df
-        for i in range(6, len(metric_df)):
-            operated_data_frame = pd.concat([operated_data_frame, pd.Series([None])])
+        nan_rows = pd.DataFrame(np.nan, index=range(rows_to_add), columns=operated_data_frame.columns)
+        operated_data_frame = pd.concat([operated_data_frame, nan_rows], ignore_index=True)
 
         # Concatenate the operated data frame with the original metric DataFrame
-        metric_df = pd.concat(
-            [metric_df, operated_data_frame.reset_index(drop=True).drop(columns=0)], axis=1
-        )
+        metric_df = pd.concat([metric_df, operated_data_frame.reset_index(drop=True)], axis=1)
 
-        # Create a dictionary to hold box total WOW values for each metric
-        box_total_wow_dict = {}
-        for metric in operated_data_frame.iloc[:, 1:].columns:
-            box_total_wow_dict[metric] = ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        # Create a DataFrame with 'N/A' values for all columns
+        box_totals_wow_df = pd.DataFrame([['N/A'] * len(operated_data_frame.columns)],
+                                         columns=operated_data_frame.columns)
 
-        # Concatenate the box totals DataFrame with the existing box totals
-        self.box_totals = pd.concat([self.box_totals, pd.DataFrame.from_dict(box_total_wow_dict)], axis=1)
+        # Repeat the row 9 times to match your original approach
+        box_totals_wow_df = box_totals_wow_df.loc[box_totals_wow_df.index.repeat(9)].reset_index(drop=True)
+
+        # Concatenate the new DataFrame with the existing one
+        self.box_totals = pd.concat([self.box_totals, box_totals_wow_df], axis=1)
 
         return metric_df
 
@@ -304,26 +326,25 @@ class WBR:
         )
 
         # Rename columns to indicate MoM values
-        for j in range(len(operated_data_frame.columns)):
-            old = operated_data_frame.columns[j]
-            operated_data_frame = operated_data_frame.rename(columns={old: old + 'MOM'})
+        operated_data_frame = operated_data_frame.rename(
+            columns={col: col + 'MOM' for col in operated_data_frame.columns})
 
         # Append None values to align the index with metric_df
-        for i in range(0, 7):
-            operated_data_frame = pd.concat([pd.Series([None]), operated_data_frame])
+        nan_rows = pd.DataFrame(np.nan, index=range(7), columns=operated_data_frame.columns)
+        operated_data_frame = pd.concat([nan_rows, operated_data_frame], ignore_index=True)
 
         # Concatenate the operated data frame with the original metric DataFrame
-        metric_df = pd.concat(
-            [metric_df, operated_data_frame.reset_index(drop=True).drop(columns=0)], axis=1
-        )
+        metric_df = pd.concat([metric_df, operated_data_frame.reset_index(drop=True)], axis=1)
 
-        # Create a dictionary to hold box total MoM values for each metric
-        box_total_mom_dict = {}
-        for metric in operated_data_frame.iloc[:, 1:].columns:
-            box_total_mom_dict[metric] = ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+        # Create a DataFrame with 'N/A' values for all columns
+        box_total_mom_df = pd.DataFrame([['N/A'] * len(operated_data_frame.columns)],
+                                        columns=operated_data_frame.columns)
 
-        # Concatenate the box totals DataFrame with the existing box totals
-        self.box_totals = pd.concat([self.box_totals, pd.DataFrame.from_dict(box_total_mom_dict)], axis=1)
+        # Repeat the row 9 times to match your original approach
+        box_total_mom_df = box_total_mom_df.loc[box_total_mom_df.index.repeat(9)].reset_index(drop=True)
+
+        # Concatenate the new DataFrame with the existing one
+        self.box_totals = pd.concat([self.box_totals, box_total_mom_df], axis=1)
 
         return metric_df
 
@@ -440,38 +461,35 @@ class WBR:
         wow_dataframe = self.calculate_mom_wow_yoy_bps_or_percent_values(week_6_df, week_5_df, True)
 
         # Rename columns for the YoY DataFrame
-        for j in range(len(operated_data_frame.columns)):
-            old = operated_data_frame.columns[j]
-            operated_data_frame = operated_data_frame.rename(columns={old: old + 'YOY'})
+        operated_data_frame = operated_data_frame.rename(
+            columns={col: col + 'YOY' for col in operated_data_frame.columns})
 
         # Append the YoY data to the metric DataFrame
         metric_df = pd.concat([metric_df, operated_data_frame], axis=1)
 
         # Calculate YoY values for box totals
-        operated_data_frame = self.calculate_mom_wow_yoy_bps_or_percent_values(
+        box_data_frame = self.calculate_mom_wow_yoy_bps_or_percent_values(
             self.box_totals.drop(columns=['Date', 'Axis']),
             self.py_box_total.drop(columns=['Date', 'Axis']),
             False
         )
 
         # Fill missing values and update with WoW values
-        operated_data_frame.loc[0] = operated_data_frame.loc[0].fillna(0)
-        for j in range(len(operated_data_frame.columns)):
-            column_name = operated_data_frame.columns[j]
-            operated_data_frame.loc[1, column_name] = wow_dataframe.loc[0, column_name]
+        for j in range(len(box_data_frame.columns)):
+            column_name = box_data_frame.columns[j]
+            box_data_frame.loc[1, column_name] = wow_dataframe.loc[0, column_name]
 
         # Fill missing values in specific rows
-        operated_data_frame.loc[3] = operated_data_frame.loc[3].fillna(0)
-        operated_data_frame.loc[5] = operated_data_frame.loc[5].fillna(0)
-        operated_data_frame.loc[7] = operated_data_frame.loc[7].fillna(0)
+        box_data_frame.loc[0] = box_data_frame.loc[0].fillna(0)
+        box_data_frame.loc[3] = box_data_frame.loc[3].fillna(0)
+        box_data_frame.loc[5] = box_data_frame.loc[5].fillna(0)
+        box_data_frame.loc[7] = box_data_frame.loc[7].fillna(0)
 
         # Rename columns for the box totals DataFrame
-        for j in range(len(operated_data_frame.columns)):
-            old = operated_data_frame.columns[j]
-            operated_data_frame = operated_data_frame.rename(columns={old: old + 'YOY'})
+        box_data_frame = box_data_frame.rename(columns={col: col + 'YOY' for col in box_data_frame.columns})
 
         # Append the updated box totals DataFrame to the existing box totals
-        self.box_totals = pd.concat([self.box_totals, operated_data_frame.fillna('N/A')], axis=1)
+        self.box_totals = pd.concat([self.box_totals, box_data_frame.fillna('N/A')], axis=1)
 
         return metric_df  # Return the updated metric DataFrame
 
