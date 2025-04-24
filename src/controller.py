@@ -5,6 +5,9 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 import flask
 import pandas
@@ -31,6 +34,70 @@ key = Fernet.generate_key()
 
 which_env = os.environ.get("ENVIRONMENT") or 'qa'
 publisher = PublishWbr(os.getenv("OBJECT_STORAGE_OPTION"), os.environ.get("OBJECT_STORAGE_BUCKET"))
+
+# Global variables for file watching
+last_modified_time = 0
+current_deck = None
+
+class FileChangeHandler(FileSystemEventHandler):
+    def on_modified(self, event):
+        if event.src_path.endswith(('wbr_config.yaml', 'wbr_data.csv')):
+            global last_modified_time
+            last_modified_time = time.time()
+
+@app.route('/get-wbr-metrics-live', methods=['GET'])
+def get_wbr_metrics_live():
+    """
+    A flask endpoint that reads WBR data from local files and returns the metrics.
+    The endpoint checks if the files have been modified since the last request.
+    :return: A json response for the frontend to render the data
+    """
+    global last_modified_time, current_deck
+    
+    config_path = os.path.join(os.getcwd(), 'wbr_config.yaml')
+    csv_path = os.path.join(os.getcwd(), 'wbr_data.csv')
+    
+    if not os.path.exists(config_path) or not os.path.exists(csv_path):
+        return app.response_class(
+            response=json.dumps({"error": "Configuration or data files not found"}),
+            status=404
+        )
+    
+    current_time = time.time()
+    if current_time - last_modified_time > 1:  # Only process if files haven't been modified in the last second
+        try:
+            with open(config_path, 'r') as config_file:
+                cfg = controller_util.load_yaml_from_stream(config_file)
+            
+            with open(csv_path, 'r') as csv_file:
+                deck = process_input(csv_file, cfg)
+                current_deck = deck
+                last_modified_time = current_time
+                
+                return app.response_class(
+                    response=json.dumps(deck, indent=4, cls=controller_util.Encoder),
+                    status=200,
+                    mimetype='application/json'
+                )
+        except Exception as e:
+            logging.error(e, exc_info=True)
+            return app.response_class(
+                response=json.dumps({"error": str(e)}),
+                status=500
+            )
+    
+    # If files haven't changed, return the cached deck
+    if current_deck:
+        return app.response_class(
+            response=json.dumps(current_deck, indent=4, cls=controller_util.Encoder),
+            status=200,
+            mimetype='application/json'
+        )
+    
+    return app.response_class(
+        response=json.dumps({"error": "No data available"}),
+        status=404
+    )
 
 
 @app.route('/get-wbr-metrics', methods=['POST'])
@@ -400,6 +467,12 @@ def build_report():
 
 
 def start():
+    # Set up file watching
+    event_handler = FileChangeHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path=os.getcwd(), recursive=False)
+    observer.start()
+    
     return app
 
 

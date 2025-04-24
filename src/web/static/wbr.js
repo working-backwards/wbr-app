@@ -12,11 +12,17 @@ const initialWBRPage = document.getElementById('initial-wbr-page');
 const leftNavBtn = document.getElementById("close-left-nav-btn");
 const yaml_loader = document.getElementById("yaml_loader");
 const docs_div = document.getElementById("docs");
+const liveModeToggle = document.getElementById('liveModeToggle');
+const manualUploadSection = document.getElementById('manualUploadSection');
+const liveModeSection = document.getElementById('liveModeSection');
+const startLiveModeBtn = document.getElementById('startLiveMode');
+const refreshDataBtn = document.getElementById('refreshData');
 var allCharts = [];
 var passwordGlobal = '';
 const chartsList = [];
 const boxTotals = [];
 const tablesList = [];
+let liveModeInterval = null;
 
 const markerMap = new Map([["primary", "circle"], ["secondary", "rect"], ["tertiary", "diamond"], ["quaternary", "triangle"]]);
 const cyColorMap = new Map([["primary", "#3A2FDE"], ["secondary", "#5B75F6"], ["tertiary", "#799FF3"], ["quaternary", "#9BBDE3"], ["quinary", "#9BBDE3"]]);
@@ -154,6 +160,7 @@ function createDynamicElements() {
 
     createPublishButtonElement(dynamicButtonDiv);
     createJsonButtonElement(dynamicButtonDiv);
+    createRefreshButtonElement(dynamicButtonDiv);
 
     document.getElementsByTagName('body')[0].appendChild(dynamicButtonDiv);
 }
@@ -262,6 +269,28 @@ async function createPublishButtonElement(dynamicButtonDiv) {
         } catch (error) {
             console.error('Error publishing report:', error);
         }
+    });
+}
+
+async function createRefreshButtonElement(dynamicButtonDiv) {
+    const refreshButton = document.createElement('button');
+    refreshButton.className = 'no-print row btn json-download-button btn-info';
+    refreshButton.textContent = "Refresh";
+    refreshButton.title = "Refresh the WBR deck with the latest data";
+    refreshButton.id = 'refreshData';
+
+    try {
+        const svgIcon = await fetchSvgIcon('/icons/refresh.svg');
+        refreshButton.appendChild(document.createTextNode(' '));
+        refreshButton.appendChild(svgIcon);
+    } catch (error) {
+        console.error('Error fetching SVG icon:', error);
+    }
+
+    dynamicButtonDiv.appendChild(refreshButton);
+
+    refreshButton.addEventListener('click', () => {
+        fetchLiveData();
     });
 }
 
@@ -1017,4 +1046,50 @@ function plotSection(sectionDivId, subData) {
     var divShow = document.getElementById(sectionDivId);
     divShow.innerHTML = "";
     divShow.appendChild(div)
+}
+
+// Live mode functionality
+liveModeToggle.addEventListener('change', function() {
+    if (this.checked) {
+        manualUploadSection.style.display = 'none';
+        liveModeSection.style.display = 'block';
+    } else {
+        manualUploadSection.style.display = 'block';
+        liveModeSection.style.display = 'none';
+        refreshDataBtn.style.display = 'none';
+    }
+});
+
+startLiveModeBtn.addEventListener('click', function() {
+    // Initial load
+    fetchLiveData();
+    // Show refresh button
+    refreshDataBtn.style.display = 'inline-block';
+});
+
+refreshDataBtn.addEventListener('click', function() {
+    fetchLiveData();
+});
+
+async function fetchLiveData() {
+    try {
+        const response = await fetch('/get-wbr-metrics-live');
+        if (response.status === 200) {
+            const data = await response.json();
+            initialWBRPage.style.display = "none";
+            // Clear existing charts
+            const container_block = document.getElementById('charts');
+            container_block.innerHTML = '';
+            // Handle both array and single object responses
+            const dataArray = Array.isArray(data) ? data : [data];
+            allCharts = dataArray;
+            createDynamicElements();
+            dataArray.forEach(chart => drawCharts(chart));
+        } else {
+            const error = await response.json();
+            console.error('Error fetching live data:', error);
+        }
+    } catch (error) {
+        console.error('Error fetching live data:', error);
+    }
 }

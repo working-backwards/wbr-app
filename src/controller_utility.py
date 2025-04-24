@@ -1077,8 +1077,10 @@ def generate_custom_yaml(temp_file, csv_data):
 
 def load_yaml_from_stream(config_file):
     # Create a temporary file to save the configuration file
-    with tempfile.NamedTemporaryFile(mode="a", delete=False) as temp_file:
-        config_file.save(temp_file.name)
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
+        # Write the contents of the file object to the temporary file
+        temp_file.write(config_file.read())
+        temp_file.flush()
         try:
             # Load the YAML configuration from the temporary file
             return yaml.load(open(temp_file.name), SafeLineLoader)

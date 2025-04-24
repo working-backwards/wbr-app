@@ -39,49 +39,59 @@
 
 		<div style="padding:50px 250px 0px 250px">
 			<div class="row row-cols-1 row-cols-md-2 g-4 justify-content-md-center">
-				<div class="col">
+				<!-- Live Mode Toggle -->
+				<div class="col-12 text-center mb-4">
+					<div class="form-check form-switch d-inline-block">
+						<input class="form-check-input" type="checkbox" id="liveModeToggle">
+						<label class="form-check-label" for="liveModeToggle">Live Mode (Watch Local Files)</label>
+					</div>
+				</div>
+				
+				<!-- Manual Upload Section -->
+				<div class="col" id="manualUploadSection">
 					<div class="card shadow mb-5 bg-white rounded" style="border:none">
 						<div class="row" style="background:#eff2f5; margin:0px; padding-bottom: 44px; ">
 							<div class="col-4" style="padding-left: 35px; padding-top: 30px;">
 								<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="currentColor"
 									class="bi bi-filetype-csv" viewBox="0 0 16 16">
 									<path fill-rule="evenodd"
-										d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5zM3.517 14.841a1.13 1.13 0 0 0 .401.823q.195.162.478.252.284.091.665.091.507 0 .859-.158.354-.158.539-.44.187-.284.187-.656 0-.336-.134-.56a1 1 0 0 0-.375-.357 2 2 0 0 0-.566-.21l-.621-.144a1 1 0 0 1-.404-.176.37.37 0 0 1-.144-.299q0-.234.185-.384.188-.152.512-.152.214 0 .37.068a.6.6 0 0 1 .246.181.56.56 0 0 1 .12.258h.75a1.1 1.1 0 0 0-.2-.566 1.2 1.2 0 0 0-.5-.41 1.8 1.8 0 0 0-.78-.152q-.439 0-.776.15-.337.149-.527.421-.19.273-.19.639 0 .302.122.524.124.223.352.367.228.143.539.213l.618.144q.31.073.463.193a.39.39 0 0 1 .152.326.5.5 0 0 1-.085.29.56.56 0 0 1-.255.193q-.167.07-.413.07-.175 0-.32-.04a.8.8 0 0 1-.248-.115.58.58 0 0 1-.255-.384zM.806 13.693q0-.373.102-.633a.87.87 0 0 1 .302-.399.8.8 0 0 1 .475-.137q.225 0 .398.097a.7.7 0 0 1 .272.26.85.85 0 0 1 .12.381h.765v-.072a1.33 1.33 0 0 0-.466-.964 1.4 1.4 0 0 0-.489-.272 1.8 1.8 0 0 0-.606-.097q-.534 0-.911.223-.375.222-.572.632-.195.41-.196.979v.498q0 .568.193.976.197.407.572.626.375.217.914.217.439 0 .785-.164t.55-.454a1.27 1.27 0 0 0 .226-.674v-.076h-.764a.8.8 0 0 1-.118.363.7.7 0 0 1-.272.25.9.9 0 0 1-.401.087.85.85 0 0 1-.478-.132.83.83 0 0 1-.299-.392 1.7 1.7 0 0 1-.102-.627zm8.239 2.238h-.953l-1.338-3.999h.917l.896 3.138h.038l.888-3.138h.879z" />
+										d="M14 4.5V14a2 2 0 0 1-2 2v-1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM1.5 14.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5h5.5v8.5a.5.5 0 0 0 .5.5h5.5v5a.5.5 0 0 1-.5.5h-11Z" />
+									<path
+										d="M2.5 10.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5v-1Zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Z" />
 								</svg>
 							</div>
-							<div class="col-8" style="padding-top: 20px;">
-								<h3 class="card-title" style="color:#375479"><strong style="color:#051B38">Weekly Data</strong></h3>
-								<p class="card-text" style="color:#768EAA">File containing <strong
-										style="color:#051B38">weekly data</strong> converted from a spreadsheet or other
-									aggregator</p>
+							<div class="col-8" style="padding-top: 30px;">
+								<h5 style="color:#375479">Upload your CSV data file</h5>
+								<p style="color:#375479">Upload your CSV file containing the data for your WBR.</p>
+								<div class="input-group">
+									<input type="file" class="form-control" id="data" accept=".csv"
+										onchange="displayDataFilename()">
+									<label class="input-group-text" for="data" id="dataFileLabel">Choose file</label>
+								</div>
 							</div>
-						</div>
-						<div class="card-body-bottom card-body" style="text-align:center">
-							<p class="card-text" style="color:#051B38; font-size:larger">Upload a new one every week.</p>
 						</div>
 					</div>
 				</div>
-				<div class="col">
+
+				<!-- Live Mode Section -->
+				<div class="col" id="liveModeSection" style="display: none;">
 					<div class="card shadow mb-5 bg-white rounded" style="border:none">
-						<div class="row" style="background:#eff2f5; margin:0px; padding-bottom: 44px;">
+						<div class="row" style="background:#eff2f5; margin:0px; padding-bottom: 44px; ">
 							<div class="col-4" style="padding-left: 35px; padding-top: 30px;">
 								<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="currentColor"
-									class="bi bi-filetype-yml" viewBox="0 0 16 16">
-									<path fill-rule="evenodd"
-										d="M14 4.5V14a2 2 0 0 1-2 2v-1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5zM2.133 15.849v-1.535l1.339-2.464h-.856l-.855 1.696h-.032L.876 11.85H0l1.339 2.479v1.52zm2.287 0v-2.66h.038l.952 2.159h.516l.946-2.16h.038v2.661h.715V11.85h-.8l-1.14 2.596H5.66L4.52 11.85h-.805v3.999zm4.71-.674h1.696v.674H8.338V11.85h.791v3.325Z" />
+									class="bi bi-eye" viewBox="0 0 16 16">
+									<path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+									<path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
 								</svg>
 							</div>
-							<div class="col-8" style="padding-top: 20px;">
-								<h3 class="card-title" style="color:#375479"><strong style="color:#051B38">Configuration</strong></h3>
-								<p class="card-text" style="color:#768EAA">A markup file that configures <strong
-										style="color:#051B38">how your WBR deck is built</strong></p>
+							<div class="col-8" style="padding-top: 30px;">
+								<h5 style="color:#375479">Live File Watching</h5>
+								<p style="color:#375479">The app will automatically read from <code>wbr_config.yaml</code> and <code>wbr_data.csv</code> in the root directory.</p>
+								<div class="btn-group">
+									<button class="btn btn-primary" id="startLiveMode">Start Live Mode</button>
+									<button class="btn btn-secondary" id="refreshData" style="display: none;">Refresh Data</button>
+								</div>
 							</div>
-						</div>
-						<div class="card-body-bottom card-body" style="text-align: center;">
-							<p class="card-text" style="color:#051B38; text-align: center; font-size:larger">Update the
-								week_ending and week_number in your configuration file, then upload</p>
-							<p class="card-text" style="color:#768EAA">You can always upload a new when you want to
-								update a structure of your report</p>
 						</div>
 					</div>
 				</div>

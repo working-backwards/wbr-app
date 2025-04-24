@@ -7,6 +7,7 @@
         - [Software](#software)
 - [Set up the WBR App](#set-up-the-wbr-app)
     - [Code checkout](#code-checkout)
+    - [Version Control and Data File Management](#version-control-and-data-file-management)
     - [Running the WBR App](#running-the-wbr-app)
 - [Using the WBR App](#using-the-wbr-app)
     - [Features](#features)
@@ -94,6 +95,21 @@ The application generates the WBR Report in an HTML page. You can also download 
     cd wbr-app
     ```
    Now, you have a local copy of the project on your machine!
+
+### Version Control and Data File Management
+The project uses Git for version control with specific rules for handling data files:
+
+1. **Data Files**: The following data files are ignored by Git:
+   - `wbr_data.csv` - Weekly business review data
+   - `wbr_config.yaml` - Configuration file
+   - All files with extensions: `.csv`, `.xlsx`, `.xls`, `.json`, `.yaml`
+
+2. **Test Files**: Data files in the `test` directory are tracked by Git to ensure test reproducibility.
+
+3. **Working with Data Files**:
+   - Keep your data files local to your development environment
+   - Share data files through secure channels or cloud storage
+   - Use test data files for development and testing
 
 ### Running the WBR App
 #### Mac / Linux
