@@ -41,52 +41,52 @@ metrics:
     aggf: sum
   waiting_list_accounts:
     column: waiting_list_accounts
-    aggf: sum
+    aggf: last
   test_flight_accounts:
     column: test_flight_accounts
-    aggf: sum
+    aggf: last
   web_accounts:
     column: web_accounts
-    aggf: sum
+    aggf: last
   web_accounts__Target:
     column: web_accounts__Target
-    aggf: sum
+    aggf: last
   paying_accounts:
     column: paying_accounts
-    aggf: sum
+    aggf: last
   paying_accounts_target:
     column: paying_accounts_target
-    aggf: sum
+    aggf: last
   total_accounts:
     column: total_accounts
-    aggf: sum
+    aggf: last
   total_accounts_target:
     column: total_accounts_target
-    aggf: sum
+    aggf: last
   total_community_members:
     column: total_community_members
-    aggf: sum
+    aggf: last
   luma_members:
     column: luma_members
-    aggf: sum
+    aggf: last
   meetup_total_members:
     column: meetup_total_members
-    aggf: sum
+    aggf: last
   meetup_members_with_email:
     column: meetup_members_with_email
-    aggf: sum
+    aggf: last
   from_old_meetup_groups:
     column: from_old_meetup_groups
-    aggf: sum
+    aggf: last
   meetup_members_without_email:
     column: meetup_members_without_email
-    aggf: sum
+    aggf: last
   Whatsapp:
     column: Whatsapp
-    aggf: sum
+    aggf: last
   events_hosted:
     column: events_hosted
-    aggf: sum
+    aggf: last
 
 # # # # # # # # # # 
 # OUTPUTS SECTION #
@@ -181,12 +181,26 @@ deck:
 
 - block:
     ui_type: 6_12Graph
-    title: Waiting List Accounts
+    title: Paying Accounts
     y_scaling: null
     metrics:
-      waiting_list_accounts:
+      paying_accounts:
         line_style: primary
         graph_prior_year_flag: true
+      paying_accounts_target:
+        line_style: target
+        graph_prior_year_flag: false
+- block:
+    ui_type: 6_12Graph
+    title: Total Accounts
+    y_scaling: null
+    metrics:
+      total_accounts:
+        line_style: primary
+        graph_prior_year_flag: true
+      total_accounts_target:
+        line_style: target
+        graph_prior_year_flag: false
 - block:
     ui_type: 6_12Graph
     title: Test Flight Accounts
@@ -208,30 +222,18 @@ deck:
         graph_prior_year_flag: false
 - block:
     ui_type: 6_12Graph
-    title: Paying Accounts
+    title: Waiting List Accounts
     y_scaling: null
     metrics:
-      paying_accounts:
+      waiting_list_accounts:
         line_style: primary
         graph_prior_year_flag: true
-      paying_accounts_target:
-        line_style: target
-        graph_prior_year_flag: false
-- block:
-    ui_type: 6_12Graph
-    title: Total Accounts
-    y_scaling: null
-    metrics:
-      total_accounts:
-        line_style: primary
-        graph_prior_year_flag: true
-      total_accounts_target:
-        line_style: target
-        graph_prior_year_flag: false
 
-# # # # # # # # # # # # # # 
+
+
+# # # # # # # # # # #
 # COMMUNITY SECTION #
-# # # # # # # # # # # # # # 
+# # # # # # # # # # #
 
 - block:
     ui_type: section
