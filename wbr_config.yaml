@@ -1,0 +1,303 @@
+setup:
+  week_ending: 18-MAY-2025
+  week_number: 20
+  title: Liv Longevity Labs Weekly Business Review
+  x_axis_monthly_display: trailing_twelve_months
+
+
+metrics:
+  TotalRevenue:
+    column: TotalRevenue
+    aggf: sum
+  TotalRevenue__Target:
+    column: TotalRevenue__Target
+    aggf: sum
+  COGS:
+    column: COGS
+    aggf: sum
+  COGS__Target:
+    column: COGS__Target
+    aggf: sum
+  GrossProfit:
+    column: GrossProfit
+    aggf: sum
+  GrossProfit_Target:
+    column: GrossProfit_Target
+    aggf: sum
+  OtherVariableCosts:
+    column: OtherVariableCosts
+    aggf: sum
+  OtherVariableCosts__Target:
+    column: OtherVariableCosts__Target
+    aggf: sum
+  VariableMartketingSpend:
+    column: VariableMartketingSpend
+    aggf: sum
+  ContributionProfit:
+    column: ContributionProfit
+    aggf: sum
+  ContributionMargin:
+    column: ContributionMargin
+    aggf: sum
+  waiting_list_accounts:
+    column: waiting_list_accounts
+    aggf: sum
+  test_flight_accounts:
+    column: test_flight_accounts
+    aggf: sum
+  web_accounts:
+    column: web_accounts
+    aggf: sum
+  web_accounts__Target:
+    column: web_accounts__Target
+    aggf: sum
+  paying_accounts:
+    column: paying_accounts
+    aggf: sum
+  paying_accounts_target:
+    column: paying_accounts_target
+    aggf: sum
+  total_accounts:
+    column: total_accounts
+    aggf: sum
+  total_accounts_target:
+    column: total_accounts_target
+    aggf: sum
+  total_community_members:
+    column: total_community_members
+    aggf: sum
+  luma_members:
+    column: luma_members
+    aggf: sum
+  meetup_total_members:
+    column: meetup_total_members
+    aggf: sum
+  meetup_members_with_email:
+    column: meetup_members_with_email
+    aggf: sum
+  from_old_meetup_groups:
+    column: from_old_meetup_groups
+    aggf: sum
+  meetup_members_without_email:
+    column: meetup_members_without_email
+    aggf: sum
+  Whatsapp:
+    column: Whatsapp
+    aggf: sum
+  events_hosted:
+    column: events_hosted
+    aggf: sum
+
+# # # # # # # # # # 
+# OUTPUTS SECTION #
+# # # # # # # # # # 
+
+deck:
+- block:
+    ui_type: section
+    title: "OUTPUTS"
+
+- block:
+    ui_type: 6_12Graph
+    title: TotalRevenue
+    y_scaling: null
+    metrics:
+      TotalRevenue:
+        line_style: primary
+        graph_prior_year_flag: true
+      TotalRevenue__Target:
+        line_style: target
+        graph_prior_year_flag: false
+- block:
+    ui_type: 6_12Graph
+    title: COGS
+    y_scaling: '##%'
+    metrics:
+      COGS:
+        line_style: primary
+        graph_prior_year_flag: true
+      COGS__Target:
+        line_style: target
+        graph_prior_year_flag: false
+- block:
+    ui_type: 6_12Graph
+    title: GrossProfit
+    y_scaling: '##%'
+    metrics:
+      GrossProfit:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: GrossProfit_Target
+    y_scaling: '##%'
+    metrics:
+      GrossProfit_Target:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: OtherVariableCosts
+    y_scaling: '##%'
+    metrics:
+      OtherVariableCosts:
+        line_style: primary
+        graph_prior_year_flag: true
+      OtherVariableCosts__Target:
+        line_style: target
+        graph_prior_year_flag: false
+- block:
+    ui_type: 6_12Graph
+    title: VariableMartketingSpend
+    y_scaling: '##%'
+    metrics:
+      VariableMartketingSpend:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: ContributionProfit
+    y_scaling: '##%'
+    metrics:
+      ContributionProfit:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: ContributionMargin
+    y_scaling: '##%'
+    metrics:
+      ContributionMargin:
+        line_style: primary
+        graph_prior_year_flag: true
+
+# # # # # # # # # # 
+# ACCOUNTS SECTION #
+# # # # # # # # # # 
+
+- block:
+    ui_type: section
+    title: "Accounts"
+
+- block:
+    ui_type: 6_12Graph
+    title: Waiting List Accounts
+    y_scaling: null
+    metrics:
+      waiting_list_accounts:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Test Flight Accounts
+    y_scaling: null
+    metrics:
+      test_flight_accounts:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Web Accounts
+    y_scaling: null
+    metrics:
+      web_accounts:
+        line_style: primary
+        graph_prior_year_flag: true
+      web_accounts__Target:
+        line_style: target
+        graph_prior_year_flag: false
+- block:
+    ui_type: 6_12Graph
+    title: Paying Accounts
+    y_scaling: null
+    metrics:
+      paying_accounts:
+        line_style: primary
+        graph_prior_year_flag: true
+      paying_accounts_target:
+        line_style: target
+        graph_prior_year_flag: false
+- block:
+    ui_type: 6_12Graph
+    title: Total Accounts
+    y_scaling: null
+    metrics:
+      total_accounts:
+        line_style: primary
+        graph_prior_year_flag: true
+      total_accounts_target:
+        line_style: target
+        graph_prior_year_flag: false
+
+# # # # # # # # # # # # # # 
+# COMMUNITY SECTION #
+# # # # # # # # # # # # # # 
+
+- block:
+    ui_type: section
+    title: "Community"
+
+- block:
+    ui_type: 6_12Graph
+    title: Total Community Members
+    y_scaling: null
+    metrics:
+      total_community_members:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Luma Members
+    y_scaling: null
+    metrics:
+      luma_members:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Meetup Total Members
+    y_scaling: null
+    metrics:
+      meetup_total_members:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Meetup Members with Email
+    y_scaling: null
+    metrics:
+      meetup_members_with_email:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: From Old Meetup Groups
+    y_scaling: null
+    metrics:
+      from_old_meetup_groups:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Meetup Members without Email
+    y_scaling: null
+    metrics:
+      meetup_members_without_email:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Whatsapp Members
+    y_scaling: null
+    metrics:
+      Whatsapp:
+        line_style: primary
+        graph_prior_year_flag: true
+- block:
+    ui_type: 6_12Graph
+    title: Events Hosted
+    y_scaling: null
+    metrics:
+      events_hosted:
+        line_style: primary
+        graph_prior_year_flag: true
