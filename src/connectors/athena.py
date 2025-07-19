@@ -145,14 +145,13 @@ class AthenaConnector(BaseConnector):
             raise RuntimeError(f"Could not fetch Athena query results: {e}")
 
 
-    def execute_query(self, query: str, date_column: str = "Date") -> pd.DataFrame:
+    def execute_query(self, query: str) -> pd.DataFrame:
         """
         Executes a SQL query on Athena and returns the results as a pandas DataFrame.
+        Relies on the query to alias the date column as "Date".
 
         Args:
             query (str): The SQL query to execute.
-            date_column (str): The name of the column in the query result that represents the date.
-                               This column will be renamed to "Date" and parsed as datetime.
 
         Returns:
             pd.DataFrame: A DataFrame containing the query results.
@@ -169,34 +168,11 @@ class AthenaConnector(BaseConnector):
 
         df = self._get_query_results(query_execution_id)
 
-        # Rename and parse the specified date column
-        # Athena column names are typically lowercase if defined in Glue, or as in query.
-        # Assuming date_column is provided in the correct case as it appears in the query result.
-        if date_column and date_column in df.columns:
-            df = self._rename_date_column(df, date_column_name=date_column)
-        elif date_column and date_column not in df.columns:
-            logger.warning(f"Specified date_column '{date_column}' not found in Athena query results. Columns are: {df.columns.tolist()}")
-
+        # Validate and parse the "Date" column
+        df = self._validate_and_parse_date_column(df)
 
         logger.info(f"Successfully executed query on Athena. Fetched {len(df)} rows.")
         return df
-
-    def _rename_date_column(self, df: pd.DataFrame, date_column_name: str, desired_date_column: str = "Date") -> pd.DataFrame:
-        """
-        Renames the specified date column and parses it.
-        Athena results are strings, so conversion is important.
-        """
-        df_renamed = super()._rename_date_column(df, date_column_name, desired_date_column)
-        # Additional type inference can be done here if needed for other columns,
-        # as Athena query results from S3 are typically all strings.
-        # For example, attempting to convert numeric columns:
-        # for col in df_renamed.columns:
-        #     if col != desired_date_column: # Already handled
-        #         try:
-        #             df_renamed[col] = pd.to_numeric(df_renamed[col])
-        #         except ValueError:
-        #             pass # Keep as string if conversion fails
-        return df_renamed
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':

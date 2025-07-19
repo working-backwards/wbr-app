@@ -35,6 +35,7 @@ class BaseConnector(ABC):
     def execute_query(self, query: str) -> pd.DataFrame:
         """
         Execute a SQL query and return the results as a pandas DataFrame.
+        The first column of the query result must be the date column, aliased as "Date".
 
         Args:
             query (str): The SQL query to execute.
@@ -57,32 +58,27 @@ class BaseConnector(ABC):
         """
         self.disconnect()
 
-    def _rename_date_column(self, df: pd.DataFrame, date_column_name: str, desired_date_column: str = "Date") -> pd.DataFrame:
+    def _validate_and_parse_date_column(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Renames the specified date column to the desired name (default 'Date')
-        and ensures it's parsed as datetime.
+        Validates that a "Date" column exists and ensures it's parsed as datetime.
+        This replaces the old `_rename_date_column` method.
 
         Args:
-            df (pd.DataFrame): The input DataFrame.
-            date_column_name (str): The original name of the date column in the query result.
-            desired_date_column (str): The name the date column should have.
+            df (pd.DataFrame): The input DataFrame from a query result.
 
         Returns:
-            pd.DataFrame: The DataFrame with the date column renamed and parsed.
+            pd.DataFrame: The DataFrame with the "Date" column validated and parsed.
 
         Raises:
-            ValueError: If the specified date_column_name is not found in the DataFrame.
+            ValueError: If the "Date" column is not found or cannot be parsed.
         """
-        if date_column_name not in df.columns:
-            raise ValueError(f"Specified date column '{date_column_name}' not found in query results. Available columns: {df.columns.tolist()}")
-
-        if date_column_name != desired_date_column:
-            df = df.rename(columns={date_column_name: desired_date_column})
+        if "Date" not in df.columns:
+            raise ValueError(f"Query results must include a 'Date' column. Please alias your date column as \"Date\". Available columns: {df.columns.tolist()}")
 
         # Attempt to convert to datetime, handling potential errors
         try:
-            df[desired_date_column] = pd.to_datetime(df[desired_date_column])
+            df["Date"] = pd.to_datetime(df["Date"])
         except Exception as e:
-            raise ValueError(f"Could not convert column '{desired_date_column}' to datetime: {e}")
+            raise ValueError(f"Could not convert 'Date' column to datetime: {e}")
 
         return df

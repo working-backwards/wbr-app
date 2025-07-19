@@ -50,113 +50,84 @@ To get started, you'll need to install the necessary software and run the applic
 
 ### Understanding the WBR Framework
 
-The WBR App primarily requires the following:
+The WBR App uses a **WBR Configuration File** (`.yaml` format) to define the structure and content of your report. Data for the report can be provided in one of two ways:
 
-*   **A WBR Configuration File (`.yaml` format):** This file defines the structure of your WBR, including metrics, calculations, and how charts and tables are displayed. Crucially, it now also specifies where to get your data from using a `data_sources` section.
-*   **A Database Connections File (`connections.yaml`):** This new file, placed in the root of the project, stores the connection details for your databases (e.g., PostgreSQL, Snowflake, Athena, Redshift). The WBR Configuration File references connections defined here.
-*   **(Optional) CSV Data File:** While the primary data source is now expected to be a database, some functionalities like generating an initial YAML configuration might still utilize a CSV as a starting point.
+1.  **CSV File (Recommended for simplicity and backward compatibility):** You can upload a `.csv` file directly in the UI. This is the easiest way to get started and is ideal for users who do not have a database.
+2.  **Database Connection (For automated workflows):** You can configure the WBR App to fetch data directly from a database like PostgreSQL, Snowflake, Amazon Athena, or Amazon Redshift.
 
 The application generates the WBR Report in an HTML page. You can also download a JSON representation of your WBR Report.
 
 ---
 
-### <a name="data-configuration"></a>Data Configuration for Database Connectivity
+### <a name="data-configuration"></a>Data Source Configuration
 
-With the new database connectivity feature, the WBR App fetches data directly from your databases. This requires two main configuration components:
+The WBR App determines the data source based on the following priority:
 
-1.  **`connections.yaml` File:**
-    *   **Purpose:** Defines all database connection parameters.
-    *   **Location:** Must be placed in the root directory of the `wbr-app` project.
+1.  **CSV File Upload:** If a CSV file is uploaded by the user, it will **always** be used as the data source, overriding any database configuration in the YAML file. This allows for easy ad-hoc analysis and testing.
+2.  **Database Configuration in YAML:** If no CSV file is uploaded, the app will look for a `db_config_url` in your WBR Configuration File to fetch data from a database.
+3.  **No Data Source:** If neither a CSV file is provided nor a `db_config_url` is specified, the application will show an error.
+
+#### Configuring Database Connectivity
+
+To connect to a database, you need to configure two files:
+
+1.  **Connections YAML File:**
+    *   **Purpose:** This file stores the connection details for one or more databases. It is **not** stored in the WBR App project itself but is hosted at a URL or a file path that you provide.
     *   **Structure:**
         ```yaml
-        # connections.yaml
+        # Example connections.yaml file
         version: 1.0
         connections:
-          - name: "MyProdPostgres"  # Unique name for this connection
-            type: "postgres"        # Database type (postgres, snowflake, athena, redshift)
+          - name: "MyProdPostgres"  # A unique name for your connection
+            type: "postgres"        # Supported types: postgres, snowflake, athena, redshift
             description: "Production PostgreSQL DB for core metrics." # Optional
             config:
               host: "your_postgres_host.com"
               port: 5432
               username: "db_user"
-              password: "your_pg_password"  # WARNING: For local dev only. Use env vars/secrets for prod.
+              password: "your_pg_password"  # WARNING: Avoid hardcoding secrets. Use a secrets manager.
               database: "metrics_db"
 
           - name: "AnalyticsSnowflake"
             type: "snowflake"
             config:
               user: "snowflake_user"
-              password: "your_sf_password" # WARNING: For local dev only.
+              password: "your_sf_password" # WARNING: Avoid hardcoding secrets.
               account: "your_snowflake_account_id"
               warehouse: "COMPUTE_WH"
               database: "ANALYTICS_DB"
-              schema: "PUBLIC"
-
-          - name: "S3DataLakeAthena"
-            type: "athena"
-            config:
-              # aws_access_key_id: "YOUR_KEY" # Best practice: Use IAM roles or env variables
-              # aws_secret_access_key: "YOUR_SECRET" # Best practice: Use IAM roles or env variables
-              region_name: "us-east-1"
-              s3_staging_dir: "s3://your-athena-query-results-bucket/path/"
-              database: "athena_metrics_database"
-              workgroup: "primary" # Optional
-
-          - name: "LegacyRedshift"
-            type: "redshift"
-            config:
-              host: "your_redshift_endpoint.redshift.amazonaws.com"
-              port: 5439
-              username: "redshift_user"
-              password: "your_rs_password" # WARNING: For local dev only.
-              database: "legacy_dw"
         ```
-    *   **Security Note:** Storing plain text passwords in `connections.yaml` is highly discouraged for production environments. For production, use environment variables, AWS Secrets Manager, HashiCorp Vault, or other secure secret management solutions. The connector configurations will need to be adapted to read from these sources if implemented. For local development, this file provides convenience.
+    *   **Security Note:** It is strongly recommended to use a secure method for managing secrets like passwords and keys (e.g., AWS Secrets Manager, HashiCorp Vault) and have your application retrieve them at runtime, rather than hardcoding them in this file.
 
-2.  **Updating Your WBR Configuration YAML (e.g., `config.yaml`):**
-    *   The main WBR configuration file now needs a `data_sources` section to specify which connection to use and what query to run. This replaces the direct CSV file upload for the primary data.
-    *   **Structure for `data_sources`:**
+2.  **WBR Configuration File (e.g., `config.yaml`):**
+    *   To use a database, you must add two sections to your main WBR configuration file: `db_config_url` and `data_sources`.
+    *   **`db_config_url`**: A single field that points to the location of your Connections YAML file.
         ```yaml
-        # Inside your main WBR config.yaml
-        setup:
-          week_ending: "25-SEP-2021"
-          title: "My WBR Report"
-          # ... other setup params
-
-        data_sources:
-          - name: "main_metrics_query"  # Optional descriptive name for this source
-            connection_name: "MyProdPostgres" # MUST match a 'name' in connections.yaml
-            date_column: "event_date"     # Column from your query to be used as the primary 'Date'
-                                          # This column will be renamed to 'Date' and parsed.
-            query: >                      # Your SQL query
-              SELECT
-                event_date,
-                SUM(sales_value) as total_sales,
-                COUNT(DISTINCT user_id) as active_users
-              FROM
-                daily_sales_aggregates
-              -- The WBR app's internal logic filters data by week_ending from 'setup'.
-              -- You can add further date filters here if needed for performance.
-              GROUP BY event_date
-              ORDER BY event_date ASC;
-
-        metrics:
-          # Metrics are defined based on columns returned by your query in data_sources
-          TotalSales:
-            column: "total_sales" # Must match a column name from the query result
-            aggf: "sum" # This aggregation happens on the already grouped data if query pre-aggregates
-                        # or on the raw data if query returns unaggregated daily values.
-          ActiveUsers:
-            column: "active_users"
-            aggf: "sum"
-          # ... other metrics
-
-        deck:
-          # ... deck configuration
+        # In your main WBR config.yaml
+        db_config_url: "https://your-host.com/path/to/your/connections.yaml"
         ```
-    *   `connection_name`: Must exactly match one of the `name` attributes defined in your `connections.yaml`.
-    *   `date_column`: Tells the WBR app which column from your SQL query results should be treated as the primary date. This column will be automatically parsed as a datetime object and renamed to `Date` internally, which the rest of the WBR logic relies on.
-    *   `query`: The SQL query to be executed on the specified database. Ensure this query returns the `date_column` and any other columns your `metrics` definitions will use.
+    *   **`data_sources`**: This section specifies which connection to use and what query to run. It uses a more readable dictionary-based format.
+        ```yaml
+        # In your main WBR config.yaml
+        data_sources:
+          MyProdPostgres: # This key MUST match a 'name' from your connections.yaml
+            queries:
+              main_metrics: # A descriptive name for your query
+                description: "Aggregates total sales and user count by day"
+                query: >
+                  SELECT
+                    event_date as "Date", -- The date column MUST be the first column and aliased to "Date"
+                    SUM(sales_value) as total_sales,
+                    COUNT(DISTINCT user_id) as active_users
+                  FROM
+                    daily_sales_aggregates
+                  GROUP BY event_date
+                  ORDER BY event_date ASC;
+        ```
+    *   **Query Requirements:**
+        *   The key under `data_sources` (`MyProdPostgres` in the example) **must** match the `name` of a connection in your Connections YAML file.
+        *   The **first column** in your `SELECT` statement **must** be the date/timestamp column, and it **must be aliased as `"Date"`** (e.g., `select event_timestamp as "Date", ...`). The rest of the WBR framework relies on this convention.
+        *   The other columns returned by your query are what you will reference in the `metrics` section of your WBR config.
 
 ---
 
@@ -274,12 +245,21 @@ To access the WBR App route your browser to `http[s]://<domain>/wbr.html`.
 
 ### Features
 #### Creating the WBR Report
-To create a WBR Report:
-1. Ensure you have a `connections.yaml` file in the root of the `wbr-app` project, correctly configured with your database connection details.
-2. Prepare your WBR Configuration YAML file. This file must now include a `data_sources` section that references a connection from `connections.yaml` and provides a SQL query.
-3. In the WBR App UI, click on the breadcrumb button (menu) to open the side panel.
-4. Upload your WBR Configuration YAML file in the "Configuration" input section. (The "Weekly Data" input for CSV is no longer the primary method for data loading).
-5. Click on the `Generate Report` button. The app will use the configurations to fetch data from your database and generate the WBR report.
+To create a WBR Report, you have two primary options:
+
+**Option A: Using a CSV File**
+1.  In the WBR App UI, click the menu button to open the side panel.
+2.  Upload your dataset as a `.csv` file in the **Weekly Data** input section.
+3.  Upload your WBR Configuration `.yaml` file in the **Configuration** input section.
+4.  Click the `Generate Report` button.
+
+**Option B: Using a Database**
+1.  Prepare your WBR Configuration YAML file. It must contain:
+    *   A `db_config_url` pointing to your hosted Connections YAML file.
+    *   A `data_sources` section with your connection name and SQL query (see [Data Source Configuration](#data-configuration) for details).
+2.  In the WBR App UI, open the side panel.
+3.  Upload **only** your WBR Configuration YAML file in the **Configuration** input section. Do **not** upload a CSV file.
+4.  Click the `Generate Report` button. The app will fetch data from your database to generate the report.
 
 #### Downloading the JSON file
 To download the JSON file, follow the below steps,
@@ -350,22 +330,20 @@ After setting the above environment variables you need to rerun the application 
   ```
 
 #### Generating a WBR config file
-This feature helps you create an initial WBR configuration file (`wbr_config.yaml`) based on the columns in an uploaded CSV data file.
-**Note:** With the introduction of database connectivity, the generated YAML from this feature serves as a **template**. You will need to manually edit the `data_sources` section to point to your database and provide a valid SQL query. The metrics generated will be based on the CSV columns and may need adjustment to match your query's output columns.
+This feature helps you create a starter WBR configuration file from a sample CSV. This is useful for quickly scaffolding the `metrics` and `deck` sections.
+
+**Note:** The generated YAML is a **template**. If you plan to use a database, you must edit the file to add your `db_config_url` and `data_sources` sections.
 
 To use this feature:
 
-1. Click on the `Generate YAML` button in the WBR App UI, which will pop up a form.
-2. Upload a sample CSV data file that represents the structure of the data you intend to query from your database.
-3. Click the `Download` button. A `wbr_config.yaml` file will be downloaded.
-4. **Crucially, open and edit this downloaded `wbr_config.yaml` file:**
-    *   Modify the placeholder `data_sources` section. You must:
-        *   Set `connection_name` to match a connection defined in your `connections.yaml`.
-        *   Write the actual `query` to fetch your data.
-        *   Ensure `date_column` correctly names the date column from your query.
-    *   Review and adjust the `metrics` definitions to ensure the `column` names match the columns returned by your SQL query.
-    *   Update `setup` fields like `week_ending`, `week_number`, and `title` as needed.
-5. Once edited, this configuration file can be used to generate a WBR report using your database.
+1.  Click on the `Generate YAML` button in the UI.
+2.  Upload a CSV data file that has the same columns you expect to get from your future database query.
+3.  Click the `Download` button to get the generated `wbr_config.yaml` file.
+4.  Open the file and make the following edits:
+    *   Add the `db_config_url` field, pointing to your Connections YAML file.
+    *   Add the `data_sources` section with your connection name and SQL query.
+    *   Ensure the `metrics` section correctly references the column names from your SQL query.
+    *   Update `setup` fields like `week_ending` and `title`.
 
 #### Generating a WBR config file using AI
 We have a feature where you can install our AI plugin to generate the config file using the same instructions as above.

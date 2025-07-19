@@ -47,14 +47,13 @@ class PostgresConnector(BaseConnector):
             self.connection = None
             logger.info(f"Disconnected from PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
 
-    def execute_query(self, query: str, date_column: str = "Date") -> pd.DataFrame:
+    def execute_query(self, query: str) -> pd.DataFrame:
         """
         Executes a SQL query and returns the results as a pandas DataFrame.
+        Relies on the query to alias the date column as "Date".
 
         Args:
             query (str): The SQL query to execute.
-            date_column (str): The name of the column in the query result that represents the date.
-                               This column will be renamed to "Date" and parsed as datetime.
 
         Returns:
             pd.DataFrame: A DataFrame containing the query results.
@@ -65,26 +64,22 @@ class PostgresConnector(BaseConnector):
         try:
             self.cursor = self.connection.cursor()
             logger.debug(f"Executing query on PostgreSQL: {query}")
-            self.cursor.execute(sql.SQL(query)) # Use sql.SQL for safety if query parts are dynamic, though here query is a full string
+            self.cursor.execute(sql.SQL(query))
 
             colnames = [desc[0] for desc in self.cursor.description]
             results = self.cursor.fetchall()
             df = pd.DataFrame(results, columns=colnames)
 
-            self.connection.commit() # Or rollback on error, depending on use case
+            self.connection.commit()
 
-            # Rename and parse the specified date column
-            if date_column and date_column in df.columns:
-                df = self._rename_date_column(df, date_column_name=date_column)
-            elif date_column and date_column not in df.columns:
-                 logger.warning(f"Specified date_column '{date_column}' not found in query results. Columns are: {df.columns.tolist()}")
-
+            # Validate and parse the "Date" column
+            df = self._validate_and_parse_date_column(df)
 
             logger.info(f"Successfully executed query on PostgreSQL. Fetched {len(df)} rows.")
             return df
         except psycopg2.Error as e:
             logger.error(f"Error executing query on PostgreSQL: {e}\nQuery: {query}")
-            if self.connection: # Check if connection exists before trying to rollback
+            if self.connection:
                 self.connection.rollback()
             raise RuntimeError(f"Could not execute query on PostgreSQL: {e}")
         except Exception as e:
@@ -96,16 +91,6 @@ class PostgresConnector(BaseConnector):
             if self.cursor:
                 self.cursor.close()
                 self.cursor = None
-
-    def _rename_date_column(self, df: pd.DataFrame, date_column_name: str, desired_date_column: str = "Date") -> pd.DataFrame:
-        """
-        Renames the specified date column to the desired name (default 'Date')
-        and ensures it's parsed as datetime.
-        Overrides base method if specific error handling or logging for Postgres is needed.
-        For now, it can call the super method or replicate its logic.
-        """
-        # Using super ensures consistency but allows for future PG-specific overrides
-        return super()._rename_date_column(df, date_column_name, desired_date_column)
 
 # Example Usage (for testing purposes, typically not here)
 if __name__ == '__main__':

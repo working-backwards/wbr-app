@@ -1,6 +1,7 @@
 import datetime
 import logging
 import tempfile
+logger = logging.getLogger(__name__)
 import traceback
 from json import JSONEncoder
 from typing import List
@@ -1131,50 +1132,61 @@ def load_yaml_from_url(url: str):
         raise Exception(f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
 
 
-def load_connections_config(filepath: str = "connections.yaml") -> dict:
+def load_connections_from_url_or_path(url_or_path: str) -> dict:
     """
-    Loads the database connections configuration from a YAML file.
+    Loads and parses a connections YAML file from a URL or a local file path.
 
     Args:
-        filepath (str): The path to the connections YAML file.
+        url_or_path (str): The URL or local file path to the connections YAML file.
 
     Returns:
-        dict: A dictionary where keys are connection names and values are
-              their configurations.
-
-    Raises:
-        FileNotFoundError: If the connections file is not found.
-        Exception: For YAML parsing errors or invalid structure.
+        dict: A dictionary mapping connection names to their configurations.
     """
+    content = ""
+    if url_or_path.lower().startswith(('http://', 'https://')):
+        try:
+            response = requests.get(url_or_path, allow_redirects=True)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            content = response.content.decode("utf-8")
+            logging.info(f"Successfully fetched connections file from URL: {url_or_path}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch connections file from URL: {url_or_path}. Error: {e}", exc_info=True)
+            raise ConnectionError(f"Failed to fetch connections file from URL: {url_or_path}")
+    else:
+        # Treat as a local file path
+        try:
+            with open(url_or_path, 'r') as f:
+                content = f.read()
+            logging.info(f"Successfully read connections file from local path: {url_or_path}")
+        except FileNotFoundError:
+            logger.error(f"Connections configuration file not found at local path: {url_or_path}")
+            raise FileNotFoundError(f"Connections configuration file not found at: {url_or_path}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while reading local connections file {url_or_path}: {e}", exc_info=True)
+            raise
+
+    # Parse the YAML content
     try:
-        with open(filepath, 'r') as f:
-            config_data = yaml.load(f, Loader=SafeLineLoader) # Using SafeLineLoader for line numbers in errors
-    except FileNotFoundError:
-        logging.error(f"Connections configuration file not found at: {filepath}")
-        raise FileNotFoundError(f"Connections configuration file not found at: {filepath}")
+        config_data = yaml.load(content, Loader=SafeLineLoader)
     except (ScannerError, yaml.YAMLError) as e:
-        logging.error(f"Error parsing connections YAML file at {filepath}: {e}", exc_info=True)
-        error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
-        raise Exception(f"Error parsing connections YAML at {filepath}, error in {error_message}")
-    except Exception as e:
-        logging.error(f"An unexpected error occurred while loading {filepath}: {e}", exc_info=True)
-        raise
+        logging.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
+        raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
 
+    # Validate the structure
     if not isinstance(config_data, dict) or "connections" not in config_data:
-        raise Exception(f"Invalid connections YAML structure in {filepath}. Missing 'connections' top-level key.")
-
+        raise ValueError(f"Invalid connections YAML structure from {url_or_path}. Missing 'connections' key.")
     if not isinstance(config_data["connections"], list):
-        raise Exception(f"Invalid connections YAML structure in {filepath}. 'connections' should be a list.")
+        raise ValueError(f"Invalid connections YAML structure from {url_or_path}. 'connections' must be a list.")
 
     connections_map = {}
     for conn in config_data["connections"]:
         if not isinstance(conn, dict) or "name" not in conn or "type" not in conn or "config" not in conn:
             line = conn.get('__line__', 'N/A')
-            raise Exception(f"Invalid connection entry in {filepath} near line {line}. Each connection must have 'name', 'type', and 'config'.")
+            raise ValueError(f"Invalid connection entry in {url_or_path} near line {line}. Each connection must have 'name', 'type', and 'config'.")
         if conn["name"] in connections_map:
             line = conn.get('__line__', 'N/A')
-            raise Exception(f"Duplicate connection name '{conn['name']}' found in {filepath} near line {line}.")
+            raise ValueError(f"Duplicate connection name '{conn['name']}' found in {url_or_path} near line {line}.")
         connections_map[conn["name"]] = conn
 
-    logging.info(f"Successfully loaded {len(connections_map)} database connections from {filepath}.")
+    logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
     return connections_map

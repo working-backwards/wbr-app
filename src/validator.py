@@ -14,97 +14,94 @@ week_ending_date_format = '%d-%b-%Y'
 #         ("aggf" in config and ('column' in config or 'filter' in config))
 
 
+from src.controller_utility import load_connections_from_url_or_path
+
 class WBRValidator:
-    def __init__(self, data_sources_config: list, wbr_yaml_config: dict, all_connections: dict):
+    def __init__(self, cfg: dict, csv_data: any = None):
         """
-        Initializes the WBRValidator.
-        Instead of a CSV, it now takes data_sources_config (from WBR YAML),
-        the full WBR YAML config, and all available database connections.
+        Initializes the WBRValidator and loads data based on the fallback logic:
+        1. Use `csv_data` if provided.
+        2. If not, use `db_config_url` from the `cfg`.
+        3. If neither is available, raise an error.
 
         Args:
-            data_sources_config (list): List of data source configurations
-                                       (each specifying connection_name, query, date_column).
-            wbr_yaml_config (dict): The main WBR YAML configuration.
-            all_connections (dict): A dictionary of all loaded database connections
-                                    (from connections.yaml), keyed by connection name.
+            cfg (dict): The main WBR YAML configuration.
+            csv_data (any, optional): A file stream for a CSV file. Defaults to None.
         """
-        self.cfg = wbr_yaml_config # This is the main WBR config (formerly just 'cfg')
-        self.data_sources_config = data_sources_config
-        self.all_connections = all_connections
-        self.daily_df = self._load_and_combine_data_sources()
+        self.cfg = cfg
+        self.db_connections = None # Will be loaded on-demand
 
-    def _load_and_combine_data_sources(self) -> pd.DataFrame:
+        if csv_data:
+            logger.info("CSV data provided. Using CSV as the primary data source.")
+            self.daily_df = pd.read_csv(csv_data, parse_dates=['Date'], thousands=',').sort_values(by='Date')
+        else:
+            logger.info("No CSV data provided. Attempting to load data from database source.")
+            db_config_url = self.cfg.get("db_config_url")
+            if not db_config_url:
+                raise ValueError("No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config.")
+
+            # Load connections on-demand from the URL/path
+            self.db_connections = load_connections_from_url_or_path(db_config_url)
+            self.daily_df = self._load_and_combine_data_from_db()
+
+    def _load_and_combine_data_from_db(self) -> pd.DataFrame:
         """
-        Loads data from all configured data sources and combines them.
-        For now, it assumes a single data source for simplicity, matching the previous
-        behavior of a single CSV. This can be expanded later to merge multiple sources.
+        Loads data from the database sources defined in the WBR config.
+        This uses the new dictionary-based `data_sources` format.
 
         Returns:
             pd.DataFrame: A pandas DataFrame containing the combined data, sorted by 'Date'.
-
-        Raises:
-            ValueError: If no data sources are defined or if a connection is not found.
         """
-        if not self.data_sources_config or not isinstance(self.data_sources_config, list) or len(self.data_sources_config) == 0:
-            # If allowing no data sources (e.g. for a static report), return empty DF with 'Date'
-            # For now, let's assume at least one data source is typical for WBR.
-            logger.error("No data sources defined in the WBR configuration.")
-            raise ValueError("No data sources defined in the WBR configuration.")
+        data_sources = self.cfg.get('data_sources')
+        if not data_sources or not isinstance(data_sources, dict):
+            raise ValueError("'data_sources' must be a dictionary in the WBR config.")
 
-        # --- Simplification for initial refactor: Assume ONE data source ---
-        # This part can be expanded to loop through data_sources_config,
-        # fetch each DataFrame, and then intelligently merge them based on 'Date'
-        # or other strategies. For now, we take the first one.
-        if len(self.data_sources_config) > 1:
-            logger.warning("Multiple data sources found. For initial refactor, only the first one will be processed.")
+        # --- Simplification: Process the first connection and first query found ---
+        # This can be expanded later to merge data from multiple queries/connections.
 
-        source_config = self.data_sources_config[0]
-        connection_name = source_config.get("connection_name")
-        query = source_config.get("query")
-        date_column = source_config.get("date_column", "Date") # Default to "Date" if not specified
+        connection_name = next(iter(data_sources))
+        connection_config = self.db_connections.get(connection_name)
+        if not connection_config:
+            raise ValueError(f"Connection '{connection_name}' defined in 'data_sources' not found in the connections file.")
 
-        if not connection_name or not query:
-            line = source_config.get('__line__', 'N/A')
-            raise ValueError(f"Data source config near line {line} is missing 'connection_name' or 'query'.")
+        queries = data_sources[connection_name].get('queries')
+        if not queries or not isinstance(queries, dict):
+            raise ValueError(f"No 'queries' dictionary found for connection '{connection_name}'.")
 
-        connection_details = self.all_connections.get(connection_name)
-        if not connection_details:
-            raise ValueError(f"Connection '{connection_name}' not found in connections configuration.")
+        query_name = next(iter(queries))
+        query_details = queries[query_name]
+        query = query_details.get("query")
+        description = query_details.get("description", "No description")
 
-        logger.info(f"Loading data for source '{source_config.get('name', 'Unnamed')}' using connection '{connection_name}'.")
+        if not query:
+            raise ValueError(f"No 'query' found for query '{query_name}' under connection '{connection_name}'.")
+
+        logger.info(f"Loading data from query '{query_name}' ({description}) using connection '{connection_name}'.")
 
         try:
-            connector_type = connection_details.get("type")
-            connector_config = connection_details.get("config")
+            connector_type = connection_config.get("type")
+            connector_config_params = connection_config.get("config")
 
-            # The 'get_connector' function returns a context manager enabled connector
-            with get_connector(connector_type, connector_config) as connector:
-                # The date_column from source_config is passed to execute_query
-                # so the connector can handle renaming and parsing.
-                df = connector.execute_query(query, date_column=date_column)
+            with get_connector(connector_type, connector_config_params) as connector:
+                # The 'date_column' parameter is removed. Convention over configuration.
+                # The query MUST alias the date column as "Date".
+                df = connector.execute_query(query)
         except Exception as e:
-            logger.error(f"Failed to load data for source '{source_config.get('name', 'Unnamed')}' using connection '{connection_name}': {e}", exc_info=True)
-            # Depending on desired behavior, could raise, or return empty/partial data
-            raise RuntimeError(f"Failed to load data for source '{source_config.get('name', 'Unnamed')}': {e}")
+            logger.error(f"Failed to load data for query '{query_name}' using connection '{connection_name}': {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load data for query '{query_name}': {e}")
 
+        # Validate that the query results adhere to the new convention.
         if "Date" not in df.columns:
-            # This should ideally be caught by the connector's _rename_date_column,
-            # but as a safeguard:
-            raise ValueError(f"Query results for source '{source_config.get('name', 'Unnamed')}' using connection '{connection_name}' did not produce a 'Date' column after processing. Ensure your query selects a date column and it's correctly specified as 'date_column' in the config.")
+            raise ValueError(f"Query results for '{query_name}' did not produce a 'Date' column. Please alias your date column as \"Date\" in your SQL query.")
 
-        # Ensure 'Date' column is datetime
         try:
             df["Date"] = pd.to_datetime(df["Date"])
         except Exception as e:
-            raise ValueError(f"Could not convert 'Date' column to datetime for source '{source_config.get('name', 'Unnamed')}': {e}")
+            raise ValueError(f"Could not convert 'Date' column to datetime for query '{query_name}': {e}")
 
-        # Sort by date, which is critical for WBR logic
         df = df.sort_values(by='Date')
 
-        # TODO: Future enhancement - Handle multiple data sources and merge them.
-        # For now, `self.daily_df` will be the DataFrame from the first data source.
-
-        logger.info(f"Successfully loaded and processed data source. Resulting DataFrame has {len(df)} rows.")
+        logger.info(f"Successfully loaded and processed data from DB. Resulting DataFrame has {len(df)} rows.")
         return df
 
     def validate_yaml(self):

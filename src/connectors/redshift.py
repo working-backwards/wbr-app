@@ -50,14 +50,13 @@ class RedshiftConnector(BaseConnector):
             self.connection = None
             logger.info(f"Disconnected from Redshift database: {self.config.get('database')} at {self.config.get('host')}")
 
-    def execute_query(self, query: str, date_column: str = "Date") -> pd.DataFrame:
+    def execute_query(self, query: str) -> pd.DataFrame:
         """
         Executes a SQL query on Redshift and returns the results as a pandas DataFrame.
+        Relies on the query to alias the date column as "Date".
 
         Args:
             query (str): The SQL query to execute.
-            date_column (str): The name of the column in the query result that represents the date.
-                               This column will be renamed to "Date" and parsed as datetime.
 
         Returns:
             pd.DataFrame: A DataFrame containing the query results.
@@ -68,27 +67,23 @@ class RedshiftConnector(BaseConnector):
         try:
             self.cursor = self.connection.cursor()
             logger.debug(f"Executing query on Redshift: {query}")
-            # Redshift might have specific considerations for query syntax or performance.
-            # Using sql.SQL for safety if parts of query could be dynamic in other contexts.
             self.cursor.execute(sql.SQL(query))
 
             colnames = [desc[0] for desc in self.cursor.description]
             results = self.cursor.fetchall()
             df = pd.DataFrame(results, columns=colnames)
 
-            self.connection.commit() # Or rollback on error
+            self.connection.commit()
 
             # Redshift column names are typically lowercase unless quoted.
             # Standardize them to lowercase for easier handling.
             df.columns = [col.lower() for col in df.columns]
-            effective_date_column = date_column.lower()
 
-            # Rename and parse the specified date column
-            if date_column and effective_date_column in df.columns:
-                df = self._rename_date_column(df, date_column_name=effective_date_column)
-            elif date_column and effective_date_column not in df.columns:
-                logger.warning(f"Specified date_column '{date_column}' (as '{effective_date_column}') not found in Redshift query results. Columns are: {df.columns.tolist()}")
+            # The base validator expects "Date", so we must ensure it's capitalized here.
+            if 'date' in df.columns:
+                df = df.rename(columns={'date': 'Date'})
 
+            df = self._validate_and_parse_date_column(df)
 
             logger.info(f"Successfully executed query on Redshift. Fetched {len(df)} rows.")
             return df
@@ -106,24 +101,6 @@ class RedshiftConnector(BaseConnector):
             if self.cursor:
                 self.cursor.close()
                 self.cursor = None
-
-    def _rename_date_column(self, df: pd.DataFrame, date_column_name: str, desired_date_column: str = "Date") -> pd.DataFrame:
-        """
-        Renames the specified date column to the desired name (default 'Date')
-        and ensures it's parsed as datetime.
-        Overrides base method to ensure desired_date_column is also case-standardized if necessary,
-        and ensures the final 'Date' column is capitalized.
-        """
-        # Standardize to lowercase first, then rename to desired capitalized 'Date'
-        df_renamed_lower = super()._rename_date_column(df, date_column_name.lower(), desired_date_column.lower())
-
-        # Ensure the final 'Date' column is capitalized
-        if desired_date_column.lower() in df_renamed_lower.columns and desired_date_column.lower() != desired_date_column:
-             df_renamed_lower = df_renamed_lower.rename(columns={desired_date_column.lower(): desired_date_column})
-        elif desired_date_column not in df_renamed_lower.columns and desired_date_column.lower() in df_renamed_lower.columns:
-             df_renamed_lower = df_renamed_lower.rename(columns={desired_date_column.lower(): desired_date_column})
-
-        return df_renamed_lower
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':

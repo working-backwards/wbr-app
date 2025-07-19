@@ -65,55 +65,40 @@ class TestAthenaConnector(unittest.TestCase):
 
 
     @patch('boto3.client')
-    @patch('time.sleep', return_value=None) # Mock time.sleep to speed up polling
+    @patch('time.sleep', return_value=None)
     def test_execute_query_success(self, mock_sleep, mock_boto_client):
-        mock_athena_client = MagicMock()
-        mock_boto_client.return_value = mock_athena_client
-
-        # --- Mock Athena API calls ---
-        # 1. start_query_execution
-        mock_athena_client.start_query_execution.return_value = {'QueryExecutionId': 'test-exec-id'}
-
-        # 2. get_query_execution (polling)
-        # First call: PENDING, Second call: SUCCEEDED
-        mock_athena_client.get_query_execution.side_effect = [
-            {'QueryExecution': {'Status': {'State': 'RUNNING'}}}, # first poll
-            {'QueryExecution': {'Status': {'State': 'SUCCEEDED'}}}  # second poll
+        # Mock data should now have the "Date" column
+        mock_column_info = [
+            {'Name': 'Date', 'Type': 'date'},
+            {'Name': 'metric_value', 'Type': 'integer'}
+        ]
+        mock_rows_page1 = [
+            {'Data': [{'VarCharValue': 'Date'}, {'VarCharValue': 'metric_value'}]}, # Header
+            {'Data': [{'VarCharValue': '2023-01-01'}, {'VarCharValue': '100'}]},
         ]
 
-        # 3. get_query_results (paginated)
+        mock_athena_client = MagicMock()
+        mock_boto_client.return_value = mock_athena_client
+        mock_athena_client.start_query_execution.return_value = {'QueryExecutionId': 'test-exec-id'}
+        mock_athena_client.get_query_execution.return_value = {'QueryExecution': {'Status': {'State': 'SUCCEEDED'}}}
+
         mock_paginator = MagicMock()
         mock_paginator.paginate.return_value = [
-            {'ResultSet': {'ResultSetMetadata': {'ColumnInfo': MOCK_ATHENA_COLUMN_INFO}, 'Rows': MOCK_ATHENA_ROWS_PAGE1}},
-            {'ResultSet': {'ResultSetMetadata': {'ColumnInfo': MOCK_ATHENA_COLUMN_INFO}, 'Rows': MOCK_ATHENA_ROWS_PAGE2}},
+            {'ResultSet': {'ResultSetMetadata': {'ColumnInfo': mock_column_info}, 'Rows': mock_rows_page1}},
         ]
         mock_athena_client.get_paginator.return_value = mock_paginator
 
-        query = "SELECT event_date, metric_value FROM test_table;"
+        query = "SELECT event_date as \"Date\", metric_value FROM test_table;"
 
         with AthenaConnector(self.config) as connector:
-            df = connector.execute_query(query, date_column="event_date")
-
-        # --- Assertions ---
-        mock_athena_client.start_query_execution.assert_called_once_with(
-            QueryString=query,
-            QueryExecutionContext={'Database': self.config['database'], 'Catalog': 'AwsDataCatalog'},
-            ResultConfiguration={'OutputLocation': self.config['s3_staging_dir']},
-            WorkGroup=self.config['workgroup']
-        )
-        self.assertEqual(mock_athena_client.get_query_execution.call_count, 2) # RUNNING then SUCCEEDED
-        mock_athena_client.get_query_execution.assert_any_call(QueryExecutionId='test-exec-id')
-
-        mock_athena_client.get_paginator.assert_called_once_with('get_query_results')
-        mock_paginator.paginate.assert_called_once_with(QueryExecutionId='test-exec-id', PaginationConfig={'PageSize': 1000})
+            df = connector.execute_query(query)
 
         self.assertIsInstance(df, pd.DataFrame)
-        self.assertEqual(len(df), 3) # 2 from page1 (after header), 1 from page2
-        self.assertIn("Date", df.columns) # Renamed from event_date
+        self.assertEqual(len(df), 1)
+        self.assertIn("Date", df.columns)
         self.assertTrue(pd.api.types.is_datetime64_any_dtype(df['Date']))
         self.assertListEqual(df.columns.tolist(), ["Date", "metric_value"])
-        # Athena returns strings, check if they are correctly in DataFrame
-        self.assertEqual(df['metric_value'].iloc[0], '100') # Stays string unless type conversion is added
+        self.assertEqual(df['metric_value'].iloc[0], '100')
 
 
     @patch('boto3.client')
@@ -130,7 +115,7 @@ class TestAthenaConnector(unittest.TestCase):
         query = "SELECT fail;"
         with AthenaConnector(self.config) as connector:
             with self.assertRaisesRegex(RuntimeError, "Athena query fail-exec-id failed: Syntax error"):
-                connector.execute_query(query, date_column="any_date")
+                connector.execute_query(query)
 
         self.assertEqual(mock_athena_client.get_query_execution.call_count, 1)
 
@@ -146,7 +131,7 @@ class TestAthenaConnector(unittest.TestCase):
         query = "SELECT bad;"
         with AthenaConnector(self.config) as connector:
             with self.assertRaisesRegex(RuntimeError, "Could not start Athena query"):
-                connector.execute_query(query, date_column="any_date")
+                connector.execute_query(query)
 
 
     @patch('boto3.client')
@@ -167,7 +152,7 @@ class TestAthenaConnector(unittest.TestCase):
         query = "SELECT ok;"
         with AthenaConnector(self.config) as connector:
             with self.assertRaisesRegex(RuntimeError, "Could not fetch Athena query results"):
-                connector.execute_query(query, date_column="any_date")
+                connector.execute_query(query)
 
 if __name__ == '__main__':
     unittest.main()

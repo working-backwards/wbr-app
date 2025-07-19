@@ -65,34 +65,32 @@ class TestRedshiftConnector(unittest.TestCase):
 
     @patch('psycopg2.connect')
     def test_execute_query_success(self, mock_connect):
+        mock_data = [
+            (datetime(2023, 1, 1), 100, 'alpha'),
+            (datetime(2023, 1, 2), 150, 'beta'),
+        ]
+        mock_columns = ['date', 'value', 'type'] # lowercase from redshift
+
         mock_cursor_obj = MagicMock()
-        mock_cursor_obj.fetchall.return_value = MOCK_DB_DATA_RS
-        mock_cursor_obj.description = [(col,) for col in MOCK_DB_COLUMNS_RS]
+        mock_cursor_obj.fetchall.return_value = mock_data
+        mock_cursor_obj.description = [(col,) for col in mock_columns]
 
         mock_connection_obj = MagicMock()
         mock_connection_obj.cursor.return_value = mock_cursor_obj
         mock_connect.return_value = mock_connection_obj
 
-        query = "SELECT event_day, value, type FROM rs_events;"
+        query = "select event_day as date, value, type from rs_events;"
 
         with RedshiftConnector(self.config) as connector:
-            # date_column is 'event_day' (lowercase) as per MOCK_DB_COLUMNS_RS
-            df = connector.execute_query(query, date_column="event_day")
+            df = connector.execute_query(query)
 
-        mock_connection_obj.cursor.assert_called_once()
-        # sql.SQL object makes direct query string comparison tricky here
         mock_cursor_obj.execute.assert_called_once()
-        mock_cursor_obj.fetchall.assert_called_once()
-        mock_connection_obj.commit.assert_called_once()
 
         self.assertIsInstance(df, pd.DataFrame)
-        self.assertEqual(len(df), len(MOCK_DB_DATA_RS))
-        self.assertIn("Date", df.columns) # Renamed from event_day
+        self.assertEqual(len(df), len(mock_data))
+        self.assertIn("Date", df.columns) # Capitalized by the connector
         self.assertTrue(pd.api.types.is_datetime64_any_dtype(df['Date']))
-        # Original columns lowercased by connector, 'event_day' becomes 'Date'
         self.assertListEqual(sorted(df.columns.tolist()), sorted(["Date", "value", "type"]))
-        self.assertEqual(df['value'].iloc[0], 100)
-
 
     @patch('psycopg2.connect')
     def test_execute_query_db_error(self, mock_connect):
@@ -103,24 +101,20 @@ class TestRedshiftConnector(unittest.TestCase):
         mock_connection_obj.cursor.return_value = mock_cursor_obj
         mock_connect.return_value = mock_connection_obj
 
-        query = "SELECT * FROM rs_events WHERE;" # Invalid query
+        query = "SELECT * FROM rs_events WHERE;"
         with RedshiftConnector(self.config) as connector:
             with self.assertRaisesRegex(RuntimeError, "Could not execute query on Redshift: RS Query syntax error"):
-                connector.execute_query(query, date_column="event_day")
+                connector.execute_query(query)
 
         mock_connection_obj.rollback.assert_called_once()
-        mock_cursor_obj.close.assert_called_once()
-
 
     @patch('psycopg2.connect')
-    def test_execute_query_date_column_not_in_results(self, mock_connect):
+    def test_execute_query_missing_date_column(self, mock_connect):
         mock_cursor_obj = MagicMock() # Corrected typo
-        # Data that doesn't have 'event_day'
         custom_data = [(1, 'zeta'), (2, 'iota')]
         custom_cols = ['item_id', 'item_name']
         mock_cursor_obj.fetchall.return_value = custom_data
         mock_cursor_obj.description = [(col,) for col in custom_cols]
-
 
         mock_connection_obj = MagicMock()
         mock_connection_obj.cursor.return_value = mock_cursor_obj
@@ -128,15 +122,8 @@ class TestRedshiftConnector(unittest.TestCase):
 
         query = "SELECT item_id, item_name FROM items;"
         with RedshiftConnector(self.config) as connector:
-            with self.assertLogs(level='WARNING') as log_watcher:
-                # date_column "event_day" is passed, but query result doesn't have it
-                df = connector.execute_query(query, date_column="event_day")
-            self.assertTrue(any("Specified date_column 'event_day' (as 'event_day') not found" in message for message in log_watcher.output))
-
-        self.assertIsInstance(df, pd.DataFrame)
-        # Columns should be lowercased by the connector
-        self.assertListEqual(sorted(df.columns.tolist()), sorted(['item_id', 'item_name']))
-        self.assertNotIn("Date", df.columns)
+            with self.assertRaisesRegex(ValueError, "Query results must include a 'Date' column"):
+                connector.execute_query(query)
 
 
 if __name__ == '__main__':

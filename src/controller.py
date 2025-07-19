@@ -17,17 +17,6 @@ from werkzeug.utils import redirect
 import src.controller_utility as controller_util
 import src.test as test
 import src.validator as validator
-# Load database connections on startup
-try:
-    ALL_CONNECTIONS = controller_util.load_connections_config("connections.yaml") # Assuming connections.yaml is in root
-    logging.info("Successfully loaded database connections.")
-except Exception as e:
-    logging.error(f"Failed to load database connections on startup: {e}", exc_info=True)
-    # Depending on policy, either exit or run with limited functionality
-    # For now, we'll let it proceed, but endpoints requiring DBs will fail.
-    ALL_CONNECTIONS = {}
-
-
 import src.wbr as wbr
 from src.publish_utility import PublishWbr
 
@@ -50,13 +39,13 @@ def get_wbr_metrics():
     A flask endpoint, build WBR for given data csv and config yaml file.
     :return: A json response for the frontend to render the data
     """
-    # Get the WBR configuration file from the request
+    # Get the configuration file and optional CSV data file from the request
     config_file = request.files.get('configfile')
     if not config_file:
-        return app.response_class(
-            response=json.dumps({"description": "configfile is required."}),
-            status=400
-        )
+        return app.response_class(response=json.dumps({"description": "configfile is required."}), status=400)
+
+    # CSV file is now optional
+    csv_data_file = request.files.get('csvfile')
 
     try:
         wbr_yaml_config = controller_util.load_yaml_from_stream(config_file)
@@ -67,16 +56,9 @@ def get_wbr_metrics():
             status=500
         )
 
-    if not ALL_CONNECTIONS:
-        logging.error("Database connections not loaded. Cannot process request.")
-        return app.response_class(
-            response=json.dumps({"description": "Database connections are not configured or failed to load."}),
-            status=500
-        )
-
     try:
-        # Pass the WBR YAML config and all loaded DB connections to process_input
-        deck = process_input(wbr_yaml_config=wbr_yaml_config, all_db_connections=ALL_CONNECTIONS)
+        # Pass both the (optional) csv data and the wbr config to process_input
+        deck = process_input(data=csv_data_file, wbr_yaml_config=wbr_yaml_config)
     except Exception as e:
         logging.error(f"Error processing WBR input: {e}", exc_info=True)
         return app.response_class(
@@ -92,13 +74,15 @@ def get_wbr_metrics():
     )
 
 
-def process_input(wbr_yaml_config: dict, all_db_connections: dict):
+def process_input(wbr_yaml_config: dict, data: any = None):
     """
-    Processes the WBR request using database connections.
+    Processes the WBR request using either a CSV file or database connections
+    defined in the WBR configuration.
 
     Args:
         wbr_yaml_config (dict): The parsed WBR YAML configuration.
-        all_db_connections (dict): Dictionary of all available database connections.
+        data (any): Optional. A file stream for a CSV file. If provided, it takes
+                    precedence over database sources.
 
     Returns:
         dict: The generated WBR deck.
@@ -107,19 +91,12 @@ def process_input(wbr_yaml_config: dict, all_db_connections: dict):
         Exception: If any step in processing fails.
     """
     try:
-        # data_sources are defined in the wbr_yaml_config
-        data_sources = wbr_yaml_config.get('data_sources')
-        if not data_sources:
-            raise ValueError("'data_sources' not found in WBR configuration YAML.")
-
-        # Initialize WBRValidator with data sources config, main WBR config, and all connections
+        # WBRValidator's __init__ will now handle the fallback logic.
+        # It will use 'data' if provided, otherwise look for db_config_url in wbr_yaml_config.
         wbr_validator = validator.WBRValidator(
-            data_sources_config=data_sources,
-            wbr_yaml_config=wbr_yaml_config,
-            all_connections=all_db_connections
+            cfg=wbr_yaml_config,
+            csv_data=data
         )
-        # General YAML validation (e.g., setup, metrics structure)
-        # This might need adjustment if validate_yaml expects CSV-specific things
         wbr_validator.validate_yaml()
     except Exception as e:
         logging.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
@@ -366,7 +343,6 @@ def build_report():
         elif 'configFile' in request.files:
             wbr_yaml_config = controller_util.load_yaml_from_stream(request.files['configFile'])
         else:
-            # This case should be caught by the check above, but as a safeguard
             return app.response_class(response=json.dumps({'error': 'Config not provided.'}), status=400)
     except Exception as e:
         logging.error(f"Failed to load WBR YAML config: {e}", exc_info=True)
@@ -375,11 +351,26 @@ def build_report():
             status=500
         )
 
+    # Load data (optional, for CSV override)
+    data = None
+    try:
+        if 'dataFile' in request.files:
+            data = request.files['dataFile']
+        elif 'dataUrl' in request.args:
+            data = io.StringIO(requests.get(request.args["dataUrl"]).content.decode('utf-8'))
+    except Exception as e:
+        logging.error(f"Failed to load the data csv: {e}", exc_info=True)
+        return app.response_class(
+            response=json.dumps({"error": f"Failed to load the data csv: {e}"}),
+            status=500
+        )
+
+    # Note: eventsFile/eventsFileUrl is not part of the new core logic.
+    # It would need to be handled separately if its functionality is to be kept.
+
     # Override WBR config setup based on the url query parameters
-    # Ensure 'setup' key exists
     if "setup" not in wbr_yaml_config:
         wbr_yaml_config["setup"] = {}
-
     if 'week_ending' in request.args:
         wbr_yaml_config["setup"]["week_ending"] = request.args["week_ending"]
     if 'week_number' in request.args:
@@ -391,21 +382,10 @@ def build_report():
     if 'block_starting_number' in request.args:
         wbr_yaml_config["setup"]["block_starting_number"] = int(request.args["block_starting_number"])
     if 'tooltip' in request.args:
-        wbr_yaml_config["setup"]["tooltip"] = request.args["tooltip"].lower() == "true" # Ensure boolean
-
-    if not ALL_CONNECTIONS:
-        logging.error("Database connections not loaded. Cannot process /report request.")
-        return app.response_class(
-            response=json.dumps({"description": "Database connections are not configured or failed to load."}),
-            status=500
-        )
+        wbr_yaml_config["setup"]["tooltip"] = request.args["tooltip"].lower() == "true"
 
     try:
-        # process_input now expects the full WBR YAML config and all DB connections
-        # Events data handling is removed from process_input for now.
-        # If events data is still needed and comes from a separate CSV,
-        # it would need to be loaded here and passed to wbr.WBR if that class still supports it.
-        deck = process_input(wbr_yaml_config=wbr_yaml_config, all_db_connections=ALL_CONNECTIONS)
+        deck = process_input(wbr_yaml_config=wbr_yaml_config, data=data)
     except Exception as e:
         logging.error(f"Error processing WBR input for /report: {e}", exc_info=True)
         return app.response_class(

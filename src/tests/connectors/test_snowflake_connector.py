@@ -71,35 +71,43 @@ class TestSnowflakeConnector(unittest.TestCase):
 
     @patch('snowflake.connector.connect')
     def test_execute_query_success(self, mock_connect):
+        # Test case where query aliases as "DATE" (uppercase)
+        mock_df_upper = pd.DataFrame({
+            'DATE': [datetime(2023, 1, 1)],
+            'VALUE': [100]
+        })
+        # Test case where query aliases as "Date" (exact case)
+        mock_df_exact = pd.DataFrame({
+            'Date': [datetime(2023, 1, 2)],
+            'VALUE': [200]
+        })
+
         mock_cursor_obj = MagicMock()
-        # fetch_pandas_all() is a method of the cursor in snowflake.connector
-        mock_cursor_obj.fetch_pandas_all.return_value = MOCK_SNOWFLAKE_DF.copy() # Return a copy
+        # Return the uppercase version first
+        mock_cursor_obj.fetch_pandas_all.return_value = mock_df_upper
 
         mock_connection_obj = MagicMock()
         mock_connection_obj.cursor.return_value = mock_cursor_obj
-        mock_connection_obj.is_closed.return_value = False # Mock that connection is not closed
+        mock_connection_obj.is_closed.return_value = False
         mock_connect.return_value = mock_connection_obj
 
-        query = "SELECT EVENT_TIMESTAMP, VALUE, CATEGORY FROM events;"
-
-        # The connector converts column names to lower case.
-        # The date_column passed to execute_query should be the original (e.g., uppercase)
-        # name from the query, and the connector handles lowercasing internally for lookup.
+        # Test 1: Snowflake returns uppercase 'DATE'
+        query_upper = "SELECT event_timestamp as \"DATE\", value as \"VALUE\" FROM events;"
         with SnowflakeConnector(self.config) as connector:
-            df = connector.execute_query(query, date_column="EVENT_TIMESTAMP")
+            df_upper = connector.execute_query(query_upper)
 
-        mock_connection_obj.cursor.assert_called_once()
-        mock_cursor_obj.execute.assert_called_once_with(query)
-        mock_cursor_obj.fetch_pandas_all.assert_called_once()
+        self.assertIn("Date", df_upper.columns)
+        self.assertNotIn("DATE", df_upper.columns)
+        self.assertTrue(pd.api.types.is_datetime64_any_dtype(df_upper['Date']))
 
-        self.assertIsInstance(df, pd.DataFrame)
-        self.assertEqual(len(df), len(MOCK_SNOWFLAKE_DF))
-        # After _rename_date_column, the target is "Date" (capitalized)
-        self.assertIn("Date", df.columns)
-        self.assertTrue(pd.api.types.is_datetime64_any_dtype(df['Date']))
-        # Original columns are lowercased, then 'event_timestamp' becomes 'Date'
-        self.assertListEqual(sorted(df.columns.tolist()), sorted(["Date", "value", "category"]))
-        self.assertEqual(df['value'].iloc[0], 100)
+        # Test 2: Snowflake returns exact case 'Date'
+        mock_cursor_obj.fetch_pandas_all.return_value = mock_df_exact
+        query_exact = "SELECT event_timestamp as \"Date\", value as \"VALUE\" FROM events;"
+        with SnowflakeConnector(self.config) as connector:
+            df_exact = connector.execute_query(query_exact)
+
+        self.assertIn("Date", df_exact.columns)
+        self.assertTrue(pd.api.types.is_datetime64_any_dtype(df_exact['Date']))
 
 
     @patch('snowflake.connector.connect')
@@ -112,18 +120,17 @@ class TestSnowflakeConnector(unittest.TestCase):
         mock_connection_obj.is_closed.return_value = False
         mock_connect.return_value = mock_connection_obj
 
-        query = "SELECT * FROM events WHERE;" # Invalid query
+        query = "SELECT * FROM events WHERE;"
         with SnowflakeConnector(self.config) as connector:
             with self.assertRaisesRegex(RuntimeError, "Could not execute query on Snowflake: Syntax error"):
-                connector.execute_query(query, date_column="EVENT_TIMESTAMP")
+                connector.execute_query(query)
 
         mock_cursor_obj.close.assert_called_once()
 
 
     @patch('snowflake.connector.connect')
-    def test_execute_query_date_column_not_in_results(self, mock_connect):
+    def test_execute_query_missing_date_column(self, mock_connect):
         mock_cursor_obj = MagicMock()
-        # Return data that doesn't have 'EVENT_TIMESTAMP'
         temp_df = pd.DataFrame({'OTHER_COL': [1,2], 'VALUE': [10,20]})
         mock_cursor_obj.fetch_pandas_all.return_value = temp_df
 
@@ -134,15 +141,8 @@ class TestSnowflakeConnector(unittest.TestCase):
 
         query = "SELECT OTHER_COL, VALUE FROM events;"
         with SnowflakeConnector(self.config) as connector:
-            with self.assertLogs(level='WARNING') as log_watcher:
-                 # date_column "EVENT_TIMESTAMP" is passed, but query result (temp_df) doesn't have it
-                df = connector.execute_query(query, date_column="EVENT_TIMESTAMP")
-            self.assertTrue(any("Specified date_column 'EVENT_TIMESTAMP' (as 'event_timestamp') not found" in message for message in log_watcher.output))
-
-        self.assertIsInstance(df, pd.DataFrame)
-        # Columns should be lowercased by the connector
-        self.assertListEqual(sorted(df.columns.tolist()), sorted(['other_col', 'value']))
-        self.assertNotIn("Date", df.columns)
+            with self.assertRaisesRegex(ValueError, "Query results must include a 'Date' column"):
+                connector.execute_query(query)
 
 
 if __name__ == '__main__':

@@ -43,14 +43,13 @@ class SnowflakeConnector(BaseConnector):
             self.connection = None
             logger.info(f"Disconnected from Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
 
-    def execute_query(self, query: str, date_column: str = "Date") -> pd.DataFrame:
+    def execute_query(self, query: str) -> pd.DataFrame:
         """
         Executes a SQL query on Snowflake and returns the results as a pandas DataFrame.
+        Relies on the query to alias the date column as "Date".
 
         Args:
             query (str): The SQL query to execute.
-            date_column (str): The name of the column in the query result that represents the date.
-                               This column will be renamed to "Date" and parsed as datetime.
 
         Returns:
             pd.DataFrame: A DataFrame containing the query results.
@@ -64,28 +63,22 @@ class SnowflakeConnector(BaseConnector):
             logger.debug(f"Executing query on Snowflake: {query}")
             cursor.execute(query)
 
-            # Fetch results into a pandas DataFrame
-            # Snowflake connector's fetch_pandas_all() is efficient for this
             df = cursor.fetch_pandas_all()
 
-            # Column names in Snowflake are often uppercase by default.
-            # Standardize them to lowercase for easier handling, matching pandas default.
-            df.columns = [col.lower() for col in df.columns]
+            # Snowflake column names are case-sensitive and preserved by fetch_pandas_all().
+            # Users are instructed to alias their date column as "Date".
+            # We will check for "Date" and if not present, check for its uppercase version "DATE"
+            # for robustness, before passing to the validator.
+            if "Date" not in df.columns and "DATE" in df.columns:
+                df = df.rename(columns={"DATE": "Date"})
 
-            # Rename and parse the specified date column
-            # Adjust date_column to lowercase as well, as df columns were lowercased
-            effective_date_column = date_column.lower()
-
-            if date_column and effective_date_column in df.columns:
-                df = self._rename_date_column(df, date_column_name=effective_date_column) # Pass lowercased name
-            elif date_column and effective_date_column not in df.columns:
-                logger.warning(f"Specified date_column '{date_column}' (as '{effective_date_column}') not found in query results. Columns are: {df.columns.tolist()}")
+            # The base method now expects "Date" (case-sensitive).
+            df = self._validate_and_parse_date_column(df)
 
             logger.info(f"Successfully executed query on Snowflake. Fetched {len(df)} rows.")
             return df
         except snowflake.connector.errors.Error as e:
             logger.error(f"Error executing query on Snowflake: {e}\nQuery: {query}")
-            # Decide on rollback if applicable, though Snowflake handles transactions differently
             raise RuntimeError(f"Could not execute query on Snowflake: {e}")
         except Exception as e:
             logger.error(f"An unexpected error occurred during query execution on Snowflake: {e}\nQuery: {query}")
@@ -93,27 +86,6 @@ class SnowflakeConnector(BaseConnector):
         finally:
             if cursor:
                 cursor.close()
-
-    def _rename_date_column(self, df: pd.DataFrame, date_column_name: str, desired_date_column: str = "Date") -> pd.DataFrame:
-        """
-        Renames the specified date column to the desired name (default 'Date')
-        and ensures it's parsed as datetime.
-        Overrides base method to ensure desired_date_column is also case-standardized if necessary,
-        though the base implementation should handle this if df columns are already standardized.
-        Here, we ensure the output 'Date' column is capitalized as per convention for 'daily_df'.
-        """
-        # Standardize to lowercase first as per Snowflake convention, then rename to desired capitalized 'Date'
-        df_renamed_lower = super()._rename_date_column(df, date_column_name.lower(), desired_date_column.lower())
-
-        # Ensure the final 'Date' column is capitalized
-        if desired_date_column.lower() in df_renamed_lower.columns and desired_date_column.lower() != desired_date_column:
-             df_renamed_lower = df_renamed_lower.rename(columns={desired_date_column.lower(): desired_date_column})
-        elif desired_date_column not in df_renamed_lower.columns and desired_date_column.lower() in df_renamed_lower.columns:
-             # This case might happen if desired_date_column was already lowercase
-             df_renamed_lower = df_renamed_lower.rename(columns={desired_date_column.lower(): desired_date_column})
-
-
-        return df_renamed_lower
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':
