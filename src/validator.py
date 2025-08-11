@@ -36,7 +36,7 @@ class WBRValidator:
             self.daily_df = pd.read_csv(csv_data, parse_dates=['Date'], thousands=',').sort_values(by='Date')
         else:
             logger.info("No CSV data provided. Attempting to load data from database source.")
-            db_config_url = self.cfg.get("db_config_url")
+            db_config_url = self.cfg.get("setup").get("db_config_url")
             if not db_config_url:
                 raise ValueError("No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config.")
 

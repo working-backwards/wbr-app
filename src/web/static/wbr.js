@@ -94,7 +94,9 @@ const uploadFile = async (data, config) => {
 
     const formdata = new FormData();
     formdata.append("configfile", config, "WBR-Sample-Dataset.yaml");
-    formdata.append("csvfile", data, "WBR Sample Dataset.csv");
+    if (data !== undefined) {
+        formdata.append("csvfile", data, "WBR Sample Dataset.csv");
+    }
 
     const requestOptions = {
         method: 'POST',
