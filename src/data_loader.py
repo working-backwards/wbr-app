@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class DataLoader:
 
-    def __init__(self, cfg: dict, csv_data: any = None, publisher: PublishWbr = None):
+    def __init__(self, cfg: dict, csv_data: any = None):
 
         """
         Initializes the DataLoader that loads data based on the fallback logic:
@@ -29,7 +29,6 @@ class DataLoader:
 
         self.db_connections = None  # Will be loaded on-demand
         self.cfg = cfg
-        self.publisher = publisher
 
         if csv_data:
             logger.info("CSV data provided. Using CSV as the primary data source.")

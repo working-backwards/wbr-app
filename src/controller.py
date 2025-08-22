@@ -92,7 +92,7 @@ def process_input(wbr_yaml_config: dict, data: any = None):
         Exception: If any step in processing fails.
     """
     try:
-        data_loader = DataLoader(cfg=wbr_yaml_config, csv_data=data, publisher=publisher)
+        data_loader = DataLoader(cfg=wbr_yaml_config, csv_data=data)
     except Exception as e:
         logging.error(f"WBR Data loading failed: {e}", exc_info=True)
         raise Exception(f"Data loading error: {e}")
