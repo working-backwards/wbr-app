@@ -35,7 +35,7 @@ class TestWBRValidator(unittest.TestCase):
             mock_read_csv.return_value = pd.DataFrame({'Date': pd.to_datetime(['2023-01-01']), 'MetricA': [100]})
 
             with patch('src.validator.load_connections_from_url_or_path') as mock_load_conns:
-                validator = WBRValidator(cfg=config_with_db, csv_data=csv_file)
+                validator = WBRValidator(cfg=config_with_db, daily_df=csv_file)
 
                 mock_read_csv.assert_called_once()
                 mock_load_conns.assert_not_called() # Crucial: DB logic should be skipped
@@ -78,7 +78,7 @@ class TestWBRValidator(unittest.TestCase):
         }
 
         # 3. Instantiate the validator with no CSV data
-        validator = WBRValidator(cfg=config_with_db, csv_data=None)
+        validator = WBRValidator(cfg=config_with_db, daily_df=None)
 
         # 4. Assertions
         mock_load_conns.assert_called_once_with('http://example.com/connections.yaml')
@@ -95,7 +95,7 @@ class TestWBRValidator(unittest.TestCase):
         config_no_source = self.base_config.copy()
 
         with self.assertRaisesRegex(ValueError, "No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config."):
-            WBRValidator(cfg=config_no_source, csv_data=None)
+            WBRValidator(cfg=config_no_source, daily_df=None)
 
 
 if __name__ == '__main__':

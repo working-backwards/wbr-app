@@ -72,32 +72,45 @@ The WBR App determines the data source based on the following priority:
 To connect to a database, you need to configure two files:
 
 1.  **Connections YAML File:**
-    *   **Purpose:** This file stores the connection details for one or more databases. It is **not** stored in the WBR App project itself but is hosted at a URL or a file path that you provide.
-    *   **Structure:**
-        ```yaml
-        # Example connections.yaml file
-        version: 1.0
-        connections:
-          - name: "MyProdPostgres"  # A unique name for your connection
-            type: "postgres"        # Supported types: postgres, snowflake, athena, redshift
-            description: "Production PostgreSQL DB for core metrics." # Optional
-            config:
-              host: "your_postgres_host.com"
-              port: 5432
-              username: "db_user"
-              password: "your_pg_password"  # WARNING: Avoid hardcoding secrets. Use a secrets manager.
-              database: "metrics_db"
-
-          - name: "AnalyticsSnowflake"
-            type: "snowflake"
-            config:
-              user: "snowflake_user"
-              password: "your_sf_password" # WARNING: Avoid hardcoding secrets.
-              account: "your_snowflake_account_id"
-              warehouse: "COMPUTE_WH"
-              database: "ANALYTICS_DB"
-        ```
-    *   **Security Note:** It is strongly recommended to use a secure method for managing secrets like passwords and keys (e.g., AWS Secrets Manager, HashiCorp Vault) and have your application retrieve them at runtime, rather than hardcoding them in this file.
+     *   **Purpose:** This file stores the connection details for one or more databases. It is **not** stored in the WBR App project itself but is hosted at a URL or a file path that you provide.
+     *   **Structure:**
+           ```yaml
+           # Example for local connections.yaml files
+           version: 1.0
+           connections:
+             - name: "MyProdPostgres"  # A unique name for your connection
+               type: "postgres"        # Supported types: postgres, snowflake, athena, redshift
+               description: "Production PostgreSQL DB for core metrics." # Optional
+               config:
+                 host: "your_postgres_host.com"
+                 port: 5432
+                 username: "db_user"
+                 password: "your_pg_password"  # WARNING: Avoid hardcoding secrets. Use a secrets manager.
+                 database: "metrics_db"
+    
+             - name: "AnalyticsSnowflake"
+               type: "snowflake"
+               config:
+                 user: "snowflake_user"
+                 password: "your_sf_password" # WARNING: Avoid hardcoding secrets.
+                 account: "your_snowflake_account_id"
+                 warehouse: "COMPUTE_WH"
+                 database: "ANALYTICS_DB"
+           ```
+            
+           ```yaml
+           # Example for public connections.yaml files
+           version: 1.0
+           connections:
+             - name: "MyProdPostgres"  # A unique name for your connection
+               type: "postgres"        # Supported types: postgres, snowflake, athena, redshift
+               description: "Production PostgreSQL DB for core metrics." # Optional
+               config:
+                 service: aws
+                 secret_name: my-secret
+           ```
+     *   **Security Note:** It is strongly recommended to use a secure method for managing secrets like passwords and keys (e.g., AWS Secrets Manager, HashiCorp Vault) and have your application retrieve them at runtime, rather than hardcoding them in this file. 
+     *   **Note:** As of now the WBR application only support AWS secrets manager, but in future we will release support for HashiCorp Vault, Google Secrets Manager, Azure Secret Vault. 
 
 2.  **WBR Configuration File (e.g., `config.yaml`):**
     *   To use a database, you must add two sections to your main WBR configuration file: `db_config_url` and `data_sources`.

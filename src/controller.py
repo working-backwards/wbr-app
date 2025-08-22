@@ -19,6 +19,7 @@ import src.test as test
 import src.validator as validator
 import src.wbr as wbr
 from src.publish_utility import PublishWbr
+from data_loader import DataLoader
 
 app = Flask(__name__,
             static_url_path='',
@@ -91,11 +92,15 @@ def process_input(wbr_yaml_config: dict, data: any = None):
         Exception: If any step in processing fails.
     """
     try:
-        # WBRValidator's __init__ will now handle the fallback logic.
-        # It will use 'data' if provided, otherwise look for db_config_url in wbr_yaml_config.
+        data_loader = DataLoader(cfg=wbr_yaml_config, csv_data=data, publisher=publisher)
+    except Exception as e:
+        logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+        raise Exception(f"Data loading error: {e}")
+
+    try:
         wbr_validator = validator.WBRValidator(
             cfg=wbr_yaml_config,
-            csv_data=data
+            daily_df=data_loader.daily_df
         )
         wbr_validator.validate_yaml()
     except Exception as e:
@@ -104,7 +109,7 @@ def process_input(wbr_yaml_config: dict, data: any = None):
 
     try:
         # Create a WBR object using the DataFrame from WBRValidator and the WBR config
-        wbr1 = wbr.WBR(cfg=wbr_yaml_config, daily_df=wbr_validator.daily_df)
+        wbr1 = wbr.WBR(cfg=wbr_yaml_config, daily_df=data_loader.daily_df)
     except Exception as error:
         logging.error(error, exc_info=True)
         raise Exception(f"Could not create WBR metrics due to: {error.__str__()}")
