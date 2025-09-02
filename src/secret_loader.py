@@ -24,7 +24,7 @@ class SecretLoader:
                 provider-specific settings for secret retrieval.
         """
         self.secret_config = secret_config
-    
+
     def load_secret(self):
         """
         Load and return the secret value.
@@ -65,9 +65,16 @@ class AwsSecretLoader(SecretLoader):
         """
         super().__init__(secret_config)
         # Default to us-east-1 region for AWS Secrets Manager
-        self.region_name = "us-east-1"
+        self.region_name = os.environ.get("AWS_REGION_NAME") or "us-east-1"
         session = boto3.session.Session()
-        self.client = session.client(
+        aws_access_key_id = os.environ.get("AWS_STORAGE_KEY") or None
+        secret_mgnr_config = {
+            "region_name": self.region_name,
+            "aws_access_key_id": aws_access_key_id,
+            "aws_secret_access_key": os.environ.get("AWS_STORAGE_SECRET") or ""
+        }
+        self.client = session.client(service_name='secretsmanager',
+                                     **secret_mgnr_config) if aws_access_key_id else session.client(
             service_name='secretsmanager',
             region_name=self.region_name
         )
@@ -138,7 +145,8 @@ class GcpSecretLoader(SecretLoader):
         gcp_service_account_json_file = os.getenv("GCP_SERVICE_ACCOUNT_PATH")  # JSON file path
 
         # Initialize client with service account if provided, otherwise use default credentials
-        self._sm_client = get_gcp_client_for_credentials(gcp_service_account_json_file) if gcp_service_account_json_file else (
+        self._sm_client = get_gcp_client_for_credentials(
+            gcp_service_account_json_file) if gcp_service_account_json_file else (
             secretmanager.SecretManagerServiceClient())
 
     def _build_resource_name(self):
@@ -166,7 +174,8 @@ class GcpSecretLoader(SecretLoader):
         # Otherwise, construct the full path using project_id and secret_name
         project_id = self.secret_config.get("project_id")
         if not project_id:
-            raise ValueError("project_id must be provided in secret_config when secret_name is not a full resource path")
+            raise ValueError(
+                "project_id must be provided in secret_config when secret_name is not a full resource path")
 
         version = self.secret_config.get("version", "latest")
         secret_id = name
@@ -309,6 +318,7 @@ def get_gcp_client_for_credentials(credentials_json_file):
         logging.error(f"Failed to upload to GCP: {str(e)}")
         raise
 
+
 # Mapping of service names to their corresponding loader classes
 _SERVICE_MAP = {
     "aws": AwsSecretLoader,
@@ -345,5 +355,5 @@ def get_loader(config) -> SecretLoader:
     """
     if config["service"] not in _SERVICE_MAP:
         raise Exception(f"Unknown service provided {config["service"]}")
-    
+
     return _SERVICE_MAP[config["service"]](config)

@@ -40,11 +40,11 @@ class PublishWbr:
         self.storage_option = storage_option
 
         if storage_option == "s3":
-            aws_access_key_id = os.environ.get("S3_STORAGE_KEY") or None
+            aws_access_key_id = os.environ.get("AWS_STORAGE_KEY") or None
             s3config = {
-                "region_name": os.environ.get("S3_REGION_NAME") or "",
+                "region_name": os.environ.get("AWS_REGION_NAME") or "",
                 "aws_access_key_id": aws_access_key_id,
-                "aws_secret_access_key": os.environ.get("S3_STORAGE_SECRET") or ""
+                "aws_secret_access_key": os.environ.get("AWS_STORAGE_SECRET") or ""
             }
             if os.environ.get("S3_STORAGE_ENDPOINT"):
                 s3config["endpoint_url"] = os.environ.get("S3_STORAGE_ENDPOINT")

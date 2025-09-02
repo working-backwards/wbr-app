@@ -124,9 +124,7 @@ To connect to a database, you need to configure two files:
         # In your main WBR config.yaml
         data_sources:
           MyProdPostgres: # This key MUST match a 'name' from your connections.yaml
-            queries:
-              main_metrics: # A descriptive name for your query
-                description: "Aggregates total sales and user count by day"
+              main_metrics: # Aggregates total sales and user count by day
                 query: >
                   SELECT
                     event_date as "Date", -- The date column MUST be the first column and aliased to "Date"
@@ -136,6 +134,9 @@ To connect to a database, you need to configure two files:
                     daily_sales_aggregates
                   GROUP BY event_date
                   ORDER BY event_date ASC;
+          csv_files:
+              external_metrics: # A descriptive name for your csv source
+                url_or_path: /path/to/your/csv
         ```
     *   **Query Requirements:**
         *   The key under `data_sources` (`MyProdPostgres` in the example) **must** match the `name` of a connection in your Connections YAML file.
@@ -313,9 +314,9 @@ If you have published the URL with password protection, the application will ask
 Depending on your cloud provider, define the following environment variables   
 
 ###### **S3 (Amazon Web Services)**  
-  * **S3_STORAGE_KEY**: Your AWS Access Key ID.  
-  * **S3_STORAGE_SECRET**: Your AWS Secret Access Key.  
-  * **S3_REGION_NAME**: The AWS region where your bucket is hosted.  
+  * **AWS_STORAGE_KEY**: Your AWS Access Key ID.  
+  * **AWS_STORAGE_SECRET**: Your AWS Secret Access Key.  
+  * **AWS_REGION_NAME**: The AWS region where your bucket is hosted.  
   * **S3_STORAGE_ENDPOINT**: [Optional] Specifies the endpoint where reports will be stored. If not provided, reports will be published to the `OBJECT_STORAGE_BUCKET`.  
     *Alternatively*, you can use the IAM that have been set up for your local system instead of setting these environment variables.  
     *NOTE*: You can also use the same environment variables for any S3 compatible storage.  

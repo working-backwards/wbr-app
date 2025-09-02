@@ -7,7 +7,6 @@ from yaml._yaml import ScannerError
 
 from src.connectors import get_connector  # Import connector factory
 from src.controller_utility import SafeLineLoader
-from src.publish_utility import PublishWbr
 
 logger = logging.getLogger(__name__)
 
@@ -59,53 +58,72 @@ class DataLoader:
         # --- Simplification: Process the first connection and first query found ---
         # This can be expanded later to merge data from multiple queries/connections.
 
-        connection_name = next(iter(data_sources))
-        connection_config = self.db_connections.get(connection_name)
+        df_list = []
+
+        for source_name, data_source in data_sources.items():
+            if source_name == "__line__":
+                continue
+            elif source_name == "csv_files":
+                _get_df_from_csv_source(data_source, df_list)
+            else:
+                self._get_df_from_external_connection(data_source, df_list, source_name)
+
+        return _merge_dataframes(df_list, on="Date")
+
+    def _get_df_from_external_connection(self, data_source, df_list, source_name):
+        connection_config = self.db_connections.get(source_name)
         if not connection_config:
             raise ValueError(
-                f"Connection '{connection_name}' defined in 'data_sources' not found in the connections file.")
+                f"Connection '{source_name}' defined in 'data_sources' not found in the connections file.")
 
-        queries = data_sources[connection_name].get('queries')
-        if not queries or not isinstance(queries, dict):
-            raise ValueError(f"No 'queries' dictionary found for connection '{connection_name}'.")
+        if not data_source or not isinstance(data_source, dict):
+            raise ValueError(f"No 'queries' dictionary found for connection '{source_name}'.")
 
-        query_name = next(iter(queries))
-        query_details = queries[query_name]
-        query = query_details.get("query")
-        description = query_details.get("description", "No description")
+        for query_name, query_details in data_source.items():
+            if query_name == "__line__":
+                continue
 
-        if not query:
-            raise ValueError(f"No 'query' found for query '{query_name}' under connection '{connection_name}'.")
+            query = query_details.get("query")
 
-        logger.info(f"Loading data from query '{query_name}' ({description}) using connection '{connection_name}'.")
+            if not query:
+                raise ValueError(
+                    f"No 'query' found for query '{query_name}' under connection '{source_name}'.")
 
-        try:
-            connector_type = connection_config.get("type")
-            connector_config_params = connection_config.get("config")
+            logger.info(
+                f"Loading data from query '{query_name}' using connection '{source_name}'.")
 
-            with get_connector(connector_type, connector_config_params) as connector:
-                # The 'date_column' parameter is removed. Convention over configuration.
-                # The query MUST alias the date column as "Date".
-                df = connector.execute_query(query)
-        except Exception as e:
-            logger.error(f"Failed to load data for query '{query_name}' using connection '{connection_name}': {e}",
-                         exc_info=True)
-            raise RuntimeError(f"Failed to load data for query '{query_name}': {e}")
+            try:
+                connector_type = connection_config.get("type")
+                connector_config_params = connection_config.get("config")
 
-        # Validate that the query results adhere to the new convention.
-        if "Date" not in df.columns:
-            raise ValueError(
-                f"Query results for '{query_name}' did not produce a 'Date' column. Please alias your date column as \"Date\" in your SQL query.")
+                with get_connector(connector_type, connector_config_params) as connector:
+                    # The 'date_column' parameter is removed. Convention over configuration.
+                    # The query MUST alias the date column as "Date".
+                    df = connector.execute_query(query)
+            except Exception as e:
+                logger.error(
+                    f"Failed to load data for query '{query_name}' using connection '{source_name}': {e}",
+                    exc_info=True)
+                raise RuntimeError(f"Failed to load data for query '{query_name}': {e}")
 
-        try:
-            df["Date"] = pd.to_datetime(df["Date"])
-        except Exception as e:
-            raise ValueError(f"Could not convert 'Date' column to datetime for query '{query_name}': {e}")
+            # Validate that the query results adhere to the new convention.
+            if "Date" not in df.columns:
+                raise ValueError(
+                    f"Query results for '{query_name}' did not produce a 'Date' column. Please alias your date column as \"Date\" in your SQL query.")
 
-        df = df.sort_values(by='Date')
+            try:
+                df["Date"] = pd.to_datetime(df["Date"])
+            except Exception as e:
+                raise ValueError(f"Could not convert 'Date' column to datetime for query '{query_name}': {e}")
 
-        logger.info(f"Successfully loaded and processed data from DB. Resulting DataFrame has {len(df)} rows.")
-        return df
+            df = df.sort_values(by='Date')
+
+            col_alias = {col: f"{query_name}.{col}" for col in df.columns if col != "Date"}
+            df = df.rename(columns=col_alias)
+
+            df_list.append(df)
+            logger.info(
+                f"Successfully loaded and processed data from DB. Resulting DataFrame has {len(df)} rows.")
 
 
 def _load_connections_from_url_or_path(url_or_path: str) -> dict:
@@ -168,3 +186,107 @@ def _load_connections_from_url_or_path(url_or_path: str) -> dict:
 
     logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
     return connections_map
+
+
+def _get_df_from_csv_source(data_source, df_list):
+    for csv_source_name, source_config in data_source.items():
+        if csv_source_name == "__line__":
+            continue
+
+        url_or_path = source_config["url_or_path"]
+        if source_config["url_or_path"].lower().startswith(('http://', 'https://')):
+            try:
+                response = requests.get(url_or_path, allow_redirects=True)
+                response.raise_for_status()  # Raise an exception for bad status codes
+                content = response.content.decode("utf-8")
+                df = pd.read_csv(content, parse_dates=['Date'], thousands=',').sort_values(by='Date')
+                logging.info(f"Successfully fetched csv file from URL: {url_or_path}")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to fetch csv file from URL: {url_or_path}. Error: {e}", exc_info=True)
+                raise ConnectionError(f"Failed to fetch csv file from URL: {url_or_path}")
+            except Exception as e:
+                logging.error(f"An unexpected error occurred while reading csv data from {url_or_path}: {e}", exc_info=True)
+                raise
+        else:
+            try:
+                df = pd.read_csv(url_or_path, parse_dates=['Date'], thousands=',').sort_values(by='Date')
+                logging.info(f"Successfully read csv file from local path: {url_or_path}")
+            except FileNotFoundError:
+                logger.error(f"Data csv file not found at local path: {url_or_path}")
+                raise FileNotFoundError(f"Data csv file not found at: {url_or_path}")
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while reading local csv file {url_or_path}: {e}",
+                             exc_info=True)
+                raise
+
+        col_alias = {col: f"{csv_source_name}.{col}" for col in df.columns if col != "Date"}
+        df = df.rename(columns=col_alias)
+        df_list.append(df)
+
+
+def _merge_dataframes(dataframes, on="date", sort=True):
+    """
+    Hybrid join:
+      - Outer-join the FIRST row per date from each source.
+      - Append any additional rows from each source for that same date,
+        with NaNs for other sources' columns.
+    """
+    first_occurrences = []
+    extras_list = []
+
+    used_columns = {on}
+
+    for idx, df in enumerate(dataframes):
+        df = df.copy()
+        # Ensure deterministic "first" per date
+        df = df.sort_values(on, kind="stable")
+
+        rename_map = {}
+        for col in df.columns:
+            if col == on:
+                continue
+            if col in used_columns:
+                # Collision → add suffix
+                rename_map[col] = f"{col}_src{idx + 1}"
+            else:
+                used_columns.add(col)
+
+        if rename_map:
+            df = df.rename(columns=rename_map)
+
+        # First occurrence per date
+        first = df[~df.duplicated(on, keep='first')].copy()
+        first_occurrences.append(first)
+
+        # Additional rows for the same date (beyond first)
+        extra = df[df.duplicated(on, keep='first')].copy()
+        extras_list.append(extra)
+
+    # Outer-join the first occurrences across sources
+    merged = first_occurrences[0]
+    for other in first_occurrences[1:]:
+        merged = merged.merge(other, on=on, how='outer', sort=False)
+
+    # Append aligned extras: reindex to merged columns to avoid KeyError
+    for extra in extras_list:
+        extra_aligned = extra.reindex(columns=merged.columns)
+        merged = pd.concat([merged, extra_aligned], ignore_index=True, sort=False)
+
+    if sort:
+        merged = merged.sort_values(on, kind="stable").reset_index(drop=True)
+    return merged
+
+
+if __name__ == "__main__":
+    df1 = pd.DataFrame({
+        "date": ["2025-01-15", "2025-01-15", "2025-01-16"],
+        "metric1": [10, 20, 30]
+    })
+
+    df2 = pd.DataFrame({
+        "date": ["2025-01-15", "2025-01-17"],
+        "metric2": [100, 200]
+    })
+
+    result = _merge_dataframes([df1, df2], on="date")
+    print(result)
