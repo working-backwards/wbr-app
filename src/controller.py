@@ -19,7 +19,7 @@ import src.test as test
 import src.validator as validator
 import src.wbr as wbr
 from src.publish_utility import PublishWbr
-from data_loader import DataLoader
+from src.data_loader import DataLoader
 
 app = Flask(__name__,
             static_url_path='',
