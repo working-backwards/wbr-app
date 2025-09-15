@@ -142,6 +142,26 @@ To connect to a database, you need to configure two files:
         *   The key under `data_sources` (`MyProdPostgres` in the example) **must** match the `name` of a connection in your Connections YAML file.
         *   The **first column** in your `SELECT` statement **must** be the date/timestamp column, and it **must be aliased as `"Date"`** (e.g., `select event_timestamp as "Date", ...`). The rest of the WBR framework relies on this convention.
         *   The other columns returned by your query are what you will reference in the `metrics` section of your WBR config.
+    *   **Metric Section**
+        *   While defining metric you need to use alias, so that there would be no duplicates in the final merged daily dataframe
+        *   If following is you data_source
+        ```yaml
+        data_sources:
+          MyProdPostgres:
+            main_metrics: # A descriptive name for your query
+            query: > # "Aggregates total sales and user count by day"
+              SELECT
+              date as "Date", "Impressions"
+              FROM
+              wbr_sample_1;
+        ```
+        Then the metric that you define in the metric section will now look like this
+        ```yaml
+          Impressions:
+            column: main_metrics.Impressions
+            aggf: sum
+        ```
+        The `main_metrics` will be used as the alias for all the columns from the main_metrics data_source
 
 ---
 
