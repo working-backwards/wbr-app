@@ -109,8 +109,8 @@ To connect to a database, you need to configure two files:
                  service: aws
                  secret_name: my-secret
            ```
-     *   **Security Note:** It is strongly recommended to use a secure method for managing secrets like passwords and keys (e.g., AWS Secrets Manager, HashiCorp Vault) and have your application retrieve them at runtime, rather than hardcoding them in this file. 
-     *   **Note:** As of now the WBR application only support AWS secrets manager, but in future we will release support for HashiCorp Vault, Google Secrets Manager, Azure Secret Vault. 
+     *   **Security Note:** It is strongly recommended to use a secure method for managing secrets like passwords and keys (e.g., AWS Secrets Manager) and have your application retrieve them at runtime, rather than hardcoding them in this file. 
+     *   **Note:** As of now the WBR application only support AWS secrets manager, but in future we will release support for Google Secrets Manager, Azure Secret Vault. 
 
 2.  **WBR Configuration File (e.g., `config.yaml`):**
     *   To use a database, you must add two sections to your main WBR configuration file: `db_config_url` and `data_sources`.
