@@ -1,6 +1,8 @@
 import datetime
 import logging
 import tempfile
+
+logger = logging.getLogger(__name__)
 import traceback
 from json import JSONEncoder
 from typing import List
@@ -31,6 +33,7 @@ class SixTwelveChart:
         self.yAxis = []
         self.table = {}
         self.tooltip = "false"
+        self.events = []
 
 
 class MetricObject:
@@ -46,6 +49,7 @@ class Deck:
         self.weekEnding = ""
         self.blockStartingNumber = 1
         self.xAxisMonthlyDisplay = None
+        self.eventErrors: str
 
 
 class Rows:
@@ -62,6 +66,7 @@ class TrailingTable:
         self.title = ""
         self.headers = []
         self.rows = []
+        self.events = []
 
 
 class EmbeddedContent:
@@ -152,7 +157,7 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     return primary_and_secondary_axis_value_list, is_single_axis
 
 
-def _6_12_chart(decks, plot, wbr1: WBR, block_number):
+def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -163,7 +168,7 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number):
         plot (dict): Configuration for the plot block, containing parameters such as title, y-axis scaling, etc.
         wbr1 (WBR): Data object that contains the current week's report data, metrics, and configurations.
         block_number (str): The block number for which the chart is being built, useful for logging and error handling.
-
+        events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description
     Raises:
         SyntaxError: If required metrics are not specified in the plot configuration.
         KeyError: If a specified metric is not found in the WBR data.
@@ -205,7 +210,8 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number):
         is_trailing_twelve_months,
         metrices,
         six_twelve_chart,
-        wbr1
+        wbr1,
+        events_dict
     )
 
     # Set the number of axes based on whether a single or dual-axis is needed.
@@ -222,7 +228,8 @@ def process_metric(
         is_trailing_twelve_months,
         metrics,
         six_twelve_chart,
-        wbr1
+        wbr1,
+        events_dict
 ):
     """
     Processes metrics to build chart data for the 6-12 chart, including handling current and prior year data,
@@ -236,6 +243,7 @@ def process_metric(
         metrics (dict): Dictionary of metrics and their configuration from the plotting YAML.
         six_twelve_chart (SixTwelveChart): Chart object to which the processed data is added.
         wbr1 (WBR): Data object containing the report metrics and configurations.
+        events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description.
 
     Returns:
         bool: Updated flag indicating if the chart should use a single axis.
@@ -267,6 +275,9 @@ def process_metric(
             box_value_list = _update_box_totals(
                 metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart
             )
+
+            if metric in events_dict:
+                six_twelve_chart.events.append(events_dict[metric])
 
         except Exception as error:
             # Log any errors that occur during the chart-building process.
@@ -649,7 +660,7 @@ def get_twelve_months_table_row(wbr1, metric, itr_start):
     return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + 12)]
 
 
-def _6_weeks_table(decks, plot, wbr1: WBR, block_number):
+def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
     """
     Constructs a 6-week table block for a specified plot using data from a WBR object.
 
@@ -658,6 +669,7 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number):
         plot: A dictionary containing plotting configurations for the table block.
         wbr1 (WBR): The WBR object containing metrics data.
         block_number (str): The identifier for the block being constructed.
+        event_dict (dict): An dictionary consisting of the metric and the respective events
 
     Raises:
         SyntaxError: If rows are not specified in the plotting configuration.
@@ -680,7 +692,7 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number):
     table_column_header = [wbr1.graph_axis_label[i] for i in range(0, 6)]
     table_column_header.append("QTD")  # Add QTD column header.
     table_column_header.append("YTD")  # Add YTD column header.
-    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1)
+    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1, event_dict)
 
     # Append the completed six weeks table to the decks collection.
     decks.blocks.append(six_weeks_table)
@@ -691,7 +703,8 @@ def build_six_weeks_table(
         plotting_dict: dict,
         six_weeks_table: TrailingTable,
         table_column_header: list,
-        wbr1: WBR
+        wbr1: WBR,
+        event_dict: dict
 ):
     """
     Builds a six weeks table using the specified plotting configuration.
@@ -702,6 +715,7 @@ def build_six_weeks_table(
         six_weeks_table (TrailingTable): The table object to populate with rows and headers.
         table_column_header (list): The headers for the table, representing the weeks and additional metrics.
         wbr1 (WBR): The WBR object containing metric data necessary for building table rows.
+        event_dict (dict): An dictionary consisting of the metric and the respective events
 
     Raises:
         SyntaxError: If the 'rows' key is not present in the plotting configuration.
@@ -716,7 +730,7 @@ def build_six_weeks_table(
         # Iterate over each row configuration to build table rows.
         for row_configs in plotting_dict['rows']:
             try:
-                row = build_six_week_table_row(row_configs, wbr1)
+                row = build_six_week_table_row(six_weeks_table, row_configs, wbr1, event_dict)
 
                 # Append the constructed row to the table.
                 six_weeks_table.rows.append(row)
@@ -727,14 +741,16 @@ def build_six_weeks_table(
                                 f"{row_configs['__line__']}")
 
 
-def build_six_week_table_row(row_configs: dict, wbr1: WBR):
+def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, wbr1: WBR, event_dict: dict):
     """
     Constructs a row for the six weeks table based on the provided configuration.
 
     Args:
+        six_weeks_table (TrailingTable): The table object to populate with rows and headers.
         row_configs (dict): A dictionary containing the configuration for the row, which includes
                             'header', 'metric', 'style', and 'y_scaling'.
         wbr1 (WBR): The WBR object containing metric data necessary for retrieving the metric values.
+        event_dict (dict): An dictionary consisting of the metric and the respective events
 
     Raises:
         KeyError: If the specified metric is not found in the WBR metrics dataframe.
@@ -755,6 +771,8 @@ def build_six_week_table_row(row_configs: dict, wbr1: WBR):
                 f"the dataframe, please check if you have defined this metric in metric section")
         # Get data for the six weeks table row.
         row.rowData = get_six_weeks_table_row_data(wbr1, row_config['metric'], row_config['__line__'])
+        if row_config['metric'] in event_dict:
+            six_weeks_table.events.append(event_dict[row_config['metric']])
     # Set additional properties for the row if specified.
     if 'style' in row_config:
         row.rowStyle = row_config['style']
@@ -917,37 +935,82 @@ def append_embedded_content_to_deck(decks, plot):
     decks.blocks.append(embedded_content)
 
 
-def get_wbr_deck(wbr1: WBR) -> Deck:
+def filter_metric(metric, metric_list, event_errors):
+    if metric not in metric_list:
+        event_errors.append(f"Metric {metric} not present the metric list")
+        return False
+
+    return True
+
+
+def filter_events(wbr: WBR, event_df, event_errors: list) -> dict:
+    if event_df is None:
+        return {}
+    week_ending = wbr.cy_week_ending
+    cy_six_weeks_ago = week_ending - datetime.timedelta(days=41)
+    py_six_weeks_end = week_ending - datetime.timedelta(days=364)
+    py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=41)
+
+    cy_six_weeks_events = event_df.query('Date >= @cy_six_weeks_ago and Date <= @week_ending')
+    py_six_weeks_events = event_df.query('Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end')
+
+    df = pd.concat([cy_six_weeks_events, py_six_weeks_events], axis=0)
+    events_metric_list = list(df["MetricName"])
+
+    wbr_metric_list = wbr.metrics.columns
+    events_metric_list = list(filter(lambda metric: filter_metric(metric, wbr_metric_list, event_errors),
+                                     events_metric_list))
+
+    events_desc_list = list(df["EventDescription"])
+    events_date_list = list(df["Date"])
+    events_dict = {}
+    for m, d, date in zip(events_metric_list, events_desc_list, events_date_list):
+        events_dict[m] = {"metric": m, "description": d, "date": date.strftime("%B %d %Y")}
+
+    return events_dict
+
+
+def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     """
     Constructs a Deck object based on the configuration provided in the wbr1 object.
 
     Args:
-        wbr1 (WBR): An instance of the WBR class containing configuration data for the deck.
-
+        report (WBR): An instance of the WBR class containing configuration data for the deck.
+        event_data (DataFrame): Event dataframe that consists the event data for the wbr metrics
     Returns:
         Deck: A Deck object populated with plots, titles, and other settings defined in the wbr1 configuration.
     """
-    plots = wbr1.cfg['deck']
+    plots = report.cfg['deck']
     deck = Deck()
 
-    if 'x_axis_monthly_display' in wbr1.cfg['setup']:
-        deck.xAxisMonthlyDisplay = wbr1.cfg['setup']['x_axis_monthly_display']
+    event_dict = {}
+    event_errors = []
+    try:
+        event_dict = filter_events(report, event_data, event_errors)
+    except Exception as err:
+        logging.error(err, exc_info=True)
+        event_errors.append(err.__str__())
+
+    if 'x_axis_monthly_display' in report.cfg['setup']:
+        deck.xAxisMonthlyDisplay = report.cfg['setup']['x_axis_monthly_display']
 
     for i in range(len(plots)):
-        build_a_block(deck, i, plots, wbr1)
+        build_a_block(deck, i, plots, report, event_dict)
 
-    deck.title = wbr1.cfg['setup']['title']
+    deck.title = report.cfg['setup']['title']
 
-    week_ending = datetime.datetime.strptime(wbr1.cfg['setup']['week_ending'], '%d-%b-%Y')
+    week_ending = datetime.datetime.strptime(report.cfg['setup']['week_ending'], '%d-%b-%Y')
     deck.weekEnding = week_ending.strftime("%d") + " " + week_ending.strftime("%B") + " " + week_ending.strftime("%Y")
 
-    if 'block_starting_number' in wbr1.cfg['setup']:
-        deck.blockStartingNumber = wbr1.cfg['setup']['block_starting_number']
+    if 'block_starting_number' in report.cfg['setup']:
+        deck.blockStartingNumber = report.cfg['setup']['block_starting_number']
+
+    deck.eventErrors = "\n".join(event_errors) if len(event_errors) > 0 else None
 
     return deck
 
 
-def build_a_block(deck: Deck, i: int, plots: list, wbr1: WBR):
+def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -955,8 +1018,8 @@ def build_a_block(deck: Deck, i: int, plots: list, wbr1: WBR):
         deck (Deck): The Deck object to which the block will be added.
         i (int): The index of the current block in the plots list.
         plots (list): A list of plot configurations, each containing a block configuration.
-        wbr1 (WBR): An instance of the WBR class containing additional configuration data.
-
+        report (WBR): An instance of the WBR class containing additional configuration data.
+        event_dict (dict): An dictionary consisting of the metric and the respective events
     Raises:
         Exception: If the block configuration is invalid or if the UI type is not recognized.
     """
@@ -968,11 +1031,11 @@ def build_a_block(deck: Deck, i: int, plots: list, wbr1: WBR):
         raise Exception(f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
                         f" {plotting_dict['__line__']}")
     elif plotting_dict['ui_type'] == '6_12Graph':
-        _6_12_chart(deck, plots[i], wbr1, str(i + 1))
+        _6_12_chart(deck, plots[i], report, str(i + 1), event_dict)
     elif plotting_dict['ui_type'] == '6_WeeksTable':
-        _6_weeks_table(deck, plots[i], wbr1, str(i + 1))
+        _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict)
     elif plotting_dict['ui_type'] == '12_MonthsTable':
-        _12_months_table(deck, plots[i], wbr1, str(i + 1))
+        _12_months_table(deck, plots[i], report, str(i + 1))
     elif plotting_dict['ui_type'] == 'section':
         append_section_to_deck(deck, plots[i])
     elif plotting_dict['ui_type'] == 'embedded_content':
@@ -1009,13 +1072,14 @@ def get_scaling(series_data):
             return mask
 
 
-def generate_custom_yaml(temp_file, csv_data):
+def generate_custom_yaml(temp_file, csv_data, config):
     """
     Generates a custom YAML configuration file based on the provided CSV data.
 
     Args:
         temp_file (file-like object): A writable file object where the generated YAML will be saved.
         csv_data (pandas.DataFrame): A DataFrame containing the data from a CSV file, including metrics and dates.
+        config (dict): A dictionary with datasource configuration.
     """
     columns = list(csv_data.columns)
     configs = {}
@@ -1028,42 +1092,69 @@ def generate_custom_yaml(temp_file, csv_data):
         'x_axis_monthly_display': 'trailing_twelve_months'
     }
 
+    if 'setup' in config and 'db_config_url' in config.get('setup'):
+        wbr_setup_config['db_config_url'] = config.get('setup').get('db_config_url')
+
     configs['setup'] = wbr_setup_config
 
-    metric_config_dict = {}
+    # Add a placeholder for data_sources
+    data_sources_placeholder = [
+        {
+            "name": "my_database_source",
+            "connection_name": "NameOfYourConnectionInConnectionsYAML",
+            "date_column": "your_date_column_from_query",
+            "query": "# Write your SQL query here, ensuring it returns 'your_date_column_from_query'\n# Example: SELECT date_col as your_date_column_from_query, metric1, metric2 FROM your_table;"
+        }
+    ]
+    configs['data_sources'] = config.get("data_sources") if "data_sources" in config else data_sources_placeholder
 
-    # Generate metric configurations
+    metric_config_dict = {}
+    # Generate metric configurations based on CSV columns (less direct now)
+    # User will need to map these to query result columns
     for column in columns:
         if column != 'Date' and (csv_data[column].dtype == int or csv_data[column].dtype == float):
+            # Assuming the column name from CSV might be the same as in query result
             metric_config_dict[column] = get_dict(column)
+            # Add a comment that user needs to verify this column exists in query output
+            metric_config_dict[column]['comment'] = f"Ensure '{column}' is a column in your data_sources query output."
+
 
     configs['metrics'] = metric_config_dict
 
-    metric_keyset = list(metric_config_dict.keys())
+    metric_keyset = list(
+        filter(lambda k: isinstance(metric_config_dict[k], dict), metric_config_dict.keys()))  # Filter out comments
     blocks = []
 
     # Generate deck configurations for each metric
-    for metric in metric_keyset:
+    for metric_key in metric_keyset:
+        # Check if the key exists and is a dictionary (to avoid issues with 'comment' fields)
+        if metric_key not in metric_config_dict or not isinstance(metric_config_dict[metric_key], dict):
+            continue
+
         deck_config_dict = {}
 
-        # Check if there is a target metric for the current metric
-        suffixes = ["__Target", "__target"]
+        # Target metric logic remains similar, assuming target columns would also be in query
+        target_col_name_suffixes = ["__Target", "__target"]
+        target = next(
+            (metric_key + suffix for suffix in target_col_name_suffixes if metric_key + suffix in metric_keyset), None)
 
-        # find first from list or else None
-        target = next((metric + suffix for suffix in suffixes if metric + suffix in metric_keyset), None)
+        if target and target in metric_keyset:  # Ensure target is also a valid metric key
+            # metric_keyset.remove(target) # This would modify list while iterating if not careful, better to just use it
+            pass
 
-        if target:
-            metric_keyset.remove(target)
+        # Scaling based on CSV data is less relevant if data comes from DB.
+        # User might need to set y_scaling manually or we need another way to infer it.
+        # For now, keep it but add a comment.
+        mean_column_value = get_scaling(csv_data[metric_key]) if metric_key in csv_data else None
 
-        # Get the mean column value for scaling
-        mean_column_value = get_scaling(csv_data[metric])
+        block_metrics_config = get_metric_block(metric_key, target if target and target in metric_config_dict else None)
 
-        # Create block configuration for the metric
         block_config = {
             'ui_type': '6_12Graph',
-            'title': metric,
+            'title': metric_key,
             'y_scaling': mean_column_value,
-            'metrics': get_metric_block(metric, target)
+            'comment_scaling': "y_scaling is based on uploaded CSV, adjust if data source is database.",
+            'metrics': block_metrics_config
         }
 
         deck_config_dict['block'] = block_config
@@ -1071,17 +1162,19 @@ def generate_custom_yaml(temp_file, csv_data):
 
     configs['deck'] = blocks
 
-    with open(temp_file.name, 'a') as file:
-        yaml.dump(configs, file, sort_keys=False)
+    # Custom Dumper to handle comments better if needed, but PyYAML's default should be okay for basic comments.
+    with open(temp_file.name, 'w') as file:  # Changed to 'w' to overwrite if file exists
+        yaml.dump(configs, file, sort_keys=False, allow_unicode=True)
 
 
-def load_yaml_from_stream(config_file):
+def load_yaml_from_stream(config_file, add_lines: bool = True):
     # Create a temporary file to save the configuration file
     with tempfile.NamedTemporaryFile(mode="a", delete=False) as temp_file:
         config_file.save(temp_file.name)
         try:
             # Load the YAML configuration from the temporary file
-            return yaml.load(open(temp_file.name), SafeLineLoader)
+            return yaml.load(open(temp_file.name), SafeLineLoader) if add_lines else yaml.load(open(temp_file.name),
+                                                                                               SafeLoader)
         except (ScannerError, yaml.YAMLError) as e:
             logging.error(e, exc_info=True)
             error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
@@ -1105,3 +1198,65 @@ def load_yaml_from_url(url: str):
         error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
         # Return an error response if there is an issue with the YAML configuration
         raise Exception(f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
+
+
+def load_connections_from_url_or_path(url_or_path: str) -> dict:
+    """
+    Loads and parses a connections YAML file from a URL or a local file path.
+
+    Args:
+        url_or_path (str): The URL or local file path to the connections YAML file.
+
+    Returns:
+        dict: A dictionary mapping connection names to their configurations.
+    """
+    content = ""
+    if url_or_path.lower().startswith(('http://', 'https://')):
+        try:
+            response = requests.get(url_or_path, allow_redirects=True)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            content = response.content.decode("utf-8")
+            logging.info(f"Successfully fetched connections file from URL: {url_or_path}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch connections file from URL: {url_or_path}. Error: {e}", exc_info=True)
+            raise ConnectionError(f"Failed to fetch connections file from URL: {url_or_path}")
+    else:
+        # Treat as a local file path
+        try:
+            with open(url_or_path, 'r') as f:
+                content = f.read()
+            logging.info(f"Successfully read connections file from local path: {url_or_path}")
+        except FileNotFoundError:
+            logger.error(f"Connections configuration file not found at local path: {url_or_path}")
+            raise FileNotFoundError(f"Connections configuration file not found at: {url_or_path}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while reading local connections file {url_or_path}: {e}",
+                         exc_info=True)
+            raise
+
+    # Parse the YAML content
+    try:
+        config_data = yaml.load(content, Loader=SafeLineLoader)
+    except (ScannerError, yaml.YAMLError) as e:
+        logging.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
+        raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
+
+    # Validate the structure
+    if not isinstance(config_data, dict) or "connections" not in config_data:
+        raise ValueError(f"Invalid connections YAML structure from {url_or_path}. Missing 'connections' key.")
+    if not isinstance(config_data["connections"], list):
+        raise ValueError(f"Invalid connections YAML structure from {url_or_path}. 'connections' must be a list.")
+
+    connections_map = {}
+    for conn in config_data["connections"]:
+        if not isinstance(conn, dict) or "name" not in conn or "type" not in conn or "config" not in conn:
+            line = conn.get('__line__', 'N/A')
+            raise ValueError(
+                f"Invalid connection entry in {url_or_path} near line {line}. Each connection must have 'name', 'type', and 'config'.")
+        if conn["name"] in connections_map:
+            line = conn.get('__line__', 'N/A')
+            raise ValueError(f"Duplicate connection name '{conn['name']}' found in {url_or_path} near line {line}.")
+        connections_map[conn["name"]] = conn
+
+    logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
+    return connections_map

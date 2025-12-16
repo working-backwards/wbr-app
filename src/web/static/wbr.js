@@ -94,7 +94,9 @@ const uploadFile = async (data, config) => {
 
     const formdata = new FormData();
     formdata.append("configfile", config, "WBR-Sample-Dataset.yaml");
-    formdata.append("csvfile", data, "WBR Sample Dataset.csv");
+    if (data !== undefined) {
+        formdata.append("csvfile", data, "WBR Sample Dataset.csv");
+    }
 
     const requestOptions = {
         method: 'POST',
@@ -339,7 +341,7 @@ function clearInputFile(f) {
 
 async function downloadFile(csvDataFile) {
     var formdata = new FormData();
-    formdata.append("csvfile", csvDataFile, "WBR Sample Dataset.csv");
+    formdata.append("configFile", csvDataFile, "WBR Sample Dataset.csv");
 
     var requestOptions = {
         method: 'POST',
@@ -412,6 +414,23 @@ function createChartBlock(subData, deckDiv, counter) {
     deckDiv.appendChild(maindiv);
     plotChart(chartId, subData, counter);
     createTable(`${chartId}_table`, subData);
+
+    if (subData.events !== undefined && subData.events != null && subData.events.length > 0) {
+        const major_events_block = document.createElement('div');
+        major_events_block.id = `${chartId}_major_events`;
+        major_events_block.className = 'majorEventsDiv';
+
+        maindiv.appendChild(major_events_block);
+
+        const eventHeader = document.createElement('h6');
+        eventHeader.textContent = "Noteworthy Events:"
+        major_events_block.appendChild(eventHeader);
+
+        const eventData = subData.events.map(event => event.date + "    " + event.metric + "    " + event.description).join("\n");
+        const p_element = document.createElement('p');
+        p_element.textContent = eventData;
+        major_events_block.appendChild(p_element);
+    }
 }
 
 function createSixWeeksTable(subData, deckDiv, tableId, counter) {
@@ -426,6 +445,24 @@ function createSixWeeksTable(subData, deckDiv, tableId, counter) {
 
     deckDiv.appendChild(maindiv);
     plotSixWeeksTable(blockTableDivId, subData, tableId, counter);
+
+    if (subData.events !== undefined && subData.events != null && subData.events.length > 0) {
+        const major_events_block = document.createElement('div');
+        major_events_block.id = `${blockTableDivId}_major_events`;
+        major_events_block.className = 'majorEventsDiv';
+
+        maindiv.appendChild(major_events_block);
+
+        const eventHeader = document.createElement('h6');
+        eventHeader.textContent = "Noteworthy Events:"
+        major_events_block.appendChild(eventHeader);
+
+        const eventData = subData.events.map(event => event.date + "    " + event.metric + "    " + event.description).join("\n");
+        const p_element = document.createElement('p');
+        p_element.textContent = eventData;
+        major_events_block.appendChild(p_element);
+
+    }
 }
 
 function createTwelveMonthsTable(subData, deckDiv, tableId, counter) {

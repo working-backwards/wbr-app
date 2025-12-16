@@ -1,21 +1,29 @@
+import logging
 from datetime import datetime
 
 import pandas as pd
 
+logger = logging.getLogger(__name__)
 week_ending_date_format = '%d-%b-%Y'
 
 
-def check_params(config):
-    return 'function' not in config and \
-        ("aggf" in config and ('column' in config or 'filter' in config))
-
-
 class WBRValidator:
-    def __init__(self, csv, cfg):
-        self.daily_df = pd.read_csv(csv, parse_dates=['Date'], thousands=',').sort_values(by='Date')
+    def __init__(self, cfg: dict, daily_df: pd.DataFrame = None):
+        """
+        Initializes the WBRValidator that validate the yaml config metrics and the data columns
+
+        Args:
+            cfg (dict): The main WBR YAML configuration.
+            daily_df (any, optional): A file stream for a CSV file. Defaults to None.
+        """
         self.cfg = cfg
+        self.daily_df = daily_df  # Will be loaded on-demand
 
     def validate_yaml(self):
+        # The structure of self.cfg (the WBR YAML) is assumed to be validated
+        # by the time it's passed here, or specific checks for 'setup', 'metrics', 'deck'
+        # can be added if WBRValidator is also responsible for that.
+        # For now, this focuses on the data loading part.
         self.check_week_ending()
         self.validate_aggf()
 
