@@ -1,11 +1,14 @@
-import pandas as pd
-import boto3
-from botocore.exceptions import ClientError
-from .base import BaseConnector
-import time
 import logging
+import time
+
+import boto3
+import pandas as pd
+from botocore.exceptions import ClientError
+
+from .base import BaseConnector
 
 logger = logging.getLogger(__name__)
+
 
 class AthenaConnector(BaseConnector):
     """
@@ -30,24 +33,23 @@ class AthenaConnector(BaseConnector):
             self.client = boto3.client(
                 'athena',
                 region_name=self.config.get("region_name"),
-                aws_access_key_id=self.config.get("aws_access_key_id"), # Optional, prefers IAM role/env
-                aws_secret_access_key=self.config.get("aws_secret_access_key") # Optional, prefers IAM role/env
+                aws_access_key_id=self.config.get("aws_access_key_id"),  # Optional, prefers IAM role/env
+                aws_secret_access_key=self.config.get("aws_secret_access_key")  # Optional, prefers IAM role/env
             )
             logger.info(f"Successfully created Athena client for region: {self.config.get('region_name')}")
         except ClientError as e:
             logger.error(f"Error creating Athena client: {e}")
             raise ConnectionError(f"Could not create Athena client: {e}")
-        except Exception as e: # Catch other potential errors like missing region_name
+        except Exception as e:  # Catch other potential errors like missing region_name
             logger.error(f"An unexpected error occurred while creating Athena client: {e}")
             raise ConnectionError(f"Unexpected error creating Athena client: {e}")
-
 
     def disconnect(self):
         """
         For Athena, there's no persistent connection to close.
         The client doesn't need explicit closing.
         """
-        self.client = None # Allow garbage collection
+        self.client = None  # Allow garbage collection
         logger.info("Athena client session ended (no explicit disconnect needed).")
 
     def _start_query_execution(self, query: str) -> str:
@@ -86,7 +88,7 @@ class AthenaConnector(BaseConnector):
                         raise RuntimeError(f"Athena query {query_execution_id} was cancelled.")
                     return response
 
-                time.sleep(self.config.get('poll_interval_seconds', 1)) # Poll interval
+                time.sleep(self.config.get('poll_interval_seconds', 1))  # Poll interval
             except ClientError as e:
                 logger.error(f"Error checking Athena query status for {query_execution_id}: {e}")
                 raise RuntimeError(f"Could not check Athena query status: {e}")
@@ -109,7 +111,8 @@ class AthenaConnector(BaseConnector):
 
                 for row_data in results_page['ResultSet']['Rows']:
                     # Skip header row if present (Athena often includes it in the first page of results)
-                    if not column_names and len(row_data['Data']) > 0 and all(d.get('VarCharValue') == c for d, c in zip(row_data['Data'], column_names)):
+                    if not column_names and len(row_data['Data']) > 0 and all(
+                            d.get('VarCharValue') == c for d, c in zip(row_data['Data'], column_names)):
                         continue
 
                     # Check if this is the actual header row based on values matching column names
@@ -120,16 +123,16 @@ class AthenaConnector(BaseConnector):
                             if cell.get('VarCharValue') != column_names[i]:
                                 is_header_row = False
                                 break
-                    else: # Mismatch in length, cannot be header
+                    else:  # Mismatch in length, cannot be header
                         is_header_row = False
 
-                    if is_header_row and not rows: # Only skip if it's the first row being processed and looks like a header
+                    if is_header_row and not rows:  # Only skip if it's the first row being processed and looks like a header
                         continue
 
                     rows.append([d.get('VarCharValue') for d in row_data['Data']])
 
-            if not column_names and rows: # If column_names were not set due to empty metadata but rows exist (e.g. from header row)
-                column_names = rows.pop(0) # Assume first row is header
+            if not column_names and rows:  # If column_names were not set due to empty metadata but rows exist (e.g. from header row)
+                column_names = rows.pop(0)  # Assume first row is header
 
             df = pd.DataFrame(rows, columns=column_names)
 
@@ -143,7 +146,6 @@ class AthenaConnector(BaseConnector):
         except ClientError as e:
             logger.error(f"Error fetching Athena query results for {query_execution_id}: {e}")
             raise RuntimeError(f"Could not fetch Athena query results: {e}")
-
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -173,6 +175,7 @@ class AthenaConnector(BaseConnector):
 
         logger.info(f"Successfully executed query on Athena. Fetched {len(df)} rows.")
         return df
+
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':

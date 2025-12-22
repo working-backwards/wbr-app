@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 import requests
 import yaml
+from pandas import DataFrame
 from yaml._yaml import ScannerError
 
 from src.connectors import get_connector  # Import connector factory
@@ -42,6 +43,8 @@ class DataLoader:
             # Load connections on-demand from the URL/path
             self.db_connections = _load_connections_from_url_or_path(db_config_url)
             self.daily_df = self._load_and_combine_data_from_db()
+
+        self.events = self._load_annotations_data()
 
     def _load_and_combine_data_from_db(self) -> pd.DataFrame:
         """
@@ -125,6 +128,47 @@ class DataLoader:
             logger.info(
                 f"Successfully loaded and processed data from DB. Resulting DataFrame has {len(df)} rows.")
 
+    def _load_annotations_data(self) -> DataFrame | None:
+        if "annotations" not in self.cfg:
+            return None
+
+        annotation_sources: list = self.cfg.get('annotations')
+
+        df_list = []
+        for annotations_file in annotation_sources:
+            if annotations_file.lower().startswith(('http://', 'https://')):
+                try:
+                    response = requests.get(annotations_file, allow_redirects=True)
+                    response.raise_for_status()  # Raise an exception for bad status codes
+                    content = response.content.decode("utf-8")
+                    df = pd.read_csv(content, parse_dates=['Date'], thousands=',').sort_values(by='Date')
+                    logging.info(f"Successfully fetched annotations csv file from URL: {annotations_file}")
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Failed to fetch annotations csv file from URL: {annotations_file}. Error: {e}",
+                                 exc_info=True)
+                    raise ConnectionError(f"Failed to fetch annotations csv file from URL: {annotations_file}")
+                except Exception as e:
+                    logging.error(
+                        f"An unexpected error occurred while reading annotations csv data from {annotations_file}: {e}",
+                        exc_info=True)
+                    raise
+            else:
+                try:
+                    df = pd.read_csv(annotations_file, parse_dates=['Date'], thousands=',').sort_values(by='Date')
+                    logging.info(f"Successfully read annotations csv file from local path: {annotations_file}")
+                except FileNotFoundError:
+                    logger.error(f"Annotations csv file not found at local path: {annotations_file}")
+                    raise FileNotFoundError(f"Annotations csv file not found at: {annotations_file}")
+                except Exception as e:
+                    logger.error(
+                        f"An unexpected error occurred while reading local annotations csv file {annotations_file}: {e}",
+                        exc_info=True)
+                    raise
+
+            df_list.append(df)
+
+        return pd.concat(df_list, axis=1)
+
 
 def _load_connections_from_url_or_path(url_or_path: str) -> dict:
     """
@@ -205,7 +249,8 @@ def _get_df_from_csv_source(data_source, df_list):
                 logger.error(f"Failed to fetch csv file from URL: {url_or_path}. Error: {e}", exc_info=True)
                 raise ConnectionError(f"Failed to fetch csv file from URL: {url_or_path}")
             except Exception as e:
-                logging.error(f"An unexpected error occurred while reading csv data from {url_or_path}: {e}", exc_info=True)
+                logging.error(f"An unexpected error occurred while reading csv data from {url_or_path}: {e}",
+                              exc_info=True)
                 raise
         else:
             try:

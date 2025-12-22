@@ -1,13 +1,12 @@
 ﻿import io
 import json
-import logging # Already here, but good to double check
+import logging  # Already here, but good to double check
 import os
 import tempfile
 import uuid
 from pathlib import Path
 
 import flask
-import pandas
 import requests
 from cryptography.fernet import Fernet
 from flask import Flask, request, send_file, render_template
@@ -18,8 +17,8 @@ import src.controller_utility as controller_util
 import src.test as test
 import src.validator as validator
 import src.wbr as wbr
-from src.publish_utility import PublishWbr
 from src.data_loader import DataLoader
+from src.publish_utility import PublishWbr
 
 app = Flask(__name__,
             static_url_path='',
@@ -84,7 +83,6 @@ def process_input(wbr_yaml_config: dict, data: any = None):
         wbr_yaml_config (dict): The parsed WBR YAML configuration.
         data (any): Optional. A file stream for a CSV file. If provided, it takes
                     precedence over database sources.
-
     Returns:
         dict: The generated WBR deck.
 
@@ -109,20 +107,19 @@ def process_input(wbr_yaml_config: dict, data: any = None):
 
     try:
         # Create a WBR object using the DataFrame from WBRValidator and the WBR config
-        wbr1 = wbr.WBR(cfg=wbr_yaml_config, daily_df=data_loader.daily_df)
+        report = wbr.WBR(cfg=wbr_yaml_config, daily_df=data_loader.daily_df)
     except Exception as error:
         logging.error(error, exc_info=True)
         raise Exception(f"Could not create WBR metrics due to: {error.__str__()}")
 
     try:
         # Generate the WBR deck using the WBR object
-        deck = controller_util.get_wbr_deck(wbr1)
+        deck = controller_util.get_wbr_deck(report=report, event_data=data_loader.events)
     except Exception as err:
         logging.error(err, exc_info=True)
         raise Exception(f"Error while creating deck, caused by: {err.__str__()}")
 
     return deck
-
 
 
 @app.route('/download_yaml', methods=['POST'])
@@ -133,8 +130,29 @@ def download_yaml_for_csv():
     Returns:
         The downloaded YAML file as an attachment.
     """
-    csv_data_file = request.files['csvfile']
-    csv_data = pandas.read_csv(csv_data_file, parse_dates=['Date'], thousands=',')
+    # CSV file is now optional
+
+    config_file = request.files.get('configFile')
+    if config_file is None:
+        return app.response_class(
+            response=json.dumps({"description": "YAML file is required."}), status=400)
+
+    try:
+        wbr_yaml_config = controller_util.load_yaml_from_stream(config_file, add_lines=False)
+    except Exception as e:
+        logging.error(f"Error loading WBR config YAML: {e}", exc_info=True)
+        return app.response_class(
+            response=json.dumps({"description": f"Error loading WBR config YAML: {e}"}),
+            status=500
+        )
+
+    try:
+        data_loader = DataLoader(cfg=wbr_yaml_config, csv_data=None)
+    except Exception as e:
+        logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+        raise Exception(f"Data loading error: {e}")
+
+    csv_data = data_loader.daily_df
 
     temp_file = tempfile.NamedTemporaryFile(mode="a", dir='/tmp/')
 
@@ -146,7 +164,7 @@ def download_yaml_for_csv():
     except Exception as e:
         logging.error(e, exc_info=True)
         logging.info("Exception occurred! falling back to the default implementation")
-        controller_util.generate_custom_yaml(temp_file, csv_data)
+        controller_util.generate_custom_yaml(temp_file, csv_data, wbr_yaml_config)
         return send_file(temp_file.name, mimetype='application/x-yaml', as_attachment=True)
 
 
@@ -369,9 +387,6 @@ def build_report():
             response=json.dumps({"error": f"Failed to load the data csv: {e}"}),
             status=500
         )
-
-    # Note: eventsFile/eventsFileUrl is not part of the new core logic.
-    # It would need to be handled separately if its functionality is to be kept.
 
     # Override WBR config setup based on the url query parameters
     if "setup" not in wbr_yaml_config:

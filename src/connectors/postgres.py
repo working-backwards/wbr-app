@@ -1,10 +1,13 @@
+import logging
+
 import pandas as pd
 import psycopg2
 from psycopg2 import sql
+
 from .base import BaseConnector
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 class PostgresConnector(BaseConnector):
     """
@@ -30,7 +33,8 @@ class PostgresConnector(BaseConnector):
                 # You can add other psycopg2 specific parameters here from self.config if needed
                 # e.g., sslmode=self.config.get("sslmode")
             )
-            logger.info(f"Successfully connected to PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
+            logger.info(
+                f"Successfully connected to PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
         except psycopg2.Error as e:
             logger.error(f"Error connecting to PostgreSQL: {e}")
             raise ConnectionError(f"Could not connect to PostgreSQL: {e}")
@@ -45,7 +49,8 @@ class PostgresConnector(BaseConnector):
         if self.connection:
             self.connection.close()
             self.connection = None
-            logger.info(f"Disconnected from PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
+            logger.info(
+                f"Disconnected from PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -85,12 +90,13 @@ class PostgresConnector(BaseConnector):
         except Exception as e:
             logger.error(f"An unexpected error occurred during query execution on PostgreSQL: {e}\nQuery: {query}")
             if self.connection:
-                 self.connection.rollback()
+                self.connection.rollback()
             raise
         finally:
             if self.cursor:
                 self.cursor.close()
                 self.cursor = None
+
 
 # Example Usage (for testing purposes, typically not here)
 if __name__ == '__main__':

@@ -338,6 +338,13 @@ label {
   border: 1px;
 }
 
+.majorEventsDiv {
+  margin-left: 20px;
+  margin-top: 20px;
+  white-space: break-spaces;
+  overflow: hidden;
+}
+
 .card-body-bottom {
     flex: 1 1 auto;
     padding: 1.25rem;

@@ -1,10 +1,12 @@
+import io
 import unittest
 from unittest.mock import patch, MagicMock
+
 import pandas as pd
-import io
 
 # Assuming src is in PYTHONPATH
 from src.validator import WBRValidator
+
 
 class TestWBRValidator(unittest.TestCase):
 
@@ -38,7 +40,7 @@ class TestWBRValidator(unittest.TestCase):
                 validator = WBRValidator(cfg=config_with_db, daily_df=csv_file)
 
                 mock_read_csv.assert_called_once()
-                mock_load_conns.assert_not_called() # Crucial: DB logic should be skipped
+                mock_load_conns.assert_not_called()  # Crucial: DB logic should be skipped
                 self.assertFalse(validator.daily_df.empty)
                 self.assertEqual(validator.daily_df['MetricA'].iloc[0], 100)
 
@@ -83,7 +85,8 @@ class TestWBRValidator(unittest.TestCase):
         # 4. Assertions
         mock_load_conns.assert_called_once_with('http://example.com/connections.yaml')
         mock_get_connector.assert_called_once_with("postgres", {})
-        mock_connector_instance.execute_query.assert_called_once_with("SELECT event_date as \"Date\", value as \"MetricB\" FROM test")
+        mock_connector_instance.execute_query.assert_called_once_with(
+            "SELECT event_date as \"Date\", value as \"MetricB\" FROM test")
         self.assertFalse(validator.daily_df.empty)
         self.assertEqual(validator.daily_df['MetricB'].iloc[0], 200)
 
@@ -94,7 +97,8 @@ class TestWBRValidator(unittest.TestCase):
         # Config without db_config_url
         config_no_source = self.base_config.copy()
 
-        with self.assertRaisesRegex(ValueError, "No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config."):
+        with self.assertRaisesRegex(ValueError,
+                                    "No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config."):
             WBRValidator(cfg=config_no_source, daily_df=None)
 
 

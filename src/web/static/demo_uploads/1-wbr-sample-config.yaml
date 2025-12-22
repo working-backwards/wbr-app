@@ -9,7 +9,65 @@ setup:
   title: Weekly Business Review Sample Report
   fiscal_year_end_month: DEC  # set to last month of fiscal year. If no value is provided, DEC is used.
   block_starting_number: 1    # Default is 1. Use this if you need multiple yaml files for a single WBR deck.
+  db_config_url: https://test-public-yaml.s3.us-east-1.amazonaws.com/connections.yaml
 
+# Single data source with single query
+#data_sources:
+#  MyProdPostgres:
+#    main_metrics: # A descriptive name for your query
+#      query: > # "Aggregates total sales and user count by day"
+#        SELECT
+#          date as "Date",
+#          "Impressions", "Clicks", "Defects/Million", "PageViews", "PageViews__Target", "MobilePageViews", "pct_customer_group_1", "pct_customer_group_2", "pct_customer_group_3"
+#        FROM
+#          wbr_sample_1;
+
+
+# Single data source with multiple queries
+data_sources:
+  MyProdPostgres:
+    main_metrics: # A descriptive name for your query
+      query: > # "Aggregates total sales and user count by day"
+        SELECT
+          date as "Date",
+          "Impressions", "Clicks", "Defects/Million", "PageViews", "PageViews__Target", "MobilePageViews"
+        FROM
+          wbr_sample_1;
+
+    sales_metrics:
+      query: >  # "Aggregates total sales and user count by day"
+        SELECT
+          date as "Date",
+          "pct_customer_group_1", "pct_customer_group_2", "pct_customer_group_3"
+        FROM
+          wbr_sample_1;
+
+
+# Multiple data sources and multiple queries with csv
+#data_sources:
+#  MyProdPostgres:
+#    main_metrics: # A descriptive name for your query
+#      query: > # "Aggregates total sales and user count by day"
+#        SELECT
+#          date as "Date",
+#          "Impressions", "Clicks", "Defects/Million", "PageViews", "PageViews__Target", "MobilePageViews"
+#        FROM
+#          wbr_sample_1;
+#
+#    sales_metrics:
+#      query: >  # "Aggregates total sales and user count by day"
+#        SELECT
+#          date as "Date",
+#          "pct_customer_group_1", "pct_customer_group_2", "pct_customer_group_3"
+#        FROM
+#          wbr_sample_1;
+#  csv_files:
+#    external_metrics: # A descriptive name for your csv source
+#      url_or_path: /Users/prasad/Downloads/wbr-test-dataset.csv
+
+# Below you can specify n number of csv file containing the special events information that had occurred in the current 12 months
+#annotations:
+#  - /path/to/special_events.csv
 
 # The metrics: section defines all the metrics you'll use in the WBR deck.
 # The two key components of a metric are 1) the source data and 2) the aggregation function.
@@ -53,11 +111,11 @@ metrics:
 # Here's a simple example of a 1-1 mapping from a column in the csv file to a metric.
 # We will aggregate the metric by summing it.
   Impressions:
-    column: Impressions
+    column: main_metrics.Impressions
     aggf: sum
 
   Clicks:
-    column: Clicks
+    column: main_metrics.Clicks
     aggf: sum
 
 # Here's a simple example of a 1-1 mapping from a column in the csv file to a metric.
@@ -65,7 +123,7 @@ metrics:
 # metrics like Daily Active Users, Monthly Active Users,...
 
   Defects/Million:
-    column: "Defects/Million"
+    column: main_metrics.Defects/Million
     aggf: mean
 
 # Here's an example using a function from two previously defined metrics to define a new metric.
@@ -81,7 +139,7 @@ metrics:
             name: Impressions
 
   PageViews:
-    column: "PageViews"
+    column: main_metrics.PageViews
     aggf: sum
 
 # Some metrics you track will also have a plan (or target). A plan metric is treated the same
@@ -89,11 +147,11 @@ metrics:
 # to display actual and plan metrics together.
 
   PageViews Target:
-    column: "PageViews__Target"
+    column: main_metrics.PageViews__Target
     aggf: sum
 
   MobilePage_Views:
-    column: "MobilePageViews"
+    column: main_metrics.MobilePageViews
     aggf: sum
 
 # VarianceToPlanPageViews is the difference between actual and plan (target)
@@ -117,14 +175,17 @@ metrics:
             name: PageViews Target
 
   PercentageCustomerGroupGreen:
-    column: "pct_customer_group_1"
+    column: sales_metrics.pct_customer_group_1
     aggf: mean
   PercentageCustomerGroupOrange:
-    column: "pct_customer_group_2"
+    column: sales_metrics.pct_customer_group_2
     aggf: mean
   PercentageCustomerGroupRed:
-    column: "pct_customer_group_3"
+    column: sales_metrics.pct_customer_group_3
     aggf: mean
+#  Fatals:
+#    column: external_metrics.Fatals
+#    aggf: sum
 
 
 # The deck: section defines how each block in the deck will be rendered. The required elements needed to
@@ -313,3 +374,13 @@ deck:
         line_style: primary
         graph_prior_year_flag: false
         legend_name: PV YOY
+
+#- block:
+#    ui_type: 6_12Graph
+#    y_scaling: "##KK.2%"
+#    title: fatals
+#    metrics:
+#      Fatals:
+#        line_style: primary
+#        graph_prior_year_flag: true
+#        legend_name: Fatals

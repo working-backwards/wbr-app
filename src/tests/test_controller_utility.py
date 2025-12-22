@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
-import yaml
+
 import requests
+import yaml
 
 from src.controller_utility import load_connections_from_url_or_path, SafeLineLoader
 
@@ -57,6 +58,7 @@ connections:
   - name: "ReallyBad"
     type: [ unterminated list
 """
+
 
 class TestControllerUtility_Connections(unittest.TestCase):
 
@@ -114,6 +116,7 @@ class TestControllerUtility_Connections(unittest.TestCase):
     def test_load_connections_not_a_list(self, mock_file):
         with self.assertRaisesRegex(ValueError, "'connections' must be a list"):
             load_connections_from_url_or_path("connections_not_list.yaml")
+
 
 if __name__ == '__main__':
     unittest.main()

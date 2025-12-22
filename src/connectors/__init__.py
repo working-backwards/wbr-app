@@ -1,11 +1,10 @@
-from .base import BaseConnector
-from .postgres import PostgresConnector
-from .snowflake import SnowflakeConnector
-from .athena import AthenaConnector
-from .redshift import RedshiftConnector
-
 import logging
 
+from .athena import AthenaConnector
+from .base import BaseConnector
+from .postgres import PostgresConnector
+from .redshift import RedshiftConnector
+from .snowflake import SnowflakeConnector
 from ..secret_loader import get_loader
 
 logger = logging.getLogger(__name__)
@@ -16,6 +15,7 @@ _CONNECTOR_MAP = {
     "athena": AthenaConnector,
     "redshift": RedshiftConnector,
 }
+
 
 def get_connector(connection_type: str, config: dict) -> BaseConnector:
     """
@@ -35,7 +35,8 @@ def get_connector(connection_type: str, config: dict) -> BaseConnector:
     connector_class = _CONNECTOR_MAP.get(connection_type.lower())
     if not connector_class:
         logger.error(f"Unsupported database connection type: {connection_type}")
-        raise ValueError(f"Unsupported database connection type: {connection_type}. Supported types are: {list(_CONNECTOR_MAP.keys())}")
+        raise ValueError(
+            f"Unsupported database connection type: {connection_type}. Supported types are: {list(_CONNECTOR_MAP.keys())}")
 
     logger.info(f"Creating connector of type: {connection_type}")
 
@@ -44,11 +45,13 @@ def get_connector(connection_type: str, config: dict) -> BaseConnector:
 
     return connector_class(config)
 
+
 def _load_secret(secret_config) -> dict:
     secret_loader = get_loader(secret_config)
     secret: dict = secret_loader.load_secret()
     secret_config.update({k: v for k, v in secret.items()})
     return secret_config
+
 
 __all__ = [
     "BaseConnector",

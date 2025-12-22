@@ -1,10 +1,11 @@
 import unittest
-from unittest.mock import patch, MagicMock
-import pandas as pd
 from datetime import datetime
+from unittest.mock import patch, MagicMock
+
+import pandas as pd
+import psycopg2  # To mock its exceptions and objects
 
 from src.connectors.postgres import PostgresConnector
-import psycopg2 # To mock its exceptions and objects
 
 # Sample data to be returned by cursor.fetchall()
 MOCK_DB_DATA = [
@@ -12,6 +13,7 @@ MOCK_DB_DATA = [
     (datetime(2023, 1, 2), 150, 'beta'),
 ]
 MOCK_DB_COLUMNS = ['event_timestamp', 'value', 'category']
+
 
 class TestPostgresConnector(unittest.TestCase):
 
@@ -131,6 +133,7 @@ class TestPostgresConnector(unittest.TestCase):
         with PostgresConnector(self.config) as connector:
             with self.assertRaisesRegex(ValueError, "Query results must include a 'Date' column"):
                 connector.execute_query(query)
+
 
 if __name__ == '__main__':
     unittest.main()

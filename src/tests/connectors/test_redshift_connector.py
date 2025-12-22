@@ -1,10 +1,11 @@
 import unittest
-from unittest.mock import patch, MagicMock
-import pandas as pd
 from datetime import datetime
+from unittest.mock import patch, MagicMock
 
-from src.connectors.redshift import RedshiftConnector # Changed import
-import psycopg2 # To mock its exceptions and objects (as Redshift connector uses it)
+import pandas as pd
+import psycopg2  # To mock its exceptions and objects (as Redshift connector uses it)
+
+from src.connectors.redshift import RedshiftConnector  # Changed import
 
 # Sample data to be returned by cursor.fetchall()
 # Redshift column names are typically lowercase unless quoted.
@@ -12,7 +13,8 @@ MOCK_DB_DATA_RS = [
     (datetime(2023, 1, 1), 100, 'alpha'),
     (datetime(2023, 1, 2), 150, 'beta'),
 ]
-MOCK_DB_COLUMNS_RS = ['event_day', 'value', 'type'] # Lowercase column names
+MOCK_DB_COLUMNS_RS = ['event_day', 'value', 'type']  # Lowercase column names
+
 
 class TestRedshiftConnector(unittest.TestCase):
 
@@ -25,7 +27,7 @@ class TestRedshiftConnector(unittest.TestCase):
             "database": "rsdb"
         }
 
-    @patch('psycopg2.connect') # Still patching psycopg2.connect
+    @patch('psycopg2.connect')  # Still patching psycopg2.connect
     def test_connect_success(self, mock_connect):
         mock_connection_obj = MagicMock()
         mock_connect.return_value = mock_connection_obj
@@ -69,7 +71,7 @@ class TestRedshiftConnector(unittest.TestCase):
             (datetime(2023, 1, 1), 100, 'alpha'),
             (datetime(2023, 1, 2), 150, 'beta'),
         ]
-        mock_columns = ['date', 'value', 'type'] # lowercase from redshift
+        mock_columns = ['date', 'value', 'type']  # lowercase from redshift
 
         mock_cursor_obj = MagicMock()
         mock_cursor_obj.fetchall.return_value = mock_data
@@ -88,7 +90,7 @@ class TestRedshiftConnector(unittest.TestCase):
 
         self.assertIsInstance(df, pd.DataFrame)
         self.assertEqual(len(df), len(mock_data))
-        self.assertIn("Date", df.columns) # Capitalized by the connector
+        self.assertIn("Date", df.columns)  # Capitalized by the connector
         self.assertTrue(pd.api.types.is_datetime64_any_dtype(df['Date']))
         self.assertListEqual(sorted(df.columns.tolist()), sorted(["Date", "value", "type"]))
 
@@ -110,7 +112,7 @@ class TestRedshiftConnector(unittest.TestCase):
 
     @patch('psycopg2.connect')
     def test_execute_query_missing_date_column(self, mock_connect):
-        mock_cursor_obj = MagicMock() # Corrected typo
+        mock_cursor_obj = MagicMock()  # Corrected typo
         custom_data = [(1, 'zeta'), (2, 'iota')]
         custom_cols = ['item_id', 'item_name']
         mock_cursor_obj.fetchall.return_value = custom_data

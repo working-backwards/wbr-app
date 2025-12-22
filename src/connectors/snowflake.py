@@ -1,9 +1,12 @@
-import pandas as pd
-import snowflake.connector
-from .base import BaseConnector
 import logging
 
+import pandas as pd
+import snowflake.connector
+
+from .base import BaseConnector
+
 logger = logging.getLogger(__name__)
+
 
 class SnowflakeConnector(BaseConnector):
     """
@@ -29,7 +32,8 @@ class SnowflakeConnector(BaseConnector):
                 role=self.config.get("role"),
                 # You can add other snowflake-connector-python specific parameters here
             )
-            logger.info(f"Successfully connected to Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
+            logger.info(
+                f"Successfully connected to Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
         except snowflake.connector.errors.Error as e:
             logger.error(f"Error connecting to Snowflake: {e}")
             raise ConnectionError(f"Could not connect to Snowflake: {e}")
@@ -41,7 +45,8 @@ class SnowflakeConnector(BaseConnector):
         if self.connection:
             self.connection.close()
             self.connection = None
-            logger.info(f"Disconnected from Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
+            logger.info(
+                f"Disconnected from Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -86,6 +91,7 @@ class SnowflakeConnector(BaseConnector):
         finally:
             if cursor:
                 cursor.close()
+
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':

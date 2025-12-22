@@ -1,19 +1,21 @@
 import unittest
-from unittest.mock import patch, MagicMock
-import pandas as pd
 from datetime import datetime
+from unittest.mock import patch, MagicMock
 
+import pandas as pd
+
+from src.connectors import get_connector
+from src.connectors.athena import AthenaConnector
 # Assuming src is in PYTHONPATH or tests are run from root
 from src.connectors.base import BaseConnector
-from src.connectors import get_connector
-from src.connectors.postgres import PostgresConnector # Import one for factory testing
-from src.connectors.snowflake import SnowflakeConnector # Import one for factory testing
-from src.connectors.athena import AthenaConnector
+from src.connectors.postgres import PostgresConnector  # Import one for factory testing
 from src.connectors.redshift import RedshiftConnector
+from src.connectors.snowflake import SnowflakeConnector  # Import one for factory testing
 
 
 class ConcreteConnector(BaseConnector):
     """A concrete implementation of BaseConnector for testing purposes."""
+
     def __init__(self, config: dict):
         super().__init__(config)
         self.mock_connection = None
@@ -113,7 +115,7 @@ class TestConnectorFactory(unittest.TestCase):
         self.assertEqual(connector.config, config)
 
     def test_get_athena_connector(self):
-        config = {"s3_staging_dir": "s3://bucket/"} # Required config
+        config = {"s3_staging_dir": "s3://bucket/"}  # Required config
         connector = get_connector("athena", config)
         self.assertIsInstance(connector, AthenaConnector)
         self.assertEqual(connector.config, config)

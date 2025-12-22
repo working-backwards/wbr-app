@@ -1,10 +1,11 @@
 import unittest
-from unittest.mock import patch, MagicMock
-import pandas as pd
 from datetime import datetime
+from unittest.mock import patch, MagicMock
+
+import pandas as pd
+import snowflake.connector  # To mock its exceptions and objects
 
 from src.connectors.snowflake import SnowflakeConnector
-import snowflake.connector # To mock its exceptions and objects
 
 # Sample data to be returned by cursor.fetch_pandas_all()
 # Note: Snowflake column names are often uppercase by default in results
@@ -109,7 +110,6 @@ class TestSnowflakeConnector(unittest.TestCase):
         self.assertIn("Date", df_exact.columns)
         self.assertTrue(pd.api.types.is_datetime64_any_dtype(df_exact['Date']))
 
-
     @patch('snowflake.connector.connect')
     def test_execute_query_db_error(self, mock_connect):
         mock_cursor_obj = MagicMock()
@@ -127,11 +127,10 @@ class TestSnowflakeConnector(unittest.TestCase):
 
         mock_cursor_obj.close.assert_called_once()
 
-
     @patch('snowflake.connector.connect')
     def test_execute_query_missing_date_column(self, mock_connect):
         mock_cursor_obj = MagicMock()
-        temp_df = pd.DataFrame({'OTHER_COL': [1,2], 'VALUE': [10,20]})
+        temp_df = pd.DataFrame({'OTHER_COL': [1, 2], 'VALUE': [10, 20]})
         mock_cursor_obj.fetch_pandas_all.return_value = temp_df
 
         mock_connection_obj = MagicMock()

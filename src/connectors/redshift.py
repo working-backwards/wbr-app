@@ -1,11 +1,14 @@
-import pandas as pd
-import psycopg2 # Using psycopg2 for Redshift, as it's largely compatible
-                # Alternatively, 'redshift_connector' could be used for specific features
-from psycopg2 import sql
-from .base import BaseConnector
 import logging
 
+import pandas as pd
+import psycopg2  # Using psycopg2 for Redshift, as it's largely compatible
+# Alternatively, 'redshift_connector' could be used for specific features
+from psycopg2 import sql
+
+from .base import BaseConnector
+
 logger = logging.getLogger(__name__)
+
 
 class RedshiftConnector(BaseConnector):
     """
@@ -25,7 +28,7 @@ class RedshiftConnector(BaseConnector):
         try:
             self.connection = psycopg2.connect(
                 host=self.config.get("host"),
-                port=self.config.get("port", 5439), # Default Redshift port
+                port=self.config.get("port", 5439),  # Default Redshift port
                 user=self.config.get("username"),
                 password=self.config.get("password"),
                 dbname=self.config.get("database"),
@@ -33,7 +36,8 @@ class RedshiftConnector(BaseConnector):
                 # sslmode=self.config.get("sslmode", "require"),
                 # connect_timeout=self.config.get("connect_timeout", 10)
             )
-            logger.info(f"Successfully connected to Redshift database: {self.config.get('database')} at {self.config.get('host')}")
+            logger.info(
+                f"Successfully connected to Redshift database: {self.config.get('database')} at {self.config.get('host')}")
         except psycopg2.Error as e:
             logger.error(f"Error connecting to Redshift: {e}")
             raise ConnectionError(f"Could not connect to Redshift: {e}")
@@ -48,7 +52,8 @@ class RedshiftConnector(BaseConnector):
         if self.connection:
             self.connection.close()
             self.connection = None
-            logger.info(f"Disconnected from Redshift database: {self.config.get('database')} at {self.config.get('host')}")
+            logger.info(
+                f"Disconnected from Redshift database: {self.config.get('database')} at {self.config.get('host')}")
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -101,6 +106,7 @@ class RedshiftConnector(BaseConnector):
             if self.cursor:
                 self.cursor.close()
                 self.cursor = None
+
 
 # Example Usage (for testing purposes)
 if __name__ == '__main__':
