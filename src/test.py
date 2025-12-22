@@ -104,7 +104,7 @@ def test_wbr():
         test_config = yaml.safe_load(open(test_config_file))
 
         try:
-            data_loader = DataLoader(cfg=test_config, csv_data=csv_file, publisher=None)
+            data_loader = DataLoader(cfg=test_config, csv_data=csv_file)
         except Exception as e:
             logging.error(f"WBR Data loading failed: {e}", exc_info=True)
             raise Exception(f"Data loading error: {e}")
