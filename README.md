@@ -360,9 +360,12 @@ Depending on your cloud provider, define the following environment variables
 * **AWS_STORAGE_KEY**: Your AWS Access Key ID.
 * **AWS_STORAGE_SECRET**: Your AWS Secret Access Key.
 * **AWS_REGION_NAME**: The AWS region where your bucket is hosted.
-  * **S3_STORAGE_ENDPOINT**: [Optional] Specifies the endpoint where reports will be stored. If not provided, reports will be published to the `OBJECT_STORAGE_BUCKET`.  
-    *Alternatively*, you can use the IAM that have been set up for your local system instead of setting these environment variables.  
-    *NOTE*: You can also use the same environment variables for any S3 compatible storage.  
+* **S3_STORAGE_ENDPOINT**: [Optional] Specifies the endpoint where reports will be stored. If not provided, reports will
+  be published to the `OBJECT_STORAGE_BUCKET`.  
+  *Alternatively*, you can use the IAM that have been set up for your local system instead of setting these environment
+  variables.  
+  *NOTE*: You can also use the same environment variables for any S3 compatible storage.
+
    
 
 ###### **GCP (Google Cloud Platform)**  
