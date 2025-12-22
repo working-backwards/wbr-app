@@ -8,6 +8,8 @@
       daily frame.
     - Data loading now auto-merges multiple queries and CSV sources keyed on `Date`, supporting aliasing per query name
       for collision-free metrics.
+  - Annotations support via an `annotations` list in the WBR YAML, allowing one or more CSVs (local paths or URLs)
+    to be loaded and rendered as special events alongside metrics in the report.
 
 - Changed behavior
     - CSV upload is now optional; if omitted the backend loads data from `setup.db_config_url` using the `data_sources`

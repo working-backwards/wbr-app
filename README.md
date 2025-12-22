@@ -180,6 +180,19 @@ To connect to a database, you need to configure two files:
       ```
       The `main_metrics` will be used as the alias for all the columns from the main_metrics data_source
 
+   * **Annotations Section**
+       * You can optionally attach **annotations** to your report – for example, special events, launches, outages, or
+         promotions that should be surfaced on charts.
+       * Configure an `annotations` list in your main WBR config YAML; each entry is a CSV path or URL that contains at
+         least a `Date` column plus one or more descriptive columns. Example:
+         ```yaml
+         annotations:
+           - https://your-host.com/path/to/special_events.csv
+           - /path/to/local_events.csv
+         ```
+       * These CSVs are read and merged alongside your main data so that events can be rendered in the WBR deck (for
+         example, marked on 6_12 charts where relevant metrics are plotted).
+
 ---
 
 ### Hardware and Software Requirements
