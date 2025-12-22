@@ -1,6 +1,7 @@
 import datetime
 import logging
 import tempfile
+logger = logging.getLogger(__name__)
 import traceback
 from json import JSONEncoder
 from typing import List
@@ -1030,40 +1031,63 @@ def generate_custom_yaml(temp_file, csv_data):
 
     configs['setup'] = wbr_setup_config
 
-    metric_config_dict = {}
+    # Add a placeholder for data_sources
+    data_sources_placeholder = [
+        {
+            "name": "my_database_source",
+            "connection_name": "NameOfYourConnectionInConnectionsYAML",
+            "date_column": "your_date_column_from_query",
+            "query": "# Write your SQL query here, ensuring it returns 'your_date_column_from_query'\n# Example: SELECT date_col as your_date_column_from_query, metric1, metric2 FROM your_table;"
+        }
+    ]
+    configs['data_sources'] = data_sources_placeholder
 
-    # Generate metric configurations
+    metric_config_dict = {}
+    # Generate metric configurations based on CSV columns (less direct now)
+    # User will need to map these to query result columns
     for column in columns:
         if column != 'Date' and (csv_data[column].dtype == int or csv_data[column].dtype == float):
+            # Assuming the column name from CSV might be the same as in query result
             metric_config_dict[column] = get_dict(column)
+            # Add a comment that user needs to verify this column exists in query output
+            metric_config_dict[column]['comment'] = f"Ensure '{column}' is a column in your data_sources query output."
+
 
     configs['metrics'] = metric_config_dict
 
-    metric_keyset = list(metric_config_dict.keys())
+    metric_keyset = list(filter(lambda k: isinstance(metric_config_dict[k], dict), metric_config_dict.keys())) # Filter out comments
     blocks = []
 
     # Generate deck configurations for each metric
-    for metric in metric_keyset:
+    for metric_key in metric_keyset:
+        # Check if the key exists and is a dictionary (to avoid issues with 'comment' fields)
+        if metric_key not in metric_config_dict or not isinstance(metric_config_dict[metric_key], dict):
+            continue
+
         deck_config_dict = {}
 
-        # Check if there is a target metric for the current metric
-        suffixes = ["__Target", "__target"]
+        # Target metric logic remains similar, assuming target columns would also be in query
+        target_col_name_suffixes = ["__Target", "__target"]
+        target = next((metric_key + suffix for suffix in target_col_name_suffixes if metric_key + suffix in metric_keyset), None)
 
-        # find first from list or else None
-        target = next((metric + suffix for suffix in suffixes if metric + suffix in metric_keyset), None)
+        if target and target in metric_keyset: # Ensure target is also a valid metric key
+             # metric_keyset.remove(target) # This would modify list while iterating if not careful, better to just use it
+             pass
 
-        if target:
-            metric_keyset.remove(target)
 
-        # Get the mean column value for scaling
-        mean_column_value = get_scaling(csv_data[metric])
+        # Scaling based on CSV data is less relevant if data comes from DB.
+        # User might need to set y_scaling manually or we need another way to infer it.
+        # For now, keep it but add a comment.
+        mean_column_value = get_scaling(csv_data[metric_key]) if metric_key in csv_data else None
 
-        # Create block configuration for the metric
+        block_metrics_config = get_metric_block(metric_key, target if target and target in metric_config_dict else None)
+
         block_config = {
             'ui_type': '6_12Graph',
-            'title': metric,
+            'title': metric_key,
             'y_scaling': mean_column_value,
-            'metrics': get_metric_block(metric, target)
+            'comment_scaling': "y_scaling is based on uploaded CSV, adjust if data source is database.",
+            'metrics': block_metrics_config
         }
 
         deck_config_dict['block'] = block_config
@@ -1071,8 +1095,9 @@ def generate_custom_yaml(temp_file, csv_data):
 
     configs['deck'] = blocks
 
-    with open(temp_file.name, 'a') as file:
-        yaml.dump(configs, file, sort_keys=False)
+    # Custom Dumper to handle comments better if needed, but PyYAML's default should be okay for basic comments.
+    with open(temp_file.name, 'w') as file: # Changed to 'w' to overwrite if file exists
+        yaml.dump(configs, file, sort_keys=False, allow_unicode=True)
 
 
 def load_yaml_from_stream(config_file):
@@ -1105,3 +1130,63 @@ def load_yaml_from_url(url: str):
         error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
         # Return an error response if there is an issue with the YAML configuration
         raise Exception(f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
+
+
+def load_connections_from_url_or_path(url_or_path: str) -> dict:
+    """
+    Loads and parses a connections YAML file from a URL or a local file path.
+
+    Args:
+        url_or_path (str): The URL or local file path to the connections YAML file.
+
+    Returns:
+        dict: A dictionary mapping connection names to their configurations.
+    """
+    content = ""
+    if url_or_path.lower().startswith(('http://', 'https://')):
+        try:
+            response = requests.get(url_or_path, allow_redirects=True)
+            response.raise_for_status()  # Raise an exception for bad status codes
+            content = response.content.decode("utf-8")
+            logging.info(f"Successfully fetched connections file from URL: {url_or_path}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch connections file from URL: {url_or_path}. Error: {e}", exc_info=True)
+            raise ConnectionError(f"Failed to fetch connections file from URL: {url_or_path}")
+    else:
+        # Treat as a local file path
+        try:
+            with open(url_or_path, 'r') as f:
+                content = f.read()
+            logging.info(f"Successfully read connections file from local path: {url_or_path}")
+        except FileNotFoundError:
+            logger.error(f"Connections configuration file not found at local path: {url_or_path}")
+            raise FileNotFoundError(f"Connections configuration file not found at: {url_or_path}")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while reading local connections file {url_or_path}: {e}", exc_info=True)
+            raise
+
+    # Parse the YAML content
+    try:
+        config_data = yaml.load(content, Loader=SafeLineLoader)
+    except (ScannerError, yaml.YAMLError) as e:
+        logging.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
+        raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
+
+    # Validate the structure
+    if not isinstance(config_data, dict) or "connections" not in config_data:
+        raise ValueError(f"Invalid connections YAML structure from {url_or_path}. Missing 'connections' key.")
+    if not isinstance(config_data["connections"], list):
+        raise ValueError(f"Invalid connections YAML structure from {url_or_path}. 'connections' must be a list.")
+
+    connections_map = {}
+    for conn in config_data["connections"]:
+        if not isinstance(conn, dict) or "name" not in conn or "type" not in conn or "config" not in conn:
+            line = conn.get('__line__', 'N/A')
+            raise ValueError(f"Invalid connection entry in {url_or_path} near line {line}. Each connection must have 'name', 'type', and 'config'.")
+        if conn["name"] in connections_map:
+            line = conn.get('__line__', 'N/A')
+            raise ValueError(f"Duplicate connection name '{conn['name']}' found in {url_or_path} near line {line}.")
+        connections_map[conn["name"]] = conn
+
+    logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
+    return connections_map

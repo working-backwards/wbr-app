@@ -10,7 +10,9 @@ import pandas
 import yaml
 
 import src.wbr as wbr
+from src import validator
 from src.controller_utility import SixTwelveChart, TrailingTable, get_wbr_deck, SafeLineLoader
+from src.data_loader import DataLoader
 
 test_suite_folder = Path(os.path.dirname(__file__)) / 'unit_test_case'
 
@@ -100,9 +102,26 @@ def test_wbr():
 
         config = yaml.load(open(config_file_path), SafeLineLoader)
         test_config = yaml.safe_load(open(test_config_file))
+
+        try:
+            data_loader = DataLoader(cfg=test_config, csv_data=csv_file, publisher=None)
+        except Exception as e:
+            logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+            raise Exception(f"Data loading error: {e}")
+
+        try:
+            wbr_validator = validator.WBRValidator(
+                cfg=config,
+                daily_df=data_loader.daily_df
+            )
+            wbr_validator.validate_yaml()
+        except Exception as e:
+            logging.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
+            raise Exception(f"Invalid configuration or data loading error: {e}")
+
         try:
             # Create a WBR object using the CSV data and configuration
-            wbr1 = wbr.WBR(config, csv=csv_file)
+            wbr1 = wbr.WBR(config, daily_df=wbr_validator.daily_df)
         except Exception as error:
             logging.error(error, exc_info=True)
             raise error

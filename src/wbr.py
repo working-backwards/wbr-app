@@ -96,8 +96,12 @@ class WBR:
             "difference": lambda name, column, box_total: self.box_total_diff_calculation(name, column, box_total),
             "product": lambda name, column, box_total: self.box_total_product_calculation(name, column, box_total)
         }
-        self.daily_df = daily_df if daily_df is not None else (
-            pd.read_csv(csv, parse_dates=['Date'], thousands=',').sort_values(by='Date'))
+        if daily_df is None:
+            # This case should ideally not happen if WBRValidator always provides daily_df.
+            # If it can, we need a strategy: error, or expect 'csv' path in cfg for fallback.
+            # For now, let's assume daily_df is always provided.
+            raise ValueError("WBR class initialized without daily_df. This should be provided by WBRValidator.")
+        self.daily_df = daily_df
         self.cfg = cfg
         self.cy_week_ending = datetime.strptime(self.cfg['setup']['week_ending'], '%d-%b-%Y')
         self.week_number = self.cfg['setup']['week_number']
