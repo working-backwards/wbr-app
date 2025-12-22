@@ -64,14 +64,70 @@ The application generates the WBR Report in an HTML page. You can also download 
 
 ### <a name="data-configuration"></a>Data Source Configuration
 
-The WBR App determines the data source based on the following priority:
+The WBR App determines the data source using the following logic:
 
-1. **CSV File Upload:** If a CSV file is uploaded by the user, it will **always** be used as the data source, overriding
-   any database configuration in the YAML file. This allows for easy ad-hoc analysis and testing.
-2. **Database Configuration in YAML:** If no CSV file is uploaded, the app will look for a `db_config_url` in your WBR
-   Configuration File to fetch data from a database.
-3. **No Data Source:** If neither a CSV file is provided nor a `db_config_url` is specified, the application will show
-   an error.
+1. **CSV File Upload (highest priority).**  
+   If a CSV file is uploaded via the UI, that uploaded CSV is used for the report and **overrides** any data specified
+   in your WBR configuration file. This is intended for quick ad-hoc analysis and testing.
+
+2. **`data_sources` in the WBR configuration file (used when no CSV is uploaded).**  
+   If no CSV is uploaded, the app uses the `data_sources:` section of your main WBR config YAML to find one or more
+   named data sources. A `data_sources` entry can include:
+
+   * **Database queries** — keyed by a connection name that **must** match the `name` of a connection in your external
+     Connections YAML. Each connection key may contain one or more named queries (aliases). These queries are executed
+     against the referenced connection and the returned result sets are used as data sources for the WBR.
+
+   * **CSV files** — you can also define CSV sources inside `data_sources` ( under a `csv_files` key) where
+     each source points to a URL or local path. The `data_sources` section may therefore contain any combination of
+     database queries and CSV files; the app will load all declared sources and merge them as needed for the report.
+
+   **Notes / Requirements**
+
+   * If you use database queries, you must add a `db_config_url` in your main WBR config that points to your
+     Connections YAML (which contains credentials and connection definitions). The connection `name` in `data_sources`
+     must match a `name` entry in that Connections YAML.
+
+   * Every query used by the WBR **must** return the date/timestamp as the first column aliased **`"Date"`**
+     (for example, `SELECT event_timestamp AS "Date", ...`). The rest of the columns are the metric columns referenced
+     in your `metrics` section.
+
+   * When you define multiple named queries (aliases) under a connection, those aliases are used as prefixes for
+     columns in the merged dataset (for example, `main_metrics.Impressions`).
+
+3. **No data source → error.**  
+   If the user has not uploaded a CSV and there are no `data_sources` defined in the WBR config (or the defined
+   `data_sources` cannot be resolved), the application will show an error indicating that no data source was found.
+
+---
+
+### Small example (for clarity)
+
+```yaml
+# In your main WBR config.yaml
+db_config_url: "https://your-host.com/path/to/your/connections.yaml"
+
+data_sources:
+  MyProdPostgres:           # MUST match a connection 'name' in your connections.yaml
+    main_metrics:
+      query: >
+        SELECT
+          event_date as "Date",
+          SUM(sales_value) as total_sales
+        FROM daily_sales_aggregates
+        GROUP BY event_date
+        ORDER BY event_date ASC;
+
+  csv_files:
+    external_metrics:
+      url_or_path: /path/to/external_metrics.csv
+```
+
+This example shows a mix of database queries (under `MyProdPostgres`) and CSVs (under `csv_files`). The WBR App
+will load the uploaded CSV (if present) or — if no upload — will load the named data sources above and merge them on
+the `Date` column.
+
+See the **Configuring Database Connectivity** section below for the full Connections YAML and `db_config_url` / `data_sources` examples.
 
 #### Configuring Database Connectivity
 
