@@ -1,22 +1,21 @@
 python-dateutil==2.9.0
-pytz==2024.2
+pytz==2025.2
 PyYAML==6.0.3
-six==1.16.0
-pandas==2.2.3
-numpy==2.1.2
-matplotlib==3.9.2
-flask==3.0.3
-Werkzeug==3.0.6
-pytest==8.3.3
+pandas==2.3.3
+numpy==2.3.5
+matplotlib==3.10.8
+flask==3.1.2
+Werkzeug==3.1.4
+pytest==9.0.2
 setuptools~=80.9.0
-flask_cors==5.0.0
+flask-cors==6.0.2
 fiscalyear==0.4.0
-cryptography==41.0.7 # Downgraded to be compatible with snowflake-connector-python 3.7.0
-boto3==1.35.49
-psycopg2-binary==2.9.9 # For PostgreSQL and Redshift
-snowflake-connector-python==3.7.0
-google-cloud-storage==2.18.2
-azure-storage-blob==12.23.1
-azure-identity==1.19.0
-waitress==3.0.1
-google-cloud-secret-manager==2.24.0
+cryptography==46.0.3 # Downgraded to be compatible with snowflake-connector-python 3.7.0
+boto3==1.42.13
+psycopg2-binary==2.9.11 # For PostgreSQL and Redshift
+snowflake-connector-python==4.1.1
+google-cloud-storage==3.7.0
+azure-storage-blob==12.27.1
+azure-identity==1.25.1
+waitress==3.0.2
+google-cloud-secret-manager==2.26.0
