@@ -1,16 +1,16 @@
 python-dateutil==2.9.0
 pytz==2025.2
 PyYAML==6.0.3
-pandas==2.3.3
-numpy==2.3.5
+pandas==3.0.0
+numpy==2.4.2
 matplotlib==3.10.8
 flask==3.1.2
-Werkzeug==3.1.4
+Werkzeug==3.1.5
 pytest==9.0.2
 setuptools~=80.9.0
 flask-cors==6.0.2
 fiscalyear==0.4.0
-cryptography==46.0.3 # Downgraded to be compatible with snowflake-connector-python 3.7.0
+cryptography==46.0.5
 boto3==1.42.13
 psycopg2-binary==2.9.11 # For PostgreSQL and Redshift
 snowflake-connector-python==4.1.1
