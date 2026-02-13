@@ -18,6 +18,8 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+  logo: images/logo.png
+  favicon: images/logo.png
   features:
     - navigation.sections
     - navigation.expand
@@ -36,6 +38,15 @@ markdown_extensions:
   - attr_list
   - toc:
       permalink: true
+
+extra:
+  homepage: https://workingbackwards.com/wbr-app/
+  social:
+    - icon: fontawesome/solid/globe
+      link: https://workingbackwards.com
+      name: Working Backwards
+    - icon: fontawesome/brands/github
+      link: https://github.com/working-backwards/wbr-app
 
 nav:
   - Home: index.md
