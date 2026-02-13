@@ -1,0 +1,59 @@
+site_name: WBR App Documentation
+site_url: https://working-backwards.github.io/wbr-app/
+repo_url: https://github.com/working-backwards/wbr-app
+repo_name: working-backwards/wbr-app
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - footnotes
+  - attr_list
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - YAML Configuration:
+    - Overview: yaml/overview.md
+    - setup: yaml/setup.md
+    - data_sources: yaml/data-sources.md
+    - annotations: yaml/annotations.md
+    - metrics: yaml/metrics.md
+    - deck: yaml/deck.md
+  - Reference:
+    - y_scaling Formats: reference/y-scaling.md
+    - Connections File: reference/connections.md
+    - API: reference/api.md
+  - Guides:
+    - Admin UI: guides/admin-ui.md
+    - Publishing & Export: guides/publishing.md
+    - Multiple File Upload: guides/multiple-files.md
+  - Migration Guide: migration-guide.md
+  - Changelog: changelog.md
