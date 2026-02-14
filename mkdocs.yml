@@ -1,5 +1,5 @@
 site_name: WBR App Documentation
-site_url: https://docs.workingbackwards.com/
+site_url: https://docs.workingbackwards.com/wbr-app/
 repo_url: https://github.com/working-backwards/wbr-app
 repo_name: working-backwards/wbr-app
 
@@ -40,7 +40,6 @@ markdown_extensions:
       permalink: true
 
 extra:
-  homepage: https://workingbackwards.com/wbr-app/
   social:
     - icon: fontawesome/solid/globe
       link: https://workingbackwards.com

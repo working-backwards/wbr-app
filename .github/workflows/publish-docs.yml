@@ -1,0 +1,34 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/publish-docs.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r docs/requirements.txt
+
+      - run: mkdocs build --clean
+
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.DOCS_PUBLISH_TOKEN }}
+          external_repository: working-backwards/docs
+          publish_dir: ./site
+          publish_branch: gh-pages
+          destination_dir: wbr-app
+          keep_files: true
+          cname: docs.workingbackwards.com
