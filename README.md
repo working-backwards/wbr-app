@@ -64,7 +64,7 @@ The application generates the WBR Report in an HTML page. You can also download 
 
 ### <a name="data-configuration"></a>Data Source Configuration
 
-The WBR App determines the data source using the following logic:
+The WBR App determines the data source based on the following logic:
 
 1. **CSV File Upload (highest priority).**  
    If a CSV file is uploaded via the UI, that uploaded CSV is used for the report and **overrides** any data specified
@@ -236,18 +236,42 @@ To connect to a database, you need to configure two files:
       ```
       The `main_metrics` will be used as the alias for all the columns from the main_metrics data_source
 
-   * **Annotations Section**
-       * You can optionally attach **annotations** to your report – for example, special events, launches, outages, or
-         promotions that should be surfaced on charts.
-       * Configure an `annotations` list in your main WBR config YAML; each entry is a CSV path or URL that contains at
-         least a `Date` column plus one or more descriptive columns. Example:
-         ```yaml
-         annotations:
-           - https://your-host.com/path/to/special_events.csv
-           - /path/to/local_events.csv
-         ```
-       * These CSVs are read and merged alongside your main data so that events can be rendered in the WBR deck (for
-         example, marked on 6_12 charts where relevant metrics are plotted).
+#### Configuring Annotations
+
+Annotations allow you to add contextual notes (e.g., "New campaign launched", "Website outage") to specific metrics on
+specific dates. These appear as text below the relevant chart or table in the report.
+
+Annotations can be configured in two formats:
+
+**Simple list format (CSV files only):**
+
+```yaml
+annotations:
+  - /path/to/annotations.csv
+  - https://example.com/annotations.csv
+```
+
+**Dict format (CSV files and/or database sources):**
+
+```yaml
+annotations:
+  csv_files:
+    - /path/to/annotations.csv
+  data_sources:
+    MyProdPostgres: # must match a name in connections.yaml
+      recent_annotations: # query name (for logging/errors)
+        query: >
+          SELECT
+            event_date as "Date",
+            metric_name as "MetricName",
+            description as "EventDescription"
+          FROM annotations
+          WHERE event_date >= '2021-01-01'
+          ORDER BY event_date ASC;
+```
+
+**Annotation data requirements:** Whether from CSV or database, annotation data must have exactly three columns: `Date`,
+`MetricName`, and `EventDescription`. For database queries, alias your columns to match these names.
 
 ---
 

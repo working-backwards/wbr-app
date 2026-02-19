@@ -65,9 +65,21 @@ data_sources:
 #    external_metrics: # A descriptive name for your csv source
 #      url_or_path: /Users/prasad/Downloads/wbr-test-dataset.csv
 
-# Below you can specify n number of csv file containing the special events information that had occurred in the current 12 months
+# Annotations can be provided as a simple list of CSV files:
 #annotations:
-#  - /path/to/special_events.csv
+#  - /path/to/annotations.csv
+
+# Or as a dict with csv_files and/or data_sources:
+#annotations:
+#  csv_files:
+#    - /path/to/annotations.csv
+#  data_sources:
+#    MyProdPostgres:
+#      my_annotations:
+#        query: >
+#          SELECT event_date as "Date", metric_name as "MetricName",
+#                 description as "EventDescription"
+#          FROM annotations ORDER BY event_date;
 
 # The metrics: section defines all the metrics you'll use in the WBR deck.
 # The two key components of a metric are 1) the source data and 2) the aggregation function.

@@ -415,21 +415,21 @@ function createChartBlock(subData, deckDiv, counter) {
     plotChart(chartId, subData, counter);
     createTable(`${chartId}_table`, subData);
 
-    if (subData.events !== undefined && subData.events != null && subData.events.length > 0) {
-        const major_events_block = document.createElement('div');
-        major_events_block.id = `${chartId}_major_events`;
-        major_events_block.className = 'majorEventsDiv';
+    if (subData.annotations !== undefined && subData.annotations != null && subData.annotations.length > 0) {
+        const annotations_block = document.createElement('div');
+        annotations_block.id = `${chartId}_annotations`;
+        annotations_block.className = 'annotationsDiv';
 
-        maindiv.appendChild(major_events_block);
+        maindiv.appendChild(annotations_block);
 
-        const eventHeader = document.createElement('h6');
-        eventHeader.textContent = "Noteworthy Events:"
-        major_events_block.appendChild(eventHeader);
+        const annotationHeader = document.createElement('h6');
+        annotationHeader.textContent = "Annotations:"
+        annotations_block.appendChild(annotationHeader);
 
-        const eventData = subData.events.map(event => event.date + "    " + event.metric + "    " + event.description).join("\n");
+        const annotationData = subData.annotations.map(event => event.date + "    " + event.metric + "    " + event.description).join("\n");
         const p_element = document.createElement('p');
-        p_element.textContent = eventData;
-        major_events_block.appendChild(p_element);
+        p_element.textContent = annotationData;
+        annotations_block.appendChild(p_element);
     }
 }
 
@@ -446,21 +446,21 @@ function createSixWeeksTable(subData, deckDiv, tableId, counter) {
     deckDiv.appendChild(maindiv);
     plotSixWeeksTable(blockTableDivId, subData, tableId, counter);
 
-    if (subData.events !== undefined && subData.events != null && subData.events.length > 0) {
-        const major_events_block = document.createElement('div');
-        major_events_block.id = `${blockTableDivId}_major_events`;
-        major_events_block.className = 'majorEventsDiv';
+    if (subData.annotations !== undefined && subData.annotations != null && subData.annotations.length > 0) {
+        const annotations_block = document.createElement('div');
+        annotations_block.id = `${blockTableDivId}_annotations`;
+        annotations_block.className = 'annotationsDiv';
 
-        maindiv.appendChild(major_events_block);
+        maindiv.appendChild(annotations_block);
 
-        const eventHeader = document.createElement('h6');
-        eventHeader.textContent = "Noteworthy Events:"
-        major_events_block.appendChild(eventHeader);
+        const annotationHeader = document.createElement('h6');
+        annotationHeader.textContent = "Annotations:"
+        annotations_block.appendChild(annotationHeader);
 
-        const eventData = subData.events.map(event => event.date + "    " + event.metric + "    " + event.description).join("\n");
+        const annotationData = subData.annotations.map(event => event.date + "    " + event.metric + "    " + event.description).join("\n");
         const p_element = document.createElement('p');
-        p_element.textContent = eventData;
-        major_events_block.appendChild(p_element);
+        p_element.textContent = annotationData;
+        annotations_block.appendChild(p_element);
 
     }
 }
