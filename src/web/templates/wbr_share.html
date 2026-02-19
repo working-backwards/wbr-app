@@ -446,14 +446,14 @@
             }
         });
 
-        if (data.eventErrors !== undefined && data.eventErrors != null) {
+        if (data.annotationErrors !== undefined && data.annotationErrors != null) {
             const sectionDivId = `charDiv_${Math.random()}`;
             const sectionDiv = document.createElement('div');
             sectionDiv.id = sectionDivId;
             sectionDiv.className = 'sectionDiv';
             deckDiv.appendChild(sectionDiv);
 
-            plotSectionErrors(sectionDivId, data.eventErrors)
+            plotSectionErrors(sectionDivId, data.annotationErrors)
         }
     }
 
@@ -462,7 +462,7 @@
         div.classList.add('section_div');
 
         var h4 = document.createElement('h4');
-        var errorText = document.createTextNode("Event Errors");
+        var errorText = document.createTextNode("Annotation Errors");
         h4.style.cssText = "color: red;";
         h4.appendChild(errorText);
 

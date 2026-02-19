@@ -44,7 +44,6 @@ Use this guide to upgrade projects and configs that were built on `v1.0` to the 
   the connections yaml file
 
 ## 4) Validation expectations
-
 - `setup.week_ending` is mandatory and must use `DD-MMM-YYYY` (e.g., `25-SEP-2012`).
 
 ## 5) UI/runtime changes to note
