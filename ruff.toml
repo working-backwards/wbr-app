@@ -12,9 +12,16 @@ select = [
     "UP",  # pyupgrade
 ]
 ignore = [
-    "E501",  # line too long (handled by formatter)
-    "S101",  # assert used (fine in tests)
-    "B008",  # function call in default argument (Flask patterns)
+    "E501",   # line too long (handled by formatter)
+    "S101",   # assert used (fine in tests)
+    "B007",   # unused loop control variable
+    "B008",   # function call in default argument (Flask patterns)
+    "B904",   # raise-without-from-inside-except
+    "B905",   # zip-without-explicit-strict
+    "F841",   # unused-variable (false positives from pandas @-ref in query strings)
+    "S104",   # hardcoded-bind-all-interfaces (intentional for local dev)
+    "S113",   # request-without-timeout (existing pattern, fix separately)
+    "S506",   # unsafe yaml loader (SafeLineLoader extends SafeLoader intentionally)
 ]
 
 [lint.per-file-ignores]

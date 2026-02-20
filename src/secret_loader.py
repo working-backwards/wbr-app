@@ -2,16 +2,16 @@ import json
 import logging
 import os
 
-logger = logging.getLogger(__name__)
-
 import boto3
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
 
 
 class SecretLoader:
     """
     Abstract base class for loading secrets from different cloud providers.
-    
+
     This class defines the interface that all secret loader implementations
     must follow. Subclasses should implement the load_secret() method to
     retrieve secrets from their respective cloud platforms.
@@ -20,7 +20,7 @@ class SecretLoader:
     def __init__(self, secret_config):
         """
         Initialize the SecretLoader with configuration.
-        
+
         Args:
             secret_config (dict): Configuration dictionary containing
                 provider-specific settings for secret retrieval.
@@ -30,14 +30,14 @@ class SecretLoader:
     def load_secret(self):
         """
         Load and return the secret value.
-        
+
         This method must be implemented by subclasses to retrieve
         secrets from their respective cloud platforms.
-        
+
         Returns:
             dict or str: The loaded secret value, typically as a JSON object
                 or string depending on how the secret was stored.
-                
+
         Raises:
             NotImplementedError: If the method is not implemented by a subclass.
         """
@@ -47,7 +47,7 @@ class SecretLoader:
 class AwsSecretLoader(SecretLoader):
     """
     AWS Secrets Manager implementation for loading secrets.
-    
+
     This class handles authentication and secret retrieval from AWS Secrets Manager
     using boto3. It supports retrieving secrets stored as JSON strings and
     automatically parses them into Python dictionaries.
@@ -56,11 +56,11 @@ class AwsSecretLoader(SecretLoader):
     def __init__(self, secret_config):
         """
         Initialize the AWS Secret Loader with AWS Secrets Manager client.
-        
+
         Args:
             secret_config (dict): Configuration dictionary containing:
                 - secret_name (str): Name of the secret in AWS Secrets Manager
-                
+
         Note:
             Uses default AWS credentials from environment variables, IAM roles,
             or AWS credentials file. Region is set to 'us-east-1'.
@@ -73,24 +73,24 @@ class AwsSecretLoader(SecretLoader):
         secret_mgnr_config = {
             "region_name": self.region_name,
             "aws_access_key_id": aws_access_key_id,
-            "aws_secret_access_key": os.environ.get("AWS_STORAGE_SECRET") or ""
+            "aws_secret_access_key": os.environ.get("AWS_STORAGE_SECRET") or "",
         }
-        self.client = session.client(service_name='secretsmanager',
-                                     **secret_mgnr_config) if aws_access_key_id else session.client(
-            service_name='secretsmanager',
-            region_name=self.region_name
+        self.client = (
+            session.client(service_name="secretsmanager", **secret_mgnr_config)
+            if aws_access_key_id
+            else session.client(service_name="secretsmanager", region_name=self.region_name)
         )
 
     def load_secret(self):
         """
         Retrieve and parse the secret from AWS Secrets Manager.
-        
+
         Fetches the secret value using the configured secret name and
         attempts to parse it as JSON. If parsing fails, returns the raw string.
-        
+
         Returns:
             dict: The parsed secret value as a dictionary (if JSON)
-            
+
         Raises:
             ClientError: If there's an error accessing the secret from AWS
             KeyError: If 'secret_name' is not provided in secret_config
@@ -99,14 +99,12 @@ class AwsSecretLoader(SecretLoader):
 
         try:
             # Retrieve the secret value from AWS Secrets Manager
-            get_secret_value_response = self.client.get_secret_value(
-                SecretId=secret_name
-            )
+            get_secret_value_response = self.client.get_secret_value(SecretId=secret_name)
         except ClientError as e:
             raise e
 
         # Extract the secret string from the response
-        secret = get_secret_value_response['SecretString']
+        secret = get_secret_value_response["SecretString"]
         # Parse the JSON string into a Python dictionary
         loaded_data = json.loads(secret)
 
@@ -116,7 +114,7 @@ class AwsSecretLoader(SecretLoader):
 class GcpSecretLoader(SecretLoader):
     """
     Google Cloud Platform Secret Manager implementation for loading secrets.
-    
+
     This class handles authentication and secret retrieval from GCP Secret Manager.
     It supports both service account authentication and default credentials.
     Secrets can be specified by full resource path or by project_id + secret_name.
@@ -125,13 +123,13 @@ class GcpSecretLoader(SecretLoader):
     def __init__(self, secret_config):
         """
         Initialize the GCP Secret Loader with Secret Manager client.
-        
+
         Args:
             secret_config (dict): Configuration dictionary containing:
                 - secret_name (str): Name of the secret in GCP Secret Manager
                 - project_id (str): GCP project ID (required if secret_name is not full path)
                 - version (str, optional): Secret version, defaults to 'latest'
-                
+
         Raises:
             ImportError: If google-cloud-secret-manager is not installed
         """
@@ -147,20 +145,22 @@ class GcpSecretLoader(SecretLoader):
         gcp_service_account_json_file = os.getenv("GCP_SERVICE_ACCOUNT_PATH")  # JSON file path
 
         # Initialize client with service account if provided, otherwise use default credentials
-        self._sm_client = get_gcp_client_for_credentials(
-            gcp_service_account_json_file) if gcp_service_account_json_file else (
-            secretmanager.SecretManagerServiceClient())
+        self._sm_client = (
+            get_gcp_client_for_credentials(gcp_service_account_json_file)
+            if gcp_service_account_json_file
+            else (secretmanager.SecretManagerServiceClient())
+        )
 
     def _build_resource_name(self):
         """
         Build the full resource name for the GCP secret.
-        
+
         Constructs the complete resource path for accessing the secret.
         Supports both full resource paths and project_id + secret_name combinations.
-        
+
         Returns:
             str: The complete resource name for the secret
-            
+
         Raises:
             ValueError: If required configuration parameters are missing
         """
@@ -177,7 +177,8 @@ class GcpSecretLoader(SecretLoader):
         project_id = self.secret_config.get("project_id")
         if not project_id:
             raise ValueError(
-                "project_id must be provided in secret_config when secret_name is not a full resource path")
+                "project_id must be provided in secret_config when secret_name is not a full resource path"
+            )
 
         version = self.secret_config.get("version", "latest")
         secret_id = name
@@ -186,13 +187,13 @@ class GcpSecretLoader(SecretLoader):
     def load_secret(self):
         """
         Retrieve and parse the secret from GCP Secret Manager.
-        
+
         Fetches the secret value using the constructed resource name and
         attempts to parse it as JSON. If parsing fails, returns the raw string.
-        
+
         Returns:
             dict or str: The parsed secret value as a dictionary (if JSON) or raw string
-            
+
         Raises:
             ValueError: If required configuration parameters are missing
         """
@@ -213,7 +214,7 @@ class GcpSecretLoader(SecretLoader):
 class AzureSecretLoader(SecretLoader):
     """
     Azure Key Vault implementation for loading secrets.
-    
+
     This class handles authentication and secret retrieval from Azure Key Vault
     using the Azure SDK. It supports both versioned and non-versioned secrets.
     """
@@ -221,13 +222,13 @@ class AzureSecretLoader(SecretLoader):
     def __init__(self, secret_config):
         """
         Initialize the Azure Secret Loader with Key Vault client.
-        
+
         Args:
             secret_config (dict): Configuration dictionary containing:
                 - vault_url (str): URL of the Azure Key Vault
                 - secret_name (str): Name of the secret in the Key Vault
                 - version (str, optional): Secret version (optional)
-                
+
         Raises:
             ImportError: If azure-identity or azure-keyvault-secrets are not installed
             ValueError: If vault_url is not provided
@@ -252,13 +253,13 @@ class AzureSecretLoader(SecretLoader):
     def load_secret(self):
         """
         Retrieve and parse the secret from Azure Key Vault.
-        
+
         Fetches the secret value using the configured secret name and optional version.
         Attempts to parse the value as JSON. If parsing fails, returns the raw string.
-        
+
         Returns:
             dict or str: The parsed secret value as a dictionary (if JSON) or raw string
-            
+
         Raises:
             ValueError: If secret_name is not provided in secret_config
         """
@@ -285,20 +286,20 @@ class AzureSecretLoader(SecretLoader):
 def get_gcp_client_for_credentials(credentials_json_file):
     """
     Initialize a GCP Secret Manager client using a service account JSON file.
-    
+
     This function creates a GCP Secret Manager client authenticated with
     the provided service account credentials file. This is useful when
     default credentials are not available or when specific service account
     permissions are required.
-    
+
     Args:
         credentials_json_file (str): Path to the JSON file containing the
             GCP service account credentials.
-    
+
     Returns:
         google.cloud.secretmanager.SecretManagerServiceClient: The GCP Secret Manager
             client initialized with the provided service account credentials.
-    
+
     Raises:
         ImportError: If google-cloud-secret-manager is not installed
         Exception: If the client initialization fails due to invalid credentials
@@ -312,7 +313,7 @@ def get_gcp_client_for_credentials(credentials_json_file):
         ) from import_error
 
     try:
-        with open(credentials_json_file, mode="r") as credentials_json:
+        with open(credentials_json_file) as credentials_json:
             # Initialize GCP client with the IAM credentials file
             return secretmanager.SecretManagerServiceClient().from_service_account_json(credentials_json.name)
 
@@ -333,29 +334,29 @@ _SERVICE_MAP = {
 def get_loader(config) -> SecretLoader:
     """
     Factory function to create the appropriate secret loader based on configuration.
-    
+
     This function acts as a factory that creates and returns the appropriate
     SecretLoader implementation based on the 'service' field in the configuration.
     Supported services are 'aws', 'gcp', and 'azure'.
-    
+
     Args:
         config (dict): Configuration dictionary containing:
             - service (str): The cloud service provider ('aws', 'gcp', or 'azure')
             - Additional provider-specific configuration parameters
-    
+
     Returns:
         SecretLoader: An instance of the appropriate SecretLoader subclass
             configured with the provided configuration.
-    
+
     Raises:
         Exception: If an unknown or unsupported service is specified in the config.
-    
+
     Example:
         >>> config = {"service": "aws", "secret_name": "my-secret"}
         >>> loader = get_loader(config)
         >>> secret = loader.load_secret()
     """
     if config["service"] not in _SERVICE_MAP:
-        raise Exception(f"Unknown service provided {config["service"]}")
+        raise Exception(f"Unknown service provided {config['service']}")
 
     return _SERVICE_MAP[config["service"]](config)

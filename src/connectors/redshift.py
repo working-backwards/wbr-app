@@ -2,6 +2,7 @@ import logging
 
 import pandas as pd
 import psycopg2  # Using psycopg2 for Redshift, as it's largely compatible
+
 # Alternatively, 'redshift_connector' could be used for specific features
 from psycopg2 import sql
 
@@ -37,7 +38,8 @@ class RedshiftConnector(BaseConnector):
                 # connect_timeout=self.config.get("connect_timeout", 10)
             )
             logger.info(
-                f"Successfully connected to Redshift database: {self.config.get('database')} at {self.config.get('host')}")
+                f"Successfully connected to Redshift database: {self.config.get('database')} at {self.config.get('host')}"
+            )
         except psycopg2.Error as e:
             logger.error(f"Error connecting to Redshift: {e}")
             raise ConnectionError(f"Could not connect to Redshift: {e}")
@@ -53,7 +55,8 @@ class RedshiftConnector(BaseConnector):
             self.connection.close()
             self.connection = None
             logger.info(
-                f"Disconnected from Redshift database: {self.config.get('database')} at {self.config.get('host')}")
+                f"Disconnected from Redshift database: {self.config.get('database')} at {self.config.get('host')}"
+            )
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -85,8 +88,8 @@ class RedshiftConnector(BaseConnector):
             df.columns = [col.lower() for col in df.columns]
 
             # The base validator expects "Date", so we must ensure it's capitalized here.
-            if 'date' in df.columns:
-                df = df.rename(columns={'date': 'Date'})
+            if "date" in df.columns:
+                df = df.rename(columns={"date": "Date"})
 
             df = self._validate_and_parse_date_column(df)
 
@@ -109,7 +112,7 @@ class RedshiftConnector(BaseConnector):
 
 
 # Example Usage (for testing purposes)
-if __name__ == '__main__':
+if __name__ == "__main__":
     # This is a placeholder for actual testing, requires a running Redshift instance
     # and appropriate configuration.
     #

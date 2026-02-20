@@ -76,7 +76,8 @@ class BaseConnector(ABC):
         """
         if "Date" not in df.columns:
             raise ValueError(
-                f"Query results must include a 'Date' column. Please alias your date column as \"Date\". Available columns: {df.columns.tolist()}")
+                f"Query results must include a 'Date' column. Please alias your date column as \"Date\". Available columns: {df.columns.tolist()}"
+            )
 
         # Attempt to convert to datetime, handling potential errors
         try:

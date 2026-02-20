@@ -34,7 +34,8 @@ class PostgresConnector(BaseConnector):
                 # e.g., sslmode=self.config.get("sslmode")
             )
             logger.info(
-                f"Successfully connected to PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
+                f"Successfully connected to PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}"
+            )
         except psycopg2.Error as e:
             logger.error(f"Error connecting to PostgreSQL: {e}")
             raise ConnectionError(f"Could not connect to PostgreSQL: {e}")
@@ -50,7 +51,8 @@ class PostgresConnector(BaseConnector):
             self.connection.close()
             self.connection = None
             logger.info(
-                f"Disconnected from PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}")
+                f"Disconnected from PostgreSQL database: {self.config.get('database')} at {self.config.get('host')}"
+            )
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -99,7 +101,7 @@ class PostgresConnector(BaseConnector):
 
 
 # Example Usage (for testing purposes, typically not here)
-if __name__ == '__main__':
+if __name__ == "__main__":
     # This is a placeholder for actual testing, requires a running Postgres instance
     # and appropriate configuration.
     #

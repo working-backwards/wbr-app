@@ -1,11 +1,8 @@
 import datetime
 import logging
 import tempfile
-
-logger = logging.getLogger(__name__)
 import traceback
 from json import JSONEncoder
-from typing import List
 
 import dateutil
 import dateutil.relativedelta
@@ -18,7 +15,9 @@ from yaml import SafeLoader
 from yaml._yaml import ScannerError
 
 from src.wbr import WBR
-from src.wbr_utility import if_else, put_into_map, if_else_supplier, append_to_list, is_last_day_of_month
+from src.wbr_utility import append_to_list, if_else, if_else_supplier, is_last_day_of_month, put_into_map
+
+logger = logging.getLogger(__name__)
 
 
 class SixTwelveChart:
@@ -44,7 +43,7 @@ class MetricObject:
 
 class Deck:
     def __init__(self):
-        self.blocks: List[SixTwelveChart, TrailingTable, EmbeddedContent, SectionBody] = list()
+        self.blocks: list[SixTwelveChart, TrailingTable, EmbeddedContent, SectionBody] = list()
         self.title = ""
         self.weekEnding = ""
         self.blockStartingNumber = 1
@@ -93,9 +92,9 @@ class Encoder(JSONEncoder):
 
 class SafeLineLoader(SafeLoader):
     def construct_mapping(self, node, deep=False):
-        mapping = super(SafeLineLoader, self).construct_mapping(node, deep=deep)
+        mapping = super().construct_mapping(node, deep=deep)
         # Add 1 so line numbering starts at 1
-        mapping['__line__'] = node.start_mark.line + 1
+        mapping["__line__"] = node.start_mark.line + 1
         return mapping
 
 
@@ -139,15 +138,15 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
 
     # Prepare primary (weekly) axis values with padding to align with monthly data
     wkd = series[0:6]
-    wkd.extend(['', '', '', '', '', '', '', '', '', '', '', '', ''])  # Pad to align with monthly data length
+    wkd.extend(["", "", "", "", "", "", "", "", "", "", "", "", ""])  # Pad to align with monthly data length
 
     # Prepare secondary (monthly) axis values with padding to align with weekly data
-    md = ['', '', '', '', '', '', '']  # Pad to align with weekly data length
+    md = ["", "", "", "", "", "", ""]  # Pad to align with weekly data length
     md.extend(series[7:19])
 
     # Store the primary and secondary axis values in dictionaries
-    primary_axis_values = {'primaryAxis': wkd}
-    secondary_axis_values = {'secondaryAxis': md}
+    primary_axis_values = {"primaryAxis": wkd}
+    secondary_axis_values = {"secondaryAxis": md}
 
     # Add the dictionaries to the result list
     primary_and_secondary_axis_value_list.append(primary_axis_values)
@@ -177,17 +176,21 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
     """
 
     is_single_axis = False  # Flag to determine if a single axis is sufficient for display.
-    plotting_dict = plot['block']
+    plotting_dict = plot["block"]
     six_twelve_chart = get_6_12_chart_instance(plotting_dict, wbr1)
 
     # Determine the end date, accounting for whether it's the last day of the month.
-    end_date = if_else_supplier(wbr1, lambda wbr: is_last_day_of_month(wbr.cy_week_ending),
-                                lambda wbr: wbr.cy_week_ending,
-                                lambda wbr: wbr.cy_week_ending.replace(day=1) - datetime.timedelta(days=1))
+    end_date = if_else_supplier(
+        wbr1,
+        lambda wbr: is_last_day_of_month(wbr.cy_week_ending),
+        lambda wbr: wbr.cy_week_ending,
+        lambda wbr: wbr.cy_week_ending.replace(day=1) - datetime.timedelta(days=1),
+    )
 
     # Get the fiscal start date based on the current week and fiscal month configuration.
-    fiscal_start = get_month_start(wbr1.cy_week_ending.month, wbr1.cy_week_ending.year,
-                                   datetime.datetime.strptime(wbr1.fiscal_month, '%b').month)
+    fiscal_start = get_month_start(
+        wbr1.cy_week_ending.month, wbr1.cy_week_ending.year, datetime.datetime.strptime(wbr1.fiscal_month, "%b").month
+    )
 
     # Determine the starting month for the x-axis display.
     is_trailing_twelve_months, month_start = _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1)
@@ -196,11 +199,13 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
     six_twelve_chart.xAxis = get_x_axis_label(wbr1, month_start)
 
     # Validate that metrics are defined in the plot configuration.
-    if 'metrics' not in plotting_dict:
-        raise SyntaxError(f"Bad Request! Metrics are not specified in the configuration for block {block_number} line: "
-                          f"{plotting_dict['__line__']}")
+    if "metrics" not in plotting_dict:
+        raise SyntaxError(
+            f"Bad Request! Metrics are not specified in the configuration for block {block_number} line: "
+            f"{plotting_dict['__line__']}"
+        )
 
-    metrices = plotting_dict['metrics']
+    metrices = plotting_dict["metrics"]
 
     # Iterate over each metric in the metrics dictionary to populate the chart.
     is_single_axis = process_metric(
@@ -211,25 +216,18 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
         metrices,
         six_twelve_chart,
         wbr1,
-        events_dict
+        events_dict,
     )
 
     # Set the number of axes based on whether a single or dual-axis is needed.
-    six_twelve_chart.axes = plotting_dict['axes'] if 'axes' in plotting_dict else (1 if is_single_axis else 2)
+    six_twelve_chart.axes = plotting_dict["axes"] if "axes" in plotting_dict else (1 if is_single_axis else 2)
 
     # Append the completed chart to the deck of blocks.
     decks.blocks.append(six_twelve_chart)
 
 
 def process_metric(
-        block_number,
-        fiscal_start,
-        is_single_axis,
-        is_trailing_twelve_months,
-        metrics,
-        six_twelve_chart,
-        wbr1,
-        events_dict
+    block_number, fiscal_start, is_single_axis, is_trailing_twelve_months, metrics, six_twelve_chart, wbr1, events_dict
 ):
     """
     Processes metrics to build chart data for the 6-12 chart, including handling current and prior year data,
@@ -257,7 +255,7 @@ def process_metric(
 
     for metric, metric_configs in metrics.items():
         try:
-            if metric == '__line__':
+            if metric == "__line__":
                 continue  # Skip the '__line__' key used for configuration tracking.
 
             # Process the current and prior year data for the metric.
@@ -272,9 +270,7 @@ def process_metric(
             six_twelve_chart.yAxis.append(metrics_dictionary)
 
             # Configure the table headers for the box totals and append box total values.
-            box_value_list = _update_box_totals(
-                metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart
-            )
+            box_value_list = _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart)
 
             if metric in events_dict:
                 six_twelve_chart.events.append(events_dict[metric])
@@ -282,8 +278,10 @@ def process_metric(
         except Exception as error:
             # Log any errors that occur during the chart-building process.
             logger.error(error, exc_info=True)
-            raise Exception(f"Error occurred while building block {block_number}, error: {error}, "
-                            f"yaml line number {metric_configs['__line__']}")
+            raise Exception(
+                f"Error occurred while building block {block_number}, error: {error}, "
+                f"yaml line number {metric_configs['__line__']}"
+            )
 
     six_twelve_chart.table["tableBody"] = box_value_list
     return is_single_axis
@@ -321,11 +319,10 @@ def _process_metric_data(metric, metric_configs, wbr1, fiscal_start, is_trailing
     )
 
     # Process prior year data if configured.
-    if "PY__" + metric in wbr1.metrics and ('graph_prior_year_flag' not in metric_configs or
-                                            metric_configs['graph_prior_year_flag']):
-        metric_data_series = get_metric_series_data(
-            wbr1, 'PY__' + metric, fiscal_start, is_trailing_twelve_months
-        )
+    if "PY__" + metric in wbr1.metrics and (
+        "graph_prior_year_flag" not in metric_configs or metric_configs["graph_prior_year_flag"]
+    ):
+        metric_data_series = get_metric_series_data(wbr1, "PY__" + metric, fiscal_start, is_trailing_twelve_months)
         metric_object.previous, is_single_axis = get_primary_and_secondary_axis_value_list(
             metric_data_series, is_single_axis
         )
@@ -346,18 +343,20 @@ def _build_metric_dictionary(metric, metric_configs, metric_object):
         dict: A dictionary containing the line style, legend name, and other metric properties.
     """
 
-    metrics_dictionary = {"lineStyle": metric_configs.get('line_style', "primary")}
+    metrics_dictionary = {"lineStyle": metric_configs.get("line_style", "primary")}
 
     # Configure line style, defaulting to 'primary'.
 
     # Handle special case where the line style is set to 'target'.
-    if_else(metric_object,
-            lambda x: metrics_dictionary['lineStyle'] == 'target',
-            lambda x: put_into_map(x, metrics_dictionary, "Target"),
-            lambda x: put_into_map(x, metrics_dictionary, "metric"))
+    if_else(
+        metric_object,
+        lambda x: metrics_dictionary["lineStyle"] == "target",
+        lambda x: put_into_map(x, metrics_dictionary, "Target"),
+        lambda x: put_into_map(x, metrics_dictionary, "metric"),
+    )
 
     # Configure legend name, defaulting to the metric name if not provided.
-    metrics_dictionary["legendName"] = metric_configs.get('legend_name', metric)
+    metrics_dictionary["legendName"] = metric_configs.get("legend_name", metric)
 
     return metrics_dictionary
 
@@ -378,17 +377,22 @@ def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twe
     """
 
     # Set the table headers for the box totals.
-    box_axis_list = list(wbr1.box_totals['Axis'])
+    box_axis_list = list(wbr1.box_totals["Axis"])
     six_twelve_chart.table["tableHeader"] = box_axis_list
 
     # Configure the box total scale based on whether the metric is a BPS metric.
-    six_twelve_chart.boxTotalScale = 'bps' if (
-            metric in wbr1.bps_metrics or metric in wbr1.function_bps_metrics) else "%"
+    six_twelve_chart.boxTotalScale = (
+        "bps" if (metric in wbr1.bps_metrics or metric in wbr1.function_bps_metrics) else "%"
+    )
 
     # Append the box total values for the metric, handling NaN and string values.
-    if metrics_dictionary['lineStyle'] != 'target':
-        box_value_list.append([value if not isinstance(value, str) and not numpy.isnan(value) else "N/A"
-                               for value in wbr1.box_totals[metric]])
+    if metrics_dictionary["lineStyle"] != "target":
+        box_value_list.append(
+            [
+                value if not isinstance(value, str) and not numpy.isnan(value) else "N/A"
+                for value in wbr1.box_totals[metric]
+            ]
+        )
 
     return box_value_list
 
@@ -397,13 +401,13 @@ def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1):
     """
     Determines the start month for the x-axis based on plot configuration or deck settings.
     """
-    if 'x_axis_monthly_display' in plotting_dict:
+    if "x_axis_monthly_display" in plotting_dict:
         month_start, is_trailing_twelve_months = get_x_axis_display_start_month(
-            block_number, end_date, plotting_dict['x_axis_monthly_display'], wbr1, plotting_dict['__line__']
+            block_number, end_date, plotting_dict["x_axis_monthly_display"], wbr1, plotting_dict["__line__"]
         )
     elif decks.xAxisMonthlyDisplay is not None:
         month_start, is_trailing_twelve_months = get_x_axis_display_start_month(
-            block_number, end_date, decks.xAxisMonthlyDisplay, wbr1, plotting_dict['__line__']
+            block_number, end_date, decks.xAxisMonthlyDisplay, wbr1, plotting_dict["__line__"]
         )
     else:
         # Default to a 12-month trailing view.
@@ -419,12 +423,13 @@ def get_6_12_chart_instance(plotting_dict, wbr1):
     """
     six_twelve_chart = SixTwelveChart()  # Initialize the chart object.
     # Set chart title if provided in the plotting dictionary.
-    six_twelve_chart.title = plotting_dict['title'] if 'title' in plotting_dict else None
+    six_twelve_chart.title = plotting_dict["title"] if "title" in plotting_dict else None
     # Set y-axis scaling if provided, otherwise default to an empty string.
-    six_twelve_chart.yScale = plotting_dict['y_scaling'] \
-        if 'y_scaling' in plotting_dict and plotting_dict['y_scaling'] is not None else ""
+    six_twelve_chart.yScale = (
+        plotting_dict["y_scaling"] if "y_scaling" in plotting_dict and plotting_dict["y_scaling"] is not None else ""
+    )
     # Set tooltip based on the WBR configuration.
-    six_twelve_chart.tooltip = "true" if 'tooltip' in wbr1.cfg['setup'] and wbr1.cfg['setup']['tooltip'] else "false"
+    six_twelve_chart.tooltip = "true" if "tooltip" in wbr1.cfg["setup"] and wbr1.cfg["setup"]["tooltip"] else "false"
     return six_twelve_chart
 
 
@@ -449,22 +454,25 @@ def get_x_axis_display_start_month(block_number, end_date: datetime, month_start
         Exception: If `month_start` is not 'fiscal_year' or 'trailing_twelve_months'.
     """
 
-    if month_start == 'fiscal_year':
+    if month_start == "fiscal_year":
         # Return the month following the fiscal year-end month as the fiscal year start month.
         # Convert the fiscal end month (wbr1.fiscal_month) into a datetime object, add one month,
         # and return the month name in abbreviated format ("%b").
-        return (datetime.datetime.strptime(wbr1.fiscal_month, "%b") +
-                dateutil.relativedelta.relativedelta(months=1)).strftime("%b"), False
+        return (
+            datetime.datetime.strptime(wbr1.fiscal_month, "%b") + dateutil.relativedelta.relativedelta(months=1)
+        ).strftime("%b"), False
 
-    elif month_start == 'trailing_twelve_months':
+    elif month_start == "trailing_twelve_months":
         # Return the month that is 11 months prior to the `end_date`, representing the start of the trailing twelve
         # months.
         return (end_date - dateutil.relativedelta.relativedelta(months=11)).strftime("%b"), True
 
     else:
         # Raise an error if the `month_start` value is not 'fiscal_year' or 'trailing_twelve_months'.
-        raise Exception(f"Expected 'fiscal_year' or 'trailing_twelve_months' but got {month_start} "
-                        f"for block {block_number} at line: {line}")
+        raise Exception(
+            f"Expected 'fiscal_year' or 'trailing_twelve_months' but got {month_start} "
+            f"for block {block_number} at line: {line}"
+        )
 
 
 def get_month_start(week_ending_month, week_ending_year, fiscal_month):
@@ -492,7 +500,8 @@ def get_month_start(week_ending_month, week_ending_year, fiscal_month):
 
     # Return the last day of the fiscal month, subtracting 11 months to get the start of the 12-month period.
     return last_day_of_month(datetime.date(week_ending_year, fiscal_month, 1)) - dateutil.relativedelta.relativedelta(
-        months=11)
+        months=11
+    )
 
 
 def last_day_of_month(any_day):
@@ -538,7 +547,7 @@ def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months
     months_data = list(wbr1.metrics[metric].copy()[7:])
 
     # Copy the corresponding dates from the 'Date' column in the WBR metrics.
-    axis_data = list(wbr1.metrics['Date'].copy()[7:])
+    axis_data = list(wbr1.metrics["Date"].copy()[7:])
 
     # Initialize conditions to track the month matching and total number of months processed.
     month_cond = False
@@ -547,8 +556,11 @@ def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months
     # Iterate through the months data to collect up to 12 months of aligned metric data.
     for i in range(len(months_data)):
         # Check if the current date aligns with the fiscal start date or the trailing twelve months condition is met.
-        if ((str(axis_data[i]).replace(' 00:00:00', '').lower() == str(
-                fiscal_start) or is_trailing_twelve_months or month_cond) and total_months <= 12):
+        if (
+            str(axis_data[i]).replace(" 00:00:00", "").lower() == str(fiscal_start)
+            or is_trailing_twelve_months
+            or month_cond
+        ) and total_months <= 12:
             # Set month condition to True after the first match, and increment total_months.
             month_cond = True
             total_months += 1
@@ -618,20 +630,28 @@ def get_six_weeks_table_row_data(wbr1, metric, line_number):
 
     # Raise an exception if the metric is a Month-over-Month (MOM) type, as it's unsupported for six weeks tables.
     if "MOM" in metric:
-        raise Exception(f"MOM type of metric not supported in the 6 weeks table block. "
-                        f"Please check your configuration at line: {line_number}")
+        raise Exception(
+            f"MOM type of metric not supported in the 6 weeks table block. "
+            f"Please check your configuration at line: {line_number}"
+        )
 
     # If the metric is not a Week-over-Week (WOW) type, append additional data from box_totals.
     if "WOW" not in metric:
         # Check the 6th week's box total value, append " " if it is NaN or 'N/A', otherwise append the value.
-        if_else(wbr1.box_totals.loc[5, metric], lambda x: x == 'N/A' or numpy.isnan(x),
-                lambda x: append_to_list(" ", six_weeks_table_data),
-                lambda x: append_to_list(x, six_weeks_table_data))
+        if_else(
+            wbr1.box_totals.loc[5, metric],
+            lambda x: x == "N/A" or numpy.isnan(x),
+            lambda x: append_to_list(" ", six_weeks_table_data),
+            lambda x: append_to_list(x, six_weeks_table_data),
+        )
 
         # Check the 8th week's box total value, and apply the same logic as for the 6th week's value.
-        if_else(wbr1.box_totals.loc[7, metric], lambda x: x == 'N/A' or numpy.isnan(x),
-                lambda x: append_to_list(" ", six_weeks_table_data),
-                lambda x: append_to_list(x, six_weeks_table_data))
+        if_else(
+            wbr1.box_totals.loc[7, metric],
+            lambda x: x == "N/A" or numpy.isnan(x),
+            lambda x: append_to_list(" ", six_weeks_table_data),
+            lambda x: append_to_list(x, six_weeks_table_data),
+        )
     else:
         # If the metric is WOW type, append two blank spaces as placeholders for the box total values.
         six_weeks_table_data.append(" ")
@@ -678,15 +698,15 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
     """
 
     # Retrieve the block configuration from the plot.
-    plotting_dict = plot['block']
+    plotting_dict = plot["block"]
 
     # Initialize the table object for the six weeks table.
     six_weeks_table = TrailingTable()
     six_weeks_table.plotStyle = "6_week_table"  # Set the plot style.
 
     # Set the title for the table if provided in the plotting configuration.
-    if 'title' in plotting_dict:
-        six_weeks_table.title = plotting_dict['title']
+    if "title" in plotting_dict:
+        six_weeks_table.title = plotting_dict["title"]
 
     # Create the column headers for the table.
     table_column_header = [wbr1.graph_axis_label[i] for i in range(0, 6)]
@@ -699,12 +719,12 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
 
 
 def build_six_weeks_table(
-        block_number: str,
-        plotting_dict: dict,
-        six_weeks_table: TrailingTable,
-        table_column_header: list,
-        wbr1: WBR,
-        event_dict: dict
+    block_number: str,
+    plotting_dict: dict,
+    six_weeks_table: TrailingTable,
+    table_column_header: list,
+    wbr1: WBR,
+    event_dict: dict,
 ):
     """
     Builds a six weeks table using the specified plotting configuration.
@@ -723,12 +743,14 @@ def build_six_weeks_table(
     """
     six_weeks_table.headers = table_column_header  # Assign headers to the table.
     # Validate that rows are specified in the plotting configuration.
-    if 'rows' not in plotting_dict:
-        raise SyntaxError(f"Bad Request! rows are not specified in the configuration for block: {block_number} line: "
-                          f"{plotting_dict['__line__']}")
+    if "rows" not in plotting_dict:
+        raise SyntaxError(
+            f"Bad Request! rows are not specified in the configuration for block: {block_number} line: "
+            f"{plotting_dict['__line__']}"
+        )
     else:
         # Iterate over each row configuration to build table rows.
-        for row_configs in plotting_dict['rows']:
+        for row_configs in plotting_dict["rows"]:
             try:
                 row = build_six_week_table_row(six_weeks_table, row_configs, wbr1, event_dict)
 
@@ -737,8 +759,10 @@ def build_six_weeks_table(
             except Exception as e:
                 # Log any errors and raise an exception with context for debugging.
                 logger.error(e, exc_info=True)
-                raise Exception(f"Error occurred while building block {block_number}, error: {e}, yaml line number "
-                                f"{row_configs['__line__']}")
+                raise Exception(
+                    f"Error occurred while building block {block_number}, error: {e}, yaml line number "
+                    f"{row_configs['__line__']}"
+                )
 
 
 def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, wbr1: WBR, event_dict: dict):
@@ -758,26 +782,27 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
     Returns:
         Rows: A Rows object populated with the configured header, data, style, and scaling information.
     """
-    row_config = row_configs['row']
+    row_config = row_configs["row"]
     row = Rows()  # Initialize a new row object.
     # Set the row header if provided.
-    if 'header' in row_config:
-        row.rowHeader = row_config['header']
+    if "header" in row_config:
+        row.rowHeader = row_config["header"]
     # Validate and retrieve the metric data for the row.
-    if 'metric' in row_config:
-        if row_config['metric'] not in wbr1.metrics.columns:
+    if "metric" in row_config:
+        if row_config["metric"] not in wbr1.metrics.columns:
             raise KeyError(
                 f"Error in yaml at line: {row_config['__line__']}, Metric {row_config['metric']} not found in "
-                f"the dataframe, please check if you have defined this metric in metric section")
+                f"the dataframe, please check if you have defined this metric in metric section"
+            )
         # Get data for the six weeks table row.
-        row.rowData = get_six_weeks_table_row_data(wbr1, row_config['metric'], row_config['__line__'])
-        if row_config['metric'] in event_dict:
-            six_weeks_table.events.append(event_dict[row_config['metric']])
+        row.rowData = get_six_weeks_table_row_data(wbr1, row_config["metric"], row_config["__line__"])
+        if row_config["metric"] in event_dict:
+            six_weeks_table.events.append(event_dict[row_config["metric"]])
     # Set additional properties for the row if specified.
-    if 'style' in row_config:
-        row.rowStyle = row_config['style']
-    if 'y_scaling' in row_config:
-        row.yScale = row_config['y_scaling']
+    if "style" in row_config:
+        row.rowStyle = row_config["style"]
+    if "y_scaling" in row_config:
+        row.yScale = row_config["y_scaling"]
     return row
 
 
@@ -797,31 +822,31 @@ def _12_months_table(decks, plot, wbr1: WBR, block_number):
     Returns:
         None: This function does not return a value; it appends the created table to the decks.
     """
-    plotting_dict = plot['block']
+    plotting_dict = plot["block"]
     twelve_months_table = TrailingTable()
     twelve_months_table.plotStyle = "12_MonthsTable"
-    if 'title' in plotting_dict:
-        twelve_months_table.title = plotting_dict['title']
+    if "title" in plotting_dict:
+        twelve_months_table.title = plotting_dict["title"]
 
     itr_start = 7
 
-    if 'x_axis_monthly_display' in plotting_dict:
-        month_start = plotting_dict['x_axis_monthly_display']
+    if "x_axis_monthly_display" in plotting_dict:
+        month_start = plotting_dict["x_axis_monthly_display"]
     elif decks.xAxisMonthlyDisplay is not None:
         month_start = decks.xAxisMonthlyDisplay
     else:
-        month_start = 'trailing_twelve_months'
+        month_start = "trailing_twelve_months"
 
     # Determine the fiscal month if month_start is 'fiscal_year'
-    if month_start == 'fiscal_year':
-        fiscal_month = (datetime.datetime.strptime(wbr1.fiscal_month, "%b") +
-                        dateutil.relativedelta.relativedelta(months=1)).strftime("%b")
+    if month_start == "fiscal_year":
+        fiscal_month = (
+            datetime.datetime.strptime(wbr1.fiscal_month, "%b") + dateutil.relativedelta.relativedelta(months=1)
+        ).strftime("%b")
 
         # Calculate the starting index for the twelve-month table
         itr_start = next(
-            (i for i, month in enumerate(wbr1.graph_axis_label[7:])
-             if month.lower() == fiscal_month.lower()),
-            len(wbr1.graph_axis_label[7:])  # Fallback in case fiscal_month is not found
+            (i for i, month in enumerate(wbr1.graph_axis_label[7:]) if month.lower() == fiscal_month.lower()),
+            len(wbr1.graph_axis_label[7:]),  # Fallback in case fiscal_month is not found
         )
 
     build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, wbr1)
@@ -849,19 +874,23 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
         None: This function does not return a value; it appends the constructed rows to the twelve_months_table.
     """
     # Set the headers for the twelve-months table
-    twelve_months_table.headers = wbr1.graph_axis_label[itr_start:itr_start + 12]
-    if 'rows' not in plotting_dict:
-        raise SyntaxError(f"Bad Request! rows are not specified in the configuration at block: {block_number} at line: "
-                          f"{plotting_dict['__line__']}")
-    for row_configs in plotting_dict['rows']:
+    twelve_months_table.headers = wbr1.graph_axis_label[itr_start : itr_start + 12]
+    if "rows" not in plotting_dict:
+        raise SyntaxError(
+            f"Bad Request! rows are not specified in the configuration at block: {block_number} at line: "
+            f"{plotting_dict['__line__']}"
+        )
+    for row_configs in plotting_dict["rows"]:
         try:
             row = build_twelve_month_table_row(itr_start, row_configs, wbr1)
 
             twelve_months_table.rows.append(row)
         except Exception as e:
             logger.error(e, exc_info=True)
-            raise Exception(f"Error occurred while building block {block_number}, error: {e}, yaml line number "
-                            f"{row_configs['__line__']}")
+            raise Exception(
+                f"Error occurred while building block {block_number}, error: {e}, yaml line number "
+                f"{row_configs['__line__']}"
+            )
 
 
 def build_twelve_month_table_row(itr_start, row_configs, wbr1):
@@ -879,20 +908,21 @@ def build_twelve_month_table_row(itr_start, row_configs, wbr1):
     Returns:
         Rows: A Rows object populated with the specified header, style, scaling, and data for the twelve-months table.
     """
-    row_config = row_configs['row']
+    row_config = row_configs["row"]
     row = Rows()
-    if 'header' in row_config:
-        row.rowHeader = row_config['header']
-    if 'style' in row_config:
-        row.rowStyle = row_config['style']
-    if 'y_scaling' in row_config:
-        row.yScale = row_config['y_scaling']
-    if 'metric' in row_config:
-        if row_config['metric'] not in wbr1.metrics.columns:
+    if "header" in row_config:
+        row.rowHeader = row_config["header"]
+    if "style" in row_config:
+        row.rowStyle = row_config["style"]
+    if "y_scaling" in row_config:
+        row.yScale = row_config["y_scaling"]
+    if "metric" in row_config:
+        if row_config["metric"] not in wbr1.metrics.columns:
             raise KeyError(
                 f"Error in yaml at line: {row_config['__line__']}, Metric {row_config['metric']} not found in "
-                f"the dataframe, please check if you have defined this metric in metric section")
-        row.rowData = get_twelve_months_table_row(wbr1, row_config['metric'], itr_start)
+                f"the dataframe, please check if you have defined this metric in metric section"
+            )
+        row.rowData = get_twelve_months_table_row(wbr1, row_config["metric"], itr_start)
     return row
 
 
@@ -904,10 +934,10 @@ def append_section_to_deck(decks, plot):
         decks (Decks): The Decks object to which the new section will be added.
         plot (dict): A dictionary containing the configuration for the block, including optional title.
     """
-    plotting_dict = plot['block']
+    plotting_dict = plot["block"]
     section = SectionBody()
-    if 'title' in plotting_dict:
-        section.title = plotting_dict['title']
+    if "title" in plotting_dict:
+        section.title = plotting_dict["title"]
     decks.blocks.append(section)
 
 
@@ -920,18 +950,18 @@ def append_embedded_content_to_deck(decks, plot):
         plot (dict): A dictionary containing the configuration for the block, including the source of the content,
                      and optional title, name, width, and height.
     """
-    plotting_dict = plot['block']
+    plotting_dict = plot["block"]
     embedded_content = EmbeddedContent()
-    embedded_content.source = plotting_dict['source']
+    embedded_content.source = plotting_dict["source"]
     embedded_content.id = "iframe_id"
-    if 'title' in plotting_dict:
-        embedded_content.title = plotting_dict['title']
-    if 'name' in plotting_dict:
-        embedded_content.name = plotting_dict['name']
+    if "title" in plotting_dict:
+        embedded_content.title = plotting_dict["title"]
+    if "name" in plotting_dict:
+        embedded_content.name = plotting_dict["name"]
     if "width" in plotting_dict:
-        embedded_content.width = int(plotting_dict['width'][:-2])
-    if 'height' in plotting_dict:
-        embedded_content.height = int(plotting_dict['height'][:-2])
+        embedded_content.width = int(plotting_dict["width"][:-2])
+    if "height" in plotting_dict:
+        embedded_content.height = int(plotting_dict["height"][:-2])
     decks.blocks.append(embedded_content)
 
 
@@ -951,15 +981,16 @@ def filter_events(wbr: WBR, event_df, event_errors: list) -> dict:
     py_six_weeks_end = week_ending - datetime.timedelta(days=364)
     py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=41)
 
-    cy_six_weeks_events = event_df.query('Date >= @cy_six_weeks_ago and Date <= @week_ending')
-    py_six_weeks_events = event_df.query('Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end')
+    cy_six_weeks_events = event_df.query("Date >= @cy_six_weeks_ago and Date <= @week_ending")
+    py_six_weeks_events = event_df.query("Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end")
 
     df = pd.concat([cy_six_weeks_events, py_six_weeks_events], axis=0)
     events_metric_list = list(df["MetricName"])
 
     wbr_metric_list = wbr.metrics.columns
-    events_metric_list = list(filter(lambda metric: filter_metric(metric, wbr_metric_list, event_errors),
-                                     events_metric_list))
+    events_metric_list = list(
+        filter(lambda metric: filter_metric(metric, wbr_metric_list, event_errors), events_metric_list)
+    )
 
     events_desc_list = list(df["EventDescription"])
     events_date_list = list(df["Date"])
@@ -980,7 +1011,7 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     Returns:
         Deck: A Deck object populated with plots, titles, and other settings defined in the wbr1 configuration.
     """
-    plots = report.cfg['deck']
+    plots = report.cfg["deck"]
     deck = Deck()
 
     event_dict = {}
@@ -991,19 +1022,19 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
         logger.error(err, exc_info=True)
         event_errors.append(err.__str__())
 
-    if 'x_axis_monthly_display' in report.cfg['setup']:
-        deck.xAxisMonthlyDisplay = report.cfg['setup']['x_axis_monthly_display']
+    if "x_axis_monthly_display" in report.cfg["setup"]:
+        deck.xAxisMonthlyDisplay = report.cfg["setup"]["x_axis_monthly_display"]
 
     for i in range(len(plots)):
         build_a_block(deck, i, plots, report, event_dict)
 
-    deck.title = report.cfg['setup']['title']
+    deck.title = report.cfg["setup"]["title"]
 
-    week_ending = datetime.datetime.strptime(report.cfg['setup']['week_ending'], '%d-%b-%Y')
+    week_ending = datetime.datetime.strptime(report.cfg["setup"]["week_ending"], "%d-%b-%Y")
     deck.weekEnding = week_ending.strftime("%d") + " " + week_ending.strftime("%B") + " " + week_ending.strftime("%Y")
 
-    if 'block_starting_number' in report.cfg['setup']:
-        deck.blockStartingNumber = report.cfg['setup']['block_starting_number']
+    if "block_starting_number" in report.cfg["setup"]:
+        deck.blockStartingNumber = report.cfg["setup"]["block_starting_number"]
 
     deck.eventErrors = "\n".join(event_errors) if len(event_errors) > 0 else None
 
@@ -1023,22 +1054,25 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
     Raises:
         Exception: If the block configuration is invalid or if the UI type is not recognized.
     """
-    if 'block' not in plots[i]:
-        raise Exception(f"Invalid block configuration for block number {str(i + 1)} in DECK Section at line:"
-                        f" {plots[i]['__line__']}")
-    plotting_dict = plots[i]['block']
-    if 'ui_type' not in plotting_dict or plotting_dict['ui_type'] is None:
-        raise Exception(f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
-                        f" {plotting_dict['__line__']}")
-    elif plotting_dict['ui_type'] == '6_12Graph':
+    if "block" not in plots[i]:
+        raise Exception(
+            f"Invalid block configuration for block number {str(i + 1)} in DECK Section at line: {plots[i]['__line__']}"
+        )
+    plotting_dict = plots[i]["block"]
+    if "ui_type" not in plotting_dict or plotting_dict["ui_type"] is None:
+        raise Exception(
+            f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
+            f" {plotting_dict['__line__']}"
+        )
+    elif plotting_dict["ui_type"] == "6_12Graph":
         _6_12_chart(deck, plots[i], report, str(i + 1), event_dict)
-    elif plotting_dict['ui_type'] == '6_WeeksTable':
+    elif plotting_dict["ui_type"] == "6_WeeksTable":
         _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict)
-    elif plotting_dict['ui_type'] == '12_MonthsTable':
+    elif plotting_dict["ui_type"] == "12_MonthsTable":
         _12_months_table(deck, plots[i], report, str(i + 1))
-    elif plotting_dict['ui_type'] == 'section':
+    elif plotting_dict["ui_type"] == "section":
         append_section_to_deck(deck, plots[i])
-    elif plotting_dict['ui_type'] == 'embedded_content':
+    elif plotting_dict["ui_type"] == "embedded_content":
         append_embedded_content_to_deck(deck, plots[i])
     else:
         raise Exception(
@@ -1047,14 +1081,14 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
 
 
 def get_dict(column):
-    metric_dict = {'column': column, 'aggf': 'sum'}
+    metric_dict = {"column": column, "aggf": "sum"}
     return metric_dict
 
 
 def get_metric_block(metric, target):
-    metric_block_config = {metric: {'line_style': 'primary', 'graph_prior_year_flag': True}}
+    metric_block_config = {metric: {"line_style": "primary", "graph_prior_year_flag": True}}
     if target is not None:
-        metric_block_config[target] = {'line_style': 'target', 'graph_prior_year_flag': False}
+        metric_block_config[target] = {"line_style": "target", "graph_prior_year_flag": False}
     return metric_block_config
 
 
@@ -1062,7 +1096,7 @@ format_dict = {
     lambda series: series.describe()["mean"] / 1000000000 > 1: "##BB",
     lambda series: series.describe()["mean"] / 1000000 > 1: "##MM",
     lambda series: series.describe()["mean"] / 1000 > 1: "##KK",
-    lambda series: ((series.dropna() >= 0) & (series.dropna() <= 1)).all(): "##%"
+    lambda series: ((series.dropna() >= 0) & (series.dropna() <= 1)).all(): "##%",
 }
 
 
@@ -1086,16 +1120,16 @@ def generate_custom_yaml(temp_file, csv_data, config):
 
     # Configuration for WBR setup
     wbr_setup_config = {
-        'week_ending': 'Please enter a week ending date, <dd-MMM-YYYY> eg: 25-SEP-2021',
-        'week_number': 'Enter the week number of week ending date',
-        'title': 'A title for your WBR',
-        'x_axis_monthly_display': 'trailing_twelve_months'
+        "week_ending": "Please enter a week ending date, <dd-MMM-YYYY> eg: 25-SEP-2021",
+        "week_number": "Enter the week number of week ending date",
+        "title": "A title for your WBR",
+        "x_axis_monthly_display": "trailing_twelve_months",
     }
 
-    if 'setup' in config and 'db_config_url' in config.get('setup'):
-        wbr_setup_config['db_config_url'] = config.get('setup').get('db_config_url')
+    if "setup" in config and "db_config_url" in config.get("setup"):
+        wbr_setup_config["db_config_url"] = config.get("setup").get("db_config_url")
 
-    configs['setup'] = wbr_setup_config
+    configs["setup"] = wbr_setup_config
 
     # Add a placeholder for data_sources
     data_sources_placeholder = [
@@ -1103,26 +1137,26 @@ def generate_custom_yaml(temp_file, csv_data, config):
             "name": "my_database_source",
             "connection_name": "NameOfYourConnectionInConnectionsYAML",
             "date_column": "your_date_column_from_query",
-            "query": "# Write your SQL query here, ensuring it returns 'your_date_column_from_query'\n# Example: SELECT date_col as your_date_column_from_query, metric1, metric2 FROM your_table;"
+            "query": "# Write your SQL query here, ensuring it returns 'your_date_column_from_query'\n# Example: SELECT date_col as your_date_column_from_query, metric1, metric2 FROM your_table;",
         }
     ]
-    configs['data_sources'] = config.get("data_sources") if "data_sources" in config else data_sources_placeholder
+    configs["data_sources"] = config.get("data_sources") if "data_sources" in config else data_sources_placeholder
 
     metric_config_dict = {}
     # Generate metric configurations based on CSV columns (less direct now)
     # User will need to map these to query result columns
     for column in columns:
-        if column != 'Date' and (csv_data[column].dtype == int or csv_data[column].dtype == float):
+        if column != "Date" and (csv_data[column].dtype == int or csv_data[column].dtype == float):
             # Assuming the column name from CSV might be the same as in query result
             metric_config_dict[column] = get_dict(column)
             # Add a comment that user needs to verify this column exists in query output
-            metric_config_dict[column]['comment'] = f"Ensure '{column}' is a column in your data_sources query output."
+            metric_config_dict[column]["comment"] = f"Ensure '{column}' is a column in your data_sources query output."
 
-
-    configs['metrics'] = metric_config_dict
+    configs["metrics"] = metric_config_dict
 
     metric_keyset = list(
-        filter(lambda k: isinstance(metric_config_dict[k], dict), metric_config_dict.keys()))  # Filter out comments
+        filter(lambda k: isinstance(metric_config_dict[k], dict), metric_config_dict.keys())
+    )  # Filter out comments
     blocks = []
 
     # Generate deck configurations for each metric
@@ -1136,7 +1170,8 @@ def generate_custom_yaml(temp_file, csv_data, config):
         # Target metric logic remains similar, assuming target columns would also be in query
         target_col_name_suffixes = ["__Target", "__target"]
         target = next(
-            (metric_key + suffix for suffix in target_col_name_suffixes if metric_key + suffix in metric_keyset), None)
+            (metric_key + suffix for suffix in target_col_name_suffixes if metric_key + suffix in metric_keyset), None
+        )
 
         if target and target in metric_keyset:  # Ensure target is also a valid metric key
             # metric_keyset.remove(target) # This would modify list while iterating if not careful, better to just use it
@@ -1150,20 +1185,20 @@ def generate_custom_yaml(temp_file, csv_data, config):
         block_metrics_config = get_metric_block(metric_key, target if target and target in metric_config_dict else None)
 
         block_config = {
-            'ui_type': '6_12Graph',
-            'title': metric_key,
-            'y_scaling': mean_column_value,
-            'comment_scaling': "y_scaling is based on uploaded CSV, adjust if data source is database.",
-            'metrics': block_metrics_config
+            "ui_type": "6_12Graph",
+            "title": metric_key,
+            "y_scaling": mean_column_value,
+            "comment_scaling": "y_scaling is based on uploaded CSV, adjust if data source is database.",
+            "metrics": block_metrics_config,
         }
 
-        deck_config_dict['block'] = block_config
+        deck_config_dict["block"] = block_config
         blocks.append(deck_config_dict)
 
-    configs['deck'] = blocks
+    configs["deck"] = blocks
 
     # Custom Dumper to handle comments better if needed, but PyYAML's default should be okay for basic comments.
-    with open(temp_file.name, 'w') as file:  # Changed to 'w' to overwrite if file exists
+    with open(temp_file.name, "w") as file:  # Changed to 'w' to overwrite if file exists
         yaml.dump(configs, file, sort_keys=False, allow_unicode=True)
 
 
@@ -1173,14 +1208,18 @@ def load_yaml_from_stream(config_file, add_lines: bool = True):
         config_file.save(temp_file.name)
         try:
             # Load the YAML configuration from the temporary file
-            return yaml.load(open(temp_file.name), SafeLineLoader) if add_lines else yaml.load(open(temp_file.name),
-                                                                                               SafeLoader)
+            return (
+                yaml.load(open(temp_file.name), SafeLineLoader)
+                if add_lines
+                else yaml.load(open(temp_file.name), SafeLoader)
+            )
         except (ScannerError, yaml.YAMLError) as e:
             logger.error(e, exc_info=True)
-            error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
+            error_message = traceback.format_exc().split(".yaml")[-1].replace(",", "").replace('"', "")
             # Return an error response if there is an issue with the YAML configuration
             raise Exception(
-                f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
+                f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}"
+            )
         finally:
             temp_file.close()
 
@@ -1195,7 +1234,7 @@ def load_yaml_from_url(url: str):
         return yaml.load(content, SafeLineLoader)
     except (ScannerError, yaml.YAMLError) as e:
         logger.error(e, exc_info=True)
-        error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
+        error_message = traceback.format_exc().split(".yaml")[-1].replace(",", "").replace('"', "")
         # Return an error response if there is an issue with the YAML configuration
         raise Exception(f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
 
@@ -1211,7 +1250,7 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
         dict: A dictionary mapping connection names to their configurations.
     """
     content = ""
-    if url_or_path.lower().startswith(('http://', 'https://')):
+    if url_or_path.lower().startswith(("http://", "https://")):
         try:
             response = requests.get(url_or_path, allow_redirects=True)
             response.raise_for_status()  # Raise an exception for bad status codes
@@ -1223,15 +1262,16 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
     else:
         # Treat as a local file path
         try:
-            with open(url_or_path, 'r') as f:
+            with open(url_or_path) as f:
                 content = f.read()
             logger.info(f"Successfully read connections file from local path: {url_or_path}")
         except FileNotFoundError:
             logger.error(f"Connections configuration file not found at local path: {url_or_path}")
             raise FileNotFoundError(f"Connections configuration file not found at: {url_or_path}")
         except Exception as e:
-            logger.error(f"An unexpected error occurred while reading local connections file {url_or_path}: {e}",
-                         exc_info=True)
+            logger.error(
+                f"An unexpected error occurred while reading local connections file {url_or_path}: {e}", exc_info=True
+            )
             raise
 
     # Parse the YAML content
@@ -1250,11 +1290,12 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
     connections_map = {}
     for conn in config_data["connections"]:
         if not isinstance(conn, dict) or "name" not in conn or "type" not in conn or "config" not in conn:
-            line = conn.get('__line__', 'N/A')
+            line = conn.get("__line__", "N/A")
             raise ValueError(
-                f"Invalid connection entry in {url_or_path} near line {line}. Each connection must have 'name', 'type', and 'config'.")
+                f"Invalid connection entry in {url_or_path} near line {line}. Each connection must have 'name', 'type', and 'config'."
+            )
         if conn["name"] in connections_map:
-            line = conn.get('__line__', 'N/A')
+            line = conn.get("__line__", "N/A")
             raise ValueError(f"Duplicate connection name '{conn['name']}' found in {url_or_path} near line {line}.")
         connections_map[conn["name"]] = conn
 

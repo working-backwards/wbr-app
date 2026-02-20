@@ -3,12 +3,12 @@ import logging
 import os
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 import boto3
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 from google.cloud import storage
+
+logger = logging.getLogger(__name__)
 
 
 class PublishWbr:
@@ -46,21 +46,27 @@ class PublishWbr:
             s3config = {
                 "region_name": os.environ.get("AWS_REGION_NAME") or "",
                 "aws_access_key_id": aws_access_key_id,
-                "aws_secret_access_key": os.environ.get("AWS_STORAGE_SECRET") or ""
+                "aws_secret_access_key": os.environ.get("AWS_STORAGE_SECRET") or "",
             }
             if os.environ.get("S3_STORAGE_ENDPOINT"):
                 s3config["endpoint_url"] = os.environ.get("S3_STORAGE_ENDPOINT")
-            self.s3_client = boto3.client('s3', **s3config) if aws_access_key_id else boto3.client('s3')
+            self.s3_client = boto3.client("s3", **s3config) if aws_access_key_id else boto3.client("s3")
 
         elif storage_option == "gcp":
             gcp_service_account_json_file = os.getenv("GCP_SERVICE_ACCOUNT_PATH")  # JSON file path
-            self.gcp_client = get_gcp_client_for_credentials(gcp_service_account_json_file) \
-                if gcp_service_account_json_file else get_gcp_client_for_iam()
+            self.gcp_client = (
+                get_gcp_client_for_credentials(gcp_service_account_json_file)
+                if gcp_service_account_json_file
+                else get_gcp_client_for_iam()
+            )
 
         elif storage_option == "azure":
             azure_connection_string = os.getenv("AZURE_CONNECTION_STRING")
-            self.azure_client = BlobServiceClient.from_connection_string(azure_connection_string) \
-                if azure_connection_string else get_azure_from_default_credentials()
+            self.azure_client = (
+                BlobServiceClient.from_connection_string(azure_connection_string)
+                if azure_connection_string
+                else get_azure_from_default_credentials()
+            )
 
         else:
             logger.warning("No OBJECT_STORAGE_OPTION is provided hence the published report will be saved locally")
@@ -77,26 +83,27 @@ class PublishWbr:
             Exception: Raises exceptions specific to the storage service (if any occur).
         """
         if self.storage_option == "s3":
-            byte_data = bytes(json.dumps(data).encode('utf-8'))
+            byte_data = bytes(json.dumps(data).encode("utf-8"))
             self.s3_client.put_object(Body=byte_data, Bucket=self.object_storage_bucket, Key=destination_file_path)
 
         elif self.storage_option == "gcp":
-            byte_data = bytes(json.dumps(data).encode('utf-8'))
+            byte_data = bytes(json.dumps(data).encode("utf-8"))
             bucket = self.gcp_client.bucket(self.object_storage_bucket)
             blob = bucket.blob(destination_file_path)
-            blob.upload_from_string(byte_data, content_type='application/json')
+            blob.upload_from_string(byte_data, content_type="application/json")
 
         elif self.storage_option == "azure":
-            byte_data = bytes(json.dumps(data).encode('utf-8'))
-            blob_client = self.azure_client.get_blob_client(container=self.object_storage_bucket,
-                                                            blob=destination_file_path)
+            byte_data = bytes(json.dumps(data).encode("utf-8"))
+            blob_client = self.azure_client.get_blob_client(
+                container=self.object_storage_bucket, blob=destination_file_path
+            )
             blob_client.upload_blob(byte_data)
 
         else:
             path = str(Path(os.path.dirname(__file__)).parent)
-            file_path = path + '/publish/' + destination_file_path
+            file_path = path + "/publish/" + destination_file_path
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, 'w') as json_file:
+            with open(file_path, "w") as json_file:
                 json.dump(data, json_file, indent=4)
 
     def download(self, path):
@@ -114,7 +121,7 @@ class PublishWbr:
         """
         if self.storage_option == "s3":
             response = self.s3_client.get_object(Bucket=self.object_storage_bucket, Key=path)
-            json_file_content = response['Body'].read()
+            json_file_content = response["Body"].read()
             return json.loads(json_file_content)
 
         elif self.storage_option == "gcp":
@@ -123,14 +130,13 @@ class PublishWbr:
             return json.loads(blob.download_as_string(client=None))
 
         elif self.storage_option == "azure":
-            blob_client = self.azure_client.get_blob_client(container=self.object_storage_bucket,
-                                                            blob=path)
+            blob_client = self.azure_client.get_blob_client(container=self.object_storage_bucket, blob=path)
             stream = blob_client.download_blob()
             return json.loads(stream.readall())
 
         else:
             base_path = str(Path(os.path.dirname(__file__)).parent)
-            file = base_path + '/publish/' + path
+            file = base_path + "/publish/" + path
             current_file = open(file)
             return json.load(current_file)
 
@@ -159,7 +165,7 @@ def get_gcp_client_for_credentials(credentials_json_file):
         Exception: If the client initialization fails, an exception is raised and logged.
     """
     try:
-        with open(credentials_json_file, mode="r") as credentials_json:
+        with open(credentials_json_file) as credentials_json:
             # Initialize GCP client with the IAM credentials file
             return storage.Client.from_service_account_json(credentials_json.name)
 

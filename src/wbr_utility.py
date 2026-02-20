@@ -1,11 +1,11 @@
 import calendar
 import datetime
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import dateutil
 import numpy as np
 import pandas as pd
-from dateutil import relativedelta
 
 
 def append_to_list(data: Any, to_append_list: list):
@@ -17,19 +17,13 @@ def put_into_map(data: Any, dictionary: dict, key: Any):
 
 
 def if_else(
-        data: Any,
-        predicate: Callable[[Any], bool],
-        true_consumer: Callable[[Any], None],
-        fallback: Callable[[Any], None]
+    data: Any, predicate: Callable[[Any], bool], true_consumer: Callable[[Any], None], fallback: Callable[[Any], None]
 ) -> None:
     true_consumer(data) if predicate(data) else fallback(data)
 
 
 def if_else_supplier(
-        data: Any,
-        predicate: Callable[[Any], bool],
-        true_consumer: Callable[[Any], Any],
-        fallback: Callable[[Any], Any]
+    data: Any, predicate: Callable[[Any], bool], true_consumer: Callable[[Any], Any], fallback: Callable[[Any], Any]
 ):
     return true_consumer(data) if predicate(data) else fallback(data)
 
@@ -53,7 +47,7 @@ def apply_operation_and_return_denominator_values(operation, columns, yoy_requir
     """
     value_list = []
 
-    if operation == 'sum':
+    if operation == "sum":
         # Compute sum for specified indices and append to value_list
         value_list.append(apply_sum_operations(yoy_required_values_df, columns, 1))
         value_list.append(apply_sum_operations(yoy_required_values_df, columns, 2))
@@ -61,7 +55,7 @@ def apply_operation_and_return_denominator_values(operation, columns, yoy_requir
         value_list.append(apply_sum_operations(yoy_required_values_df, columns, 7))
         value_list.append(apply_sum_operations(yoy_required_values_df, columns, 9))
 
-    elif operation == 'difference':
+    elif operation == "difference":
         # Calculate the difference between the specified columns for specific indices
         value_list.append(yoy_required_values_df[columns[0]][1] - yoy_required_values_df[columns[1]][1])
         value_list.append(yoy_required_values_df[columns[0]][2] - yoy_required_values_df[columns[1]][2])
@@ -157,10 +151,10 @@ def create_new_row(d, df):
         ValueError: If the DataFrame does not have 'Date' or 'PY__Date' as the first column.
     """
     # Create a new DataFrame for the new row with the appropriate column name
-    if df.columns[0] == 'Date':
-        date_df = pd.DataFrame(columns=['Date'])
+    if df.columns[0] == "Date":
+        date_df = pd.DataFrame(columns=["Date"])
     else:
-        date_df = pd.DataFrame(columns=['PY__Date'])
+        date_df = pd.DataFrame(columns=["PY__Date"])
 
     # Add the specified date to the new DataFrame
     date_df.loc[0] = [d]
@@ -175,7 +169,7 @@ def create_new_row(d, df):
 
 
 def exclude_empty_or_all_na(df):
-    return df.dropna(axis=1, how='all')
+    return df.dropna(axis=1, how="all")
 
 
 def create_trailing_six_weeks(df, week_ending, aggf):
@@ -198,25 +192,26 @@ def create_trailing_six_weeks(df, week_ending, aggf):
         ValueError: If the 'Date' column is missing in the DataFrame.
     """
     # Check if the 'Date' column exists
-    if 'Date' not in df.columns:
+    if "Date" not in df.columns:
         raise ValueError("DataFrame must contain a 'Date' column.")
 
     # Dictionary to map weekdays to weekly resampling
-    week_number_and_week_day = {1: 'W-Mon', 2: 'W-Tue', 3: 'W-Wed', 4: 'W-Thu', 5: 'W-Fri', 6: 'W-Sat', 7: 'W-Sun'}
+    week_number_and_week_day = {1: "W-Mon", 2: "W-Tue", 3: "W-Wed", 4: "W-Thu", 5: "W-Fri", 6: "W-Sat", 7: "W-Sun"}
 
     # Calculate the date six weeks ago
     six_weeks_ago = week_ending - datetime.timedelta(days=41)
 
     # Get daily data for the trailing 6 weeks
-    trailing_six_weeks_daily = df.query('Date >= @six_weeks_ago and Date <= @week_ending')
+    trailing_six_weeks_daily = df.query("Date >= @six_weeks_ago and Date <= @week_ending")
 
     # Resample current year trailing six weeks daily data to weekly data
     trailing_six_weeks_weekly = (
-        trailing_six_weeks_daily
-        .resample(week_number_and_week_day[week_ending.isoweekday()], label='right', closed='right', on='Date')
+        trailing_six_weeks_daily.resample(
+            week_number_and_week_day[week_ending.isoweekday()], label="right", closed="right", on="Date"
+        )
         .agg(aggf)
         .reset_index()
-        .sort_values(by='Date')
+        .sort_values(by="Date")
     )
 
     # Determine the earliest week date for padding
@@ -231,7 +226,7 @@ def create_trailing_six_weeks(df, week_ending, aggf):
         trailing_six_weeks_weekly = create_new_row(earliest_week, trailing_six_weeks_weekly)
 
     # Sort by date and reset index
-    trailing_six_weeks_weekly.sort_values(by=['Date'], inplace=True)
+    trailing_six_weeks_weekly.sort_values(by=["Date"], inplace=True)
     trailing_six_weeks_weekly.reset_index(drop=True, inplace=True)
 
     return trailing_six_weeks_weekly
@@ -269,10 +264,7 @@ def create_trailing_twelve_months(df, week_ending, aggf):
 
     # Resample daily data to monthly data, with dates as the last day of the month
     monthly_data = (
-        df.resample('ME', label='right', closed='right', on='Date')
-        .agg(aggf)
-        .reset_index()
-        .sort_values(by='Date')
+        df.resample("ME", label="right", closed="right", on="Date").agg(aggf).reset_index().sort_values(by="Date")
     )
 
     # Determine the last full month based on the week ending date
@@ -288,9 +280,7 @@ def create_trailing_twelve_months(df, week_ending, aggf):
 
     # Filter monthly data for the last twelve months
     trailing_twelve_months_monthly = (
-        monthly_data.query('Date >= @begin_date and Date <= @end_date')
-        .reset_index(drop=True)
-        .sort_values(by="Date")
+        monthly_data.query("Date >= @begin_date and Date <= @end_date").reset_index(drop=True).sort_values(by="Date")
     )
 
     # Padding monthly if there is no data provided for those periods in the source file.
@@ -307,7 +297,7 @@ def create_trailing_twelve_months(df, week_ending, aggf):
         trailing_twelve_months_monthly = create_new_row(earliest_month, trailing_twelve_months_monthly)
 
     # Resort by date and reindex
-    trailing_twelve_months_monthly.sort_values(by=['Date'], inplace=True)
+    trailing_twelve_months_monthly.sort_values(by=["Date"], inplace=True)
     trailing_twelve_months_monthly.reset_index(drop=True, inplace=True)
 
     return trailing_twelve_months_monthly
@@ -378,19 +368,19 @@ def handle_function_metrics_for_extra_attribute(metric_name, metric_config, curr
 
     # Extract column names from metric configurations
     for column_config in metric_defs:
-        if 'metric' in column_config:
-            if 'function' in column_config['metric']:
+        if "metric" in column_config:
+            if "function" in column_config["metric"]:
                 handle_function_metrics_for_extra_attribute(
-                    column_config['metric']['function'],
-                    column_config['metric']['name'],
+                    column_config["metric"]["function"],
+                    column_config["metric"]["name"],
                     current_trailing_df,
-                    previous_trailing_df
+                    previous_trailing_df,
                 )
-                column_list.append(column_config['metric']['name'])
+                column_list.append(column_config["metric"]["name"])
             else:
-                column_list.append(column_config['metric']['name'])
-        elif 'column' in column_config:
-            column_list.append(column_config['column']['name'])
+                column_list.append(column_config["metric"]["name"])
+        elif "column" in column_config:
+            column_list.append(column_config["column"]["name"])
 
     # Select the necessary columns from both DataFrames
     current_trailing_data = current_trailing_df[column_list]
@@ -398,10 +388,10 @@ def handle_function_metrics_for_extra_attribute(metric_name, metric_config, curr
 
     # Define a mapping of operations to corresponding pandas functions
     operation_map = {
-        'divide': current_trailing_data.iloc[:, 0].div,
-        'sum': current_trailing_data.iloc[:, 0].add,
-        'difference': current_trailing_data.iloc[:, 0].sub,
-        'product': current_trailing_data.iloc[:, 0].mul
+        "divide": current_trailing_data.iloc[:, 0].div,
+        "sum": current_trailing_data.iloc[:, 0].add,
+        "difference": current_trailing_data.iloc[:, 0].sub,
+        "product": current_trailing_data.iloc[:, 0].mul,
     }
 
     # Perform the operation if it's valid
@@ -437,14 +427,14 @@ def create_data_subset_for_aggregation(daily_df, aggregation_dicts, base_metric)
     aggregated_data_frame = pd.DataFrame(daily_df.iloc[:, 1:])
 
     # Extract the date series directly
-    date_series = daily_df['Date']
+    date_series = daily_df["Date"]
 
     if "query" not in aggregation_dicts:
         # Aggregate the specified base metric by date
         aggregated_data_frame = pd.concat([date_series, aggregated_data_frame[base_metric]], axis=1)
-        aggregated_data_frame = aggregated_data_frame.groupby('Date', as_index=False).aggregate('sum')
+        aggregated_data_frame = aggregated_data_frame.groupby("Date", as_index=False).aggregate("sum")
     else:
-        query = aggregation_dicts['query']
+        query = aggregation_dicts["query"]
         try:
             aggregated_data_frame = aggregated_data_frame.query(query)
         except pd.errors.UndefinedVariableError as e:
@@ -460,7 +450,8 @@ def create_data_subset_for_aggregation(daily_df, aggregation_dicts, base_metric)
     if base_metric not in aggregated_data_frame:
         raise KeyError(
             f"Column '{base_metric}' not found in the aggregated dataset while creating the filtered metric, "
-            f"yaml line: {aggregation_dicts.get('__line__', 'unknown')}")
+            f"yaml line: {aggregation_dicts.get('__line__', 'unknown')}"
+        )
 
     return aggregated_data_frame[base_metric]
 
@@ -485,7 +476,7 @@ def aggregate_and_append_series_to_main_data_frame(daily_df, metrics_name, metri
         KeyError: If the base column specified in metric_config is not found in daily_df.
     """
 
-    base_metric = metric_config['base_column']
+    base_metric = metric_config["base_column"]
     series_list = create_data_subset_for_aggregation(daily_df, metric_config, base_metric).to_list()
     daily_df = pd.concat([daily_df, pd.DataFrame.from_dict({metrics_name: series_list})], axis=1)
     return daily_df[metrics_name]
@@ -511,60 +502,70 @@ def create_dynamic_data_frame(daily_df, metrics_config):
     """
 
     main_dataframe = pd.DataFrame()
-    main_dataframe = pd.concat([main_dataframe, daily_df['Date']], axis=1)  # Initialize the main DataFrame with 'Date'
+    main_dataframe = pd.concat([main_dataframe, daily_df["Date"]], axis=1)  # Initialize the main DataFrame with 'Date'
     main_dataframe = main_dataframe.drop_duplicates()  # Remove duplicate dates
     main_dataframe = main_dataframe.reset_index(drop=True)  # Reset index after dropping duplicates
 
     for metrics_name, metric_config in metrics_config.items():
-        if metrics_name == '__line__':
+        if metrics_name == "__line__":
             continue  # Skip the line indicator
 
         aggregator_dataframe = pd.DataFrame()  # Create a temporary DataFrame for aggregation
-        if 'column' in metric_config:
-            aggregator_dataframe['Date'] = daily_df['Date']  # Initialize with the 'Date' column
+        if "column" in metric_config:
+            aggregator_dataframe["Date"] = daily_df["Date"]  # Initialize with the 'Date' column
             try:
-                aggregator_dataframe[metrics_name] = daily_df[metric_config['column']]  # Assign specified column
+                aggregator_dataframe[metrics_name] = daily_df[metric_config["column"]]  # Assign specified column
             except KeyError:
-                raise KeyError(f"Column {metrics_name} not found in the dataset while calculating the metric, yaml line"
-                               f": {metric_config['__line__']}")
+                raise KeyError(
+                    f"Column {metrics_name} not found in the dataset while calculating the metric, yaml line"
+                    f": {metric_config['__line__']}"
+                )
 
             # Aggregate based on the specified aggregation function
-            if metric_config['aggf'] == 'sum':
-                aggregator_dataframe = aggregator_dataframe.groupby('Date', as_index=False).aggregate(
-                    metric_config['aggf'], min_count=1)
+            if metric_config["aggf"] == "sum":
+                aggregator_dataframe = aggregator_dataframe.groupby("Date", as_index=False).aggregate(
+                    metric_config["aggf"], min_count=1
+                )
             else:
                 try:
-                    aggregator_dataframe = aggregator_dataframe.groupby('Date', as_index=False).aggregate(
-                        metric_config['aggf'])
+                    aggregator_dataframe = aggregator_dataframe.groupby("Date", as_index=False).aggregate(
+                        metric_config["aggf"]
+                    )
                 except Exception as exp_err:
-                    raise Exception(exp_err.__str__().replace("for 'DataFrameGroupBy' object", ' for ')
-                                    + metrics_name + " metric")
-            main_dataframe = pd.concat([main_dataframe, aggregator_dataframe[metrics_name]],
-                                       axis=1)  # Concatenate results to main DataFrame
+                    raise Exception(
+                        exp_err.__str__().replace("for 'DataFrameGroupBy' object", " for ") + metrics_name + " metric"
+                    )
+            main_dataframe = pd.concat(
+                [main_dataframe, aggregator_dataframe[metrics_name]], axis=1
+            )  # Concatenate results to main DataFrame
 
-        elif 'metric' in metric_config:
-            main_dataframe[metrics_name] = daily_df[metric_config['column']]  # Assign metric column directly
-            main_dataframe = main_dataframe.groupby('Date', as_index=False).aggregate('sum')  # Aggregate by date
+        elif "metric" in metric_config:
+            main_dataframe[metrics_name] = daily_df[metric_config["column"]]  # Assign metric column directly
+            main_dataframe = main_dataframe.groupby("Date", as_index=False).aggregate("sum")  # Aggregate by date
 
-        elif 'filter' in metric_config:
-            aggregator_dataframe['Date'] = daily_df['Date']  # Initialize with 'Date'
+        elif "filter" in metric_config:
+            aggregator_dataframe["Date"] = daily_df["Date"]  # Initialize with 'Date'
             # Aggregate and append the series based on filtering criteria
-            aggregator_dataframe = pd.concat([
-                aggregator_dataframe,
-                aggregate_and_append_series_to_main_data_frame(daily_df, metrics_name, metric_config['filter'])
-            ], axis=1)
-            if metric_config['aggf'] == 'sum':
-                aggregator_dataframe = aggregator_dataframe.groupby('Date', as_index=False).aggregate(
-                    metric_config['aggf'], min_count=1
+            aggregator_dataframe = pd.concat(
+                [
+                    aggregator_dataframe,
+                    aggregate_and_append_series_to_main_data_frame(daily_df, metrics_name, metric_config["filter"]),
+                ],
+                axis=1,
+            )
+            if metric_config["aggf"] == "sum":
+                aggregator_dataframe = aggregator_dataframe.groupby("Date", as_index=False).aggregate(
+                    metric_config["aggf"], min_count=1
                 )
             else:
-                aggregator_dataframe = aggregator_dataframe.groupby('Date', as_index=False).aggregate(
-                    metric_config['aggf']
+                aggregator_dataframe = aggregator_dataframe.groupby("Date", as_index=False).aggregate(
+                    metric_config["aggf"]
                 )
-            main_dataframe = pd.concat([main_dataframe, aggregator_dataframe[metrics_name]],
-                                       axis=1)  # Concatenate results
+            main_dataframe = pd.concat(
+                [main_dataframe, aggregator_dataframe[metrics_name]], axis=1
+            )  # Concatenate results
 
-        elif 'function' in metric_config:
+        elif "function" in metric_config:
             pass  # Placeholder for handling functional metrics
 
         else:
