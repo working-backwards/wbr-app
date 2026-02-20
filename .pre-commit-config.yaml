@@ -1,0 +1,16 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.7
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: no-inplace-true
+        name: Ban inplace=True in src/fp/
+        entry: 'inplace\s*=\s*True'
+        language: pygrep
+        files: '^src/fp/.*\.py$'
+        types: [python]

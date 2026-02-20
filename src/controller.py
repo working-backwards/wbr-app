@@ -1,17 +1,19 @@
 ﻿import io
+import ipaddress
 import json
-import logging  # Already here, but good to double check
+import logging
 import os
 import tempfile
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 import flask
 import requests
 from cryptography.fernet import Fernet
 from flask import Flask, request, send_file, render_template
 from flask_cors import CORS
-from werkzeug.utils import redirect
+from werkzeug.utils import redirect, secure_filename
 
 import src.controller_utility as controller_util
 import src.test as test
@@ -20,14 +22,35 @@ import src.wbr as wbr
 from src.data_loader import DataLoader
 from src.publish_utility import PublishWbr
 
+logger = logging.getLogger(__name__)
+
+
+def _validate_url(url: str) -> bool:
+    """Validate that a URL uses https and does not point to a private/internal IP."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_link_local:
+            return False
+    except ValueError:
+        # hostname is a domain name, not a raw IP — allow it
+        pass
+    return True
+
 app = Flask(__name__,
             static_url_path='',
             static_folder='web/static',
             template_folder='web/templates')
 
-cors = CORS(app, resources={r"/*": {"origins": "*"}})
+_cors_origins = os.environ.get("CORS_ORIGINS", "").strip()
+cors = CORS(app, resources={r"/*": {"origins": _cors_origins.split(",") if _cors_origins else "*"}})
 
-key = Fernet.generate_key()
+key = os.environ.get("FERNET_KEY", "").encode() or Fernet.generate_key()
 
 which_env = os.environ.get("ENVIRONMENT") or 'qa'
 publisher = PublishWbr(os.getenv("OBJECT_STORAGE_OPTION"), os.environ.get("OBJECT_STORAGE_BUCKET"))
@@ -50,7 +73,7 @@ def get_wbr_metrics():
     try:
         wbr_yaml_config = controller_util.load_yaml_from_stream(config_file)
     except Exception as e:
-        logging.error(f"Error loading WBR config YAML: {e}", exc_info=True)
+        logger.error(f"Error loading WBR config YAML: {e}", exc_info=True)
         return app.response_class(
             response=json.dumps({"description": f"Error loading WBR config YAML: {e}"}),
             status=500
@@ -60,7 +83,7 @@ def get_wbr_metrics():
         # Pass both the (optional) csv data and the wbr config to process_input
         deck = process_input(data=csv_data_file, wbr_yaml_config=wbr_yaml_config)
     except Exception as e:
-        logging.error(f"Error processing WBR input: {e}", exc_info=True)
+        logger.error(f"Error processing WBR input: {e}", exc_info=True)
         return app.response_class(
             response=json.dumps({"description": str(e)}),
             status=500
@@ -92,7 +115,7 @@ def process_input(wbr_yaml_config: dict, data: any = None):
     try:
         data_loader = DataLoader(cfg=wbr_yaml_config, csv_data=data)
     except Exception as e:
-        logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+        logger.error(f"WBR Data loading failed: {e}", exc_info=True)
         raise Exception(f"Data loading error: {e}")
 
     try:
@@ -102,21 +125,21 @@ def process_input(wbr_yaml_config: dict, data: any = None):
         )
         wbr_validator.validate_yaml()
     except Exception as e:
-        logging.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
+        logger.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
         raise Exception(f"Invalid configuration or data loading error: {e}")
 
     try:
         # Create a WBR object using the DataFrame from WBRValidator and the WBR config
         report = wbr.WBR(cfg=wbr_yaml_config, daily_df=data_loader.daily_df)
     except Exception as error:
-        logging.error(error, exc_info=True)
+        logger.error(error, exc_info=True)
         raise Exception(f"Could not create WBR metrics due to: {error.__str__()}")
 
     try:
         # Generate the WBR deck using the WBR object
         deck = controller_util.get_wbr_deck(report=report, event_data=data_loader.events)
     except Exception as err:
-        logging.error(err, exc_info=True)
+        logger.error(err, exc_info=True)
         raise Exception(f"Error while creating deck, caused by: {err.__str__()}")
 
     return deck
@@ -140,7 +163,7 @@ def download_yaml_for_csv():
     try:
         wbr_yaml_config = controller_util.load_yaml_from_stream(config_file, add_lines=False)
     except Exception as e:
-        logging.error(f"Error loading WBR config YAML: {e}", exc_info=True)
+        logger.error(f"Error loading WBR config YAML: {e}", exc_info=True)
         return app.response_class(
             response=json.dumps({"description": f"Error loading WBR config YAML: {e}"}),
             status=500
@@ -149,7 +172,7 @@ def download_yaml_for_csv():
     try:
         data_loader = DataLoader(cfg=wbr_yaml_config, csv_data=None)
     except Exception as e:
-        logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+        logger.error(f"WBR Data loading failed: {e}", exc_info=True)
         raise Exception(f"Data loading error: {e}")
 
     csv_data = data_loader.daily_df
@@ -162,8 +185,8 @@ def download_yaml_for_csv():
         generate(csv_data_string, temp_file)
         return send_file(temp_file.name, mimetype='application/x-yaml', as_attachment=True)
     except Exception as e:
-        logging.error(e, exc_info=True)
-        logging.info("Exception occurred! falling back to the default implementation")
+        logger.error(e, exc_info=True)
+        logger.info("Exception occurred! falling back to the default implementation")
         controller_util.generate_custom_yaml(temp_file, csv_data, wbr_yaml_config)
         return send_file(temp_file.name, mimetype='application/x-yaml', as_attachment=True)
 
@@ -222,7 +245,7 @@ def publish_and_get(base_url: str, trailing_url: str, data: list | dict):
             status=200
         )
     except Exception as e:
-        logging.error("Error occurred while publishing the report", e, exc_info=True)
+        logger.error("Error occurred while publishing the report", e, exc_info=True)
         return app.response_class(
             status=500
         )
@@ -235,11 +258,11 @@ def build_wbr():
     :return: Rendered template of already generated report
     """
     filename = request.args['file']
-    logging.info(f"Received request to download {filename}")
+    logger.info(f"Received request to download {filename}")
     try:
         data = publisher.download(which_env + "/" + filename)
     except Exception as e:
-        logging.error(e, exc_info=True)
+        logger.error(e, exc_info=True)
         return app.response_class(
             response=json.dumps({"message": "Failed to download your report!"}),
             status=500
@@ -256,15 +279,15 @@ def login():
     # Get the file name from the request arguments
     file_name = request.args['file']
 
-    if 'password' in request.args:
-        # If password is provided in the request arguments
-        auth_password = request.args['password']
+    if request.method == "POST" and 'password' in request.form:
+        # Password submitted via POST form body
+        auth_password = request.form['password']
         try:
             # Retrieve the JSON file from S3 bucket
             protected_data = publisher.download(which_env + "/" + file_name)
         except Exception as e:
             # Log any exceptions that occur during file retrieval
-            logging.error(e, exc_info=True)
+            logger.error(e, exc_info=True)
             return e.__str__()
 
         if auth_password == protected_data['password']:
@@ -307,9 +330,13 @@ def build_sample_wbr():
     Builds sample WBR files.
     :return: Rendered sample WBR report html file
     """
-    filename = request.args['file']
+    filename = secure_filename(request.args['file'])
+    if not filename:
+        return app.response_class(
+            response=json.dumps({"message": "Invalid filename"}), status=400
+        )
     base_path = str(Path(os.path.dirname(__file__)).parent)
-    file = base_path + '/sample/' + filename
+    file = os.path.join(base_path, 'sample', filename)
     current_file = open(file)
     data = json.load(current_file)
     return flask.render_template('wbr_share.html', data=data)
@@ -368,7 +395,7 @@ def build_report():
         else:
             return app.response_class(response=json.dumps({'error': 'Config not provided.'}), status=400)
     except Exception as e:
-        logging.error(f"Failed to load WBR YAML config: {e}", exc_info=True)
+        logger.error(f"Failed to load WBR YAML config: {e}", exc_info=True)
         return app.response_class(
             response=json.dumps({"error": f"Failed to load WBR YAML config: {e}"}),
             status=500
@@ -380,9 +407,15 @@ def build_report():
         if 'dataFile' in request.files:
             data = request.files['dataFile']
         elif 'dataUrl' in request.args:
-            data = io.StringIO(requests.get(request.args["dataUrl"]).content.decode('utf-8'))
+            data_url = request.args["dataUrl"]
+            if not _validate_url(data_url):
+                return app.response_class(
+                    response=json.dumps({"error": "dataUrl must use https and not target private addresses"}),
+                    status=400
+                )
+            data = io.StringIO(requests.get(data_url).content.decode('utf-8'))
     except Exception as e:
-        logging.error(f"Failed to load the data csv: {e}", exc_info=True)
+        logger.error(f"Failed to load the data csv: {e}", exc_info=True)
         return app.response_class(
             response=json.dumps({"error": f"Failed to load the data csv: {e}"}),
             status=500
@@ -407,7 +440,7 @@ def build_report():
     try:
         deck = process_input(wbr_yaml_config=wbr_yaml_config, data=data)
     except Exception as e:
-        logging.error(f"Error processing WBR input for /report: {e}", exc_info=True)
+        logger.error(f"Error processing WBR input for /report: {e}", exc_info=True)
         return app.response_class(
             response=json.dumps({"error": str(e)}),
             status=500

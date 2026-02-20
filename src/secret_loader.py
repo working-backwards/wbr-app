@@ -2,6 +2,8 @@ import json
 import logging
 import os
 
+logger = logging.getLogger(__name__)
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -315,7 +317,7 @@ def get_gcp_client_for_credentials(credentials_json_file):
             return secretmanager.SecretManagerServiceClient().from_service_account_json(credentials_json.name)
 
     except Exception as e:
-        logging.error(f"Failed to upload to GCP: {str(e)}")
+        logger.error(f"Failed to upload to GCP: {str(e)}")
         raise
 
 

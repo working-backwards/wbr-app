@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+logger = logging.getLogger(__name__)
+
 import numpy as np
 import pandas
 import yaml
@@ -106,7 +108,7 @@ def test_wbr():
         try:
             data_loader = DataLoader(cfg=test_config, csv_data=csv_file)
         except Exception as e:
-            logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+            logger.error(f"WBR Data loading failed: {e}", exc_info=True)
             raise Exception(f"Data loading error: {e}")
 
         try:
@@ -116,14 +118,14 @@ def test_wbr():
             )
             wbr_validator.validate_yaml()
         except Exception as e:
-            logging.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
+            logger.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
             raise Exception(f"Invalid configuration or data loading error: {e}")
 
         try:
             # Create a WBR object using the CSV data and configuration
             wbr1 = wbr.WBR(config, daily_df=wbr_validator.daily_df)
         except Exception as error:
-            logging.error(error, exc_info=True)
+            logger.error(error, exc_info=True)
             raise error
 
         scenario_result = ScenarioResult()
@@ -159,13 +161,13 @@ def build_and_test_wbr(wbr1, test):
         # Generate the WBR deck using the WBR object
         deck = get_wbr_deck(wbr1)
     except Exception as error:
-        logging.error(error, exc_info=True)
+        logger.error(error, exc_info=True)
         raise error
 
     blocks = list(filter(lambda x: x.title == test["metric_name"], deck.blocks))
 
     if len(blocks) == 0:
-        logging.warning(f"no metric found for {test['metric_name']}")
+        logger.warning(f"no metric found for {test['metric_name']}")
         return Test(None)
 
     block = blocks[0]

@@ -200,12 +200,12 @@ label {
 </style>
 </head>
 <body>
-    <form>
+    <form method="POST" action="/login?file={{ fileName }}">
         <div id="login-form-wrap">
           <h2>Login</h2>
-          <form id="login-form">
+          <div id="login-form">
             <div>
-                <input type="text" id="filename" name="file" value={{ fileName }} placeholder="Enter Filename" required><i class="validation"><span></span><span></span></i>
+                <input type="text" id="filename_display" value="{{ fileName }}" placeholder="Filename" readonly><i class="validation"><span></span><span></span></i>
             </div>
               <br>
             <div>
@@ -220,7 +220,7 @@ label {
             <div>
                 <button id="submit_button">Login</button>
             </div>
-          </form>
+          </div>
         </div>
     </form>
         <script language="JavaScript">

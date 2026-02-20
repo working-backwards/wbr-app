@@ -142,20 +142,20 @@ class DataLoader:
                     response.raise_for_status()  # Raise an exception for bad status codes
                     content = response.content.decode("utf-8")
                     df = pd.read_csv(content, parse_dates=['Date'], thousands=',').sort_values(by='Date')
-                    logging.info(f"Successfully fetched annotations csv file from URL: {annotations_file}")
+                    logger.info(f"Successfully fetched annotations csv file from URL: {annotations_file}")
                 except requests.exceptions.RequestException as e:
                     logger.error(f"Failed to fetch annotations csv file from URL: {annotations_file}. Error: {e}",
                                  exc_info=True)
                     raise ConnectionError(f"Failed to fetch annotations csv file from URL: {annotations_file}")
                 except Exception as e:
-                    logging.error(
+                    logger.error(
                         f"An unexpected error occurred while reading annotations csv data from {annotations_file}: {e}",
                         exc_info=True)
                     raise
             else:
                 try:
                     df = pd.read_csv(annotations_file, parse_dates=['Date'], thousands=',').sort_values(by='Date')
-                    logging.info(f"Successfully read annotations csv file from local path: {annotations_file}")
+                    logger.info(f"Successfully read annotations csv file from local path: {annotations_file}")
                 except FileNotFoundError:
                     logger.error(f"Annotations csv file not found at local path: {annotations_file}")
                     raise FileNotFoundError(f"Annotations csv file not found at: {annotations_file}")
@@ -186,12 +186,12 @@ def _load_connections_from_url_or_path(url_or_path: str) -> dict:
             response.raise_for_status()  # Raise an exception for bad status codes
             content = response.content.decode("utf-8")
             config_data = yaml.load(content, Loader=SafeLineLoader)
-            logging.info(f"Successfully fetched connections file from URL: {url_or_path}")
+            logger.info(f"Successfully fetched connections file from URL: {url_or_path}")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to fetch connections file from URL: {url_or_path}. Error: {e}", exc_info=True)
             raise ConnectionError(f"Failed to fetch connections file from URL: {url_or_path}")
         except (ScannerError, yaml.YAMLError) as e:
-            logging.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
+            logger.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
             raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
     else:
         # Treat as a local file path
@@ -199,17 +199,17 @@ def _load_connections_from_url_or_path(url_or_path: str) -> dict:
             with open(url_or_path, 'r') as f:
                 content = f.read()
                 config_data = yaml.load(content, Loader=SafeLineLoader)
-            logging.info(f"Successfully read connections file from local path: {url_or_path}")
+            logger.info(f"Successfully read connections file from local path: {url_or_path}")
         except FileNotFoundError:
             logger.error(f"Connections configuration file not found at local path: {url_or_path}")
             raise FileNotFoundError(f"Connections configuration file not found at: {url_or_path}")
+        except (ScannerError, yaml.YAMLError) as e:
+            logger.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
+            raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
         except Exception as e:
             logger.error(f"An unexpected error occurred while reading local connections file {url_or_path}: {e}",
                          exc_info=True)
             raise
-        except (ScannerError, yaml.YAMLError) as e:
-            logging.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
-            raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
 
     # Validate the structure
     if not isinstance(config_data, dict) or "connections" not in config_data:
@@ -228,7 +228,7 @@ def _load_connections_from_url_or_path(url_or_path: str) -> dict:
             raise ValueError(f"Duplicate connection name '{conn['name']}' found in {url_or_path} near line {line}.")
         connections_map[conn["name"]] = conn
 
-    logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
+    logger.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
     return connections_map
 
 
@@ -244,18 +244,18 @@ def _get_df_from_csv_source(data_source, df_list):
                 response.raise_for_status()  # Raise an exception for bad status codes
                 content = response.content.decode("utf-8")
                 df = pd.read_csv(content, parse_dates=['Date'], thousands=',').sort_values(by='Date')
-                logging.info(f"Successfully fetched csv file from URL: {url_or_path}")
+                logger.info(f"Successfully fetched csv file from URL: {url_or_path}")
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to fetch csv file from URL: {url_or_path}. Error: {e}", exc_info=True)
                 raise ConnectionError(f"Failed to fetch csv file from URL: {url_or_path}")
             except Exception as e:
-                logging.error(f"An unexpected error occurred while reading csv data from {url_or_path}: {e}",
+                logger.error(f"An unexpected error occurred while reading csv data from {url_or_path}: {e}",
                               exc_info=True)
                 raise
         else:
             try:
                 df = pd.read_csv(url_or_path, parse_dates=['Date'], thousands=',').sort_values(by='Date')
-                logging.info(f"Successfully read csv file from local path: {url_or_path}")
+                logger.info(f"Successfully read csv file from local path: {url_or_path}")
             except FileNotFoundError:
                 logger.error(f"Data csv file not found at local path: {url_or_path}")
                 raise FileNotFoundError(f"Data csv file not found at: {url_or_path}")

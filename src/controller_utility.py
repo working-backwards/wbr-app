@@ -281,7 +281,7 @@ def process_metric(
 
         except Exception as error:
             # Log any errors that occur during the chart-building process.
-            logging.error(error, exc_info=True)
+            logger.error(error, exc_info=True)
             raise Exception(f"Error occurred while building block {block_number}, error: {error}, "
                             f"yaml line number {metric_configs['__line__']}")
 
@@ -736,7 +736,7 @@ def build_six_weeks_table(
                 six_weeks_table.rows.append(row)
             except Exception as e:
                 # Log any errors and raise an exception with context for debugging.
-                logging.error(e, exc_info=True)
+                logger.error(e, exc_info=True)
                 raise Exception(f"Error occurred while building block {block_number}, error: {e}, yaml line number "
                                 f"{row_configs['__line__']}")
 
@@ -859,7 +859,7 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
 
             twelve_months_table.rows.append(row)
         except Exception as e:
-            logging.error(e, exc_info=True)
+            logger.error(e, exc_info=True)
             raise Exception(f"Error occurred while building block {block_number}, error: {e}, yaml line number "
                             f"{row_configs['__line__']}")
 
@@ -988,7 +988,7 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     try:
         event_dict = filter_events(report, event_data, event_errors)
     except Exception as err:
-        logging.error(err, exc_info=True)
+        logger.error(err, exc_info=True)
         event_errors.append(err.__str__())
 
     if 'x_axis_monthly_display' in report.cfg['setup']:
@@ -1176,7 +1176,7 @@ def load_yaml_from_stream(config_file, add_lines: bool = True):
             return yaml.load(open(temp_file.name), SafeLineLoader) if add_lines else yaml.load(open(temp_file.name),
                                                                                                SafeLoader)
         except (ScannerError, yaml.YAMLError) as e:
-            logging.error(e, exc_info=True)
+            logger.error(e, exc_info=True)
             error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
             # Return an error response if there is an issue with the YAML configuration
             raise Exception(
@@ -1194,7 +1194,7 @@ def load_yaml_from_url(url: str):
         # Load the yaml
         return yaml.load(content, SafeLineLoader)
     except (ScannerError, yaml.YAMLError) as e:
-        logging.error(e, exc_info=True)
+        logger.error(e, exc_info=True)
         error_message = traceback.format_exc().split('.yaml')[-1].replace(',', '').replace('"', '')
         # Return an error response if there is an issue with the YAML configuration
         raise Exception(f"Could not create WBR metrics due to incorrect yaml, caused due to error in {error_message}")
@@ -1216,7 +1216,7 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
             response = requests.get(url_or_path, allow_redirects=True)
             response.raise_for_status()  # Raise an exception for bad status codes
             content = response.content.decode("utf-8")
-            logging.info(f"Successfully fetched connections file from URL: {url_or_path}")
+            logger.info(f"Successfully fetched connections file from URL: {url_or_path}")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to fetch connections file from URL: {url_or_path}. Error: {e}", exc_info=True)
             raise ConnectionError(f"Failed to fetch connections file from URL: {url_or_path}")
@@ -1225,7 +1225,7 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
         try:
             with open(url_or_path, 'r') as f:
                 content = f.read()
-            logging.info(f"Successfully read connections file from local path: {url_or_path}")
+            logger.info(f"Successfully read connections file from local path: {url_or_path}")
         except FileNotFoundError:
             logger.error(f"Connections configuration file not found at local path: {url_or_path}")
             raise FileNotFoundError(f"Connections configuration file not found at: {url_or_path}")
@@ -1238,7 +1238,7 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
     try:
         config_data = yaml.load(content, Loader=SafeLineLoader)
     except (ScannerError, yaml.YAMLError) as e:
-        logging.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
+        logger.error(f"Error parsing connections YAML from {url_or_path}: {e}", exc_info=True)
         raise ValueError(f"Error parsing connections YAML from {url_or_path}: {e}")
 
     # Validate the structure
@@ -1258,5 +1258,5 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
             raise ValueError(f"Duplicate connection name '{conn['name']}' found in {url_or_path} near line {line}.")
         connections_map[conn["name"]] = conn
 
-    logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
+    logger.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
     return connections_map

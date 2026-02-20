@@ -3,6 +3,8 @@ import logging
 import os
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 import boto3
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
@@ -61,7 +63,7 @@ class PublishWbr:
                 if azure_connection_string else get_azure_from_default_credentials()
 
         else:
-            logging.warning("No OBJECT_STORAGE_OPTION is provided hence the published report will be saved locally")
+            logger.warning("No OBJECT_STORAGE_OPTION is provided hence the published report will be saved locally")
 
     def upload(self, data, destination_file_path):
         """
@@ -162,7 +164,7 @@ def get_gcp_client_for_credentials(credentials_json_file):
             return storage.Client.from_service_account_json(credentials_json.name)
 
     except Exception as e:
-        logging.error(f"Failed to upload to GCP: {str(e)}")
+        logger.error(f"Failed to upload to GCP: {str(e)}")
 
 
 def get_azure_from_default_credentials():
