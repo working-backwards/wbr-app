@@ -599,14 +599,17 @@ class WBR:
 
         return metric_df  # Return the updated metric DataFrame
 
-    def compute_functional_metrics(self):
-        """
-        Evaluates all function metrics using iterative DFS with cycle detection.
+    def compute_functional_metrics(self, metrics_configs=None):
+        """Evaluate all function metrics using iterative DFS with cycle detection.
 
         Metrics are evaluated in dependency order: if metric A depends on metric B,
         B is evaluated first. A circular dependency raises ValueError.
+
+        Mutates (via _apply_function_to_all_series): self.cy/py_trailing_six_weeks,
+        self.cy/py_monthly, self.box_totals, self.py_box_total, self.period_summary
         """
-        function_metrics = get_function_metrics_configs(self.metrics_configs)
+        metrics_configs = metrics_configs if metrics_configs is not None else self.metrics_configs
+        function_metrics = get_function_metrics_configs(metrics_configs)
         computed = set()
         pending = set()
 
@@ -674,7 +677,10 @@ class WBR:
                 f"Please check if you have defined this in metric section {e}"
             )
 
-    def _apply_function_to_all_series(self, column_list, py_column_list, metric_name, operation):
+    def _apply_function_to_all_series(self, column_list, py_column_list, metric_name, operation,
+                                      cy_trailing_six_weeks=None, py_trailing_six_weeks=None,
+                                      cy_monthly=None, py_monthly=None,
+                                      box_totals_df=None, py_box_total=None):
         """Apply a function metric's operation across all 6 DataFrames.
 
         A function metric derives its value from other metrics using one of four
@@ -683,26 +689,35 @@ class WBR:
         weekly, CY/PY monthly, box_totals, py_box_total) and also triggers the
         box-total YOY computation via _compute_box_total_yoy.
 
-        Mutates: self.cy/py_trailing_six_weeks, self.cy/py_monthly,
-                 self.box_totals, self.py_box_total, self.period_summary
+        All DataFrame parameters default to self.* attributes. Since mutations are
+        in-place column assignments, passing explicit DataFrames in tests works
+        naturally — the test's DataFrames get mutated instead of self's.
         """
+        cy_trailing_six_weeks = cy_trailing_six_weeks if cy_trailing_six_weeks is not None else self.cy_trailing_six_weeks
+        py_trailing_six_weeks = py_trailing_six_weeks if py_trailing_six_weeks is not None else self.py_trailing_six_weeks
+        cy_monthly = cy_monthly if cy_monthly is not None else self.cy_monthly
+        py_monthly = py_monthly if py_monthly is not None else self.py_monthly
+        box_totals_df = box_totals_df if box_totals_df is not None else self.box_totals
+        py_box_total = py_box_total if py_box_total is not None else self.py_box_total
+
         def apply_op(df):
             if operation == 'sum':
                 return df.iloc[:].sum(axis=1)
             op_method = {'product': 'mul', 'difference': 'sub', 'divide': 'div'}[operation]
             return getattr(df.iloc[:, 0], op_method)(df.iloc[:, 1])
 
-        self.cy_trailing_six_weeks[metric_name] = apply_op(self.cy_trailing_six_weeks[column_list])
-        self.py_trailing_six_weeks['PY__' + metric_name] = apply_op(self.py_trailing_six_weeks[py_column_list])
-        self.cy_monthly[metric_name] = apply_op(self.cy_monthly[column_list])
-        self.py_monthly['PY__' + metric_name] = apply_op(self.py_monthly[py_column_list])
+        cy_trailing_six_weeks[metric_name] = apply_op(cy_trailing_six_weeks[column_list])
+        py_trailing_six_weeks['PY__' + metric_name] = apply_op(py_trailing_six_weeks[py_column_list])
+        cy_monthly[metric_name] = apply_op(cy_monthly[column_list])
+        py_monthly['PY__' + metric_name] = apply_op(py_monthly[py_column_list])
 
-        box_totals = apply_op(self.box_totals[column_list])
-        self._compute_box_total_yoy(metric_name, column_list, box_totals, operation)
-        self.box_totals[metric_name] = box_totals
-        self.py_box_total[metric_name] = apply_op(self.py_box_total[column_list])
+        box_totals_series = apply_op(box_totals_df[column_list])
+        self._compute_box_total_yoy(metric_name, column_list, box_totals_series, operation)
+        box_totals_df[metric_name] = box_totals_series
+        py_box_total[metric_name] = apply_op(py_box_total[column_list])
 
-    def _compute_box_total_yoy(self, metric_name, columns, box_totals, operation):
+    def _compute_box_total_yoy(self, metric_name, columns, box_totals, operation,
+                               period_summary=None, function_bps_metrics=None):
         """Compute YOY box-total rows for a function metric.
 
         Two paths based on operation type:
@@ -711,20 +726,23 @@ class WBR:
         - sum/difference: Replace NaN with 0 (partial periods should sum as zero,
           not propagate NaN), then use wbr_util helpers for aggregation.
 
-        Mutates: self.period_summary (adds the derived metric column),
+        Mutates: period_summary (adds the derived metric column),
                  box_totals (fills in the 5 YOY comparison rows)
         """
+        period_summary = period_summary if period_summary is not None else self.period_summary
+        function_bps_metrics = function_bps_metrics if function_bps_metrics is not None else self.function_bps_metrics
+
         if operation in ('divide', 'product'):
             if operation == 'divide':
-                self.period_summary[metric_name] = (
-                    self.period_summary[columns[0]] / self.period_summary[columns[1]]
+                period_summary[metric_name] = (
+                    period_summary[columns[0]] / period_summary[columns[1]]
                 )
             else:
-                self.period_summary[metric_name] = (
-                    self.period_summary[columns[0]] * self.period_summary[columns[1]]
+                period_summary[metric_name] = (
+                    period_summary[columns[0]] * period_summary[columns[1]]
                 )
 
-            yoy = self.period_summary
+            yoy = period_summary
 
             for box_idx, cy_idx, py_idx in _BOX_POSITIONS:
                 if operation == 'divide':
@@ -734,21 +752,21 @@ class WBR:
                     cy_val = yoy[columns[0]][cy_idx] * yoy[columns[1]][cy_idx]
                     py_val = yoy[columns[0]][py_idx] * yoy[columns[1]][py_idx]
                 box_totals[box_idx] = self.calculate_yoy_box_total(
-                    cy_val, py_val, metric_name, self.function_bps_metrics
+                    cy_val, py_val, metric_name, function_bps_metrics
                 )
         else:
             if operation == 'sum':
-                self.period_summary[metric_name] = self.period_summary.iloc[:].sum(axis=1)
+                period_summary[metric_name] = period_summary.iloc[:].sum(axis=1)
             else:
-                self.period_summary[metric_name] = (
-                    self.period_summary[columns[0]] - self.period_summary[columns[1]]
+                period_summary[metric_name] = (
+                    period_summary[columns[0]] - period_summary[columns[1]]
                 )
 
             # Copy period_summary and replace NaN with 0 for sum/difference operations.
             # Partial periods (e.g., incomplete QTD) have NaN for missing months;
             # when summing, those should contribute 0 rather than making the total NaN.
             yoy_field_values = pd.DataFrame()
-            yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
+            yoy_field_values = pd.concat([yoy_field_values, period_summary], axis=1)
             yoy_field_values = yoy_field_values.replace(np.nan, 0)
 
             value_list = wbr_util.apply_operation_and_return_denominator_values(
@@ -762,7 +780,7 @@ class WBR:
                     cy_value = (yoy_field_values[columns[0]][cy_idx]
                                 - yoy_field_values[columns[1]][cy_idx])
                 box_totals[box_idx] = self.calculate_yoy_box_total(
-                    cy_value, value_list[i], metric_name, self.function_bps_metrics
+                    cy_value, value_list[i], metric_name, function_bps_metrics
                 )
 
     @staticmethod
