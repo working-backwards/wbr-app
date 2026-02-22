@@ -168,7 +168,7 @@ class WBR:
         self.function_bps_metrics, self.bps_metrics, self.fn_pct_change_metrics, self.pct_change_metrics =\
             get_bps_and_pct_change_metrics(self.metrics_configs)
 
-        self.box_totals, self.py_box_total, self.yoy_required_metrics_data = self.calculate_box_totals()
+        self.box_totals, self.py_box_total, self.period_summary = self.calculate_box_totals()
         self.compute_extra_months()
         self.compute_functional_metrics()
         self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number,
@@ -801,10 +801,10 @@ class WBR:
             box_totals (list): A list that holds calculated totals for different time frames.
         """
         # Calculate the year-over-year required metric for the specified metric name
-        self.yoy_required_metrics_data[metric_name] = (self.yoy_required_metrics_data[columns[0]]
-                                                       / self.yoy_required_metrics_data[columns[1]])
+        self.period_summary[metric_name] = (self.period_summary[columns[0]]
+                                                       / self.period_summary[columns[1]])
 
-        yoy = self.yoy_required_metrics_data
+        yoy = self.period_summary
 
         # Calculate WoW (Week-over-Week) YOY values
         box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
@@ -855,11 +855,11 @@ class WBR:
             box_totals (list): A list that holds calculated totals for different time frames.
         """
         # Calculate the year-over-year required metric for the specified metric name by summing all relevant data
-        self.yoy_required_metrics_data[metric_name] = self.yoy_required_metrics_data.iloc[:].sum(axis=1)
+        self.period_summary[metric_name] = self.period_summary.iloc[:].sum(axis=1)
 
         # Initialize a DataFrame to hold YOY field values
         yoy_field_values = pd.DataFrame()
-        yoy_field_values = pd.concat([yoy_field_values, self.yoy_required_metrics_data], axis=1)
+        yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
 
         # Replace NaN values with 0 in the YOY field values DataFrame
         yoy_field_values = yoy_field_values.replace(np.nan, 0)
@@ -906,13 +906,13 @@ class WBR:
             box_totals (list): A list that holds calculated totals for different time frames.
         """
         # Calculate the year-over-year required metric for the specified metric name
-        self.yoy_required_metrics_data[metric_name] = (
-                self.yoy_required_metrics_data[columns[0]] - self.yoy_required_metrics_data[columns[1]]
+        self.period_summary[metric_name] = (
+                self.period_summary[columns[0]] - self.period_summary[columns[1]]
         )
 
         # Initialize a DataFrame to hold YOY field values
         yoy_field_values = pd.DataFrame()
-        yoy_field_values = pd.concat([yoy_field_values, self.yoy_required_metrics_data], axis=1)
+        yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
 
         # Replace NaN values with 0 in the YOY field values DataFrame
         yoy_field_values = yoy_field_values.replace(np.nan, 0)
@@ -966,11 +966,11 @@ class WBR:
             box_totals (list): A list that holds calculated totals for different time frames.
         """
         # Calculate the year-over-year required metric for the specified metric name
-        self.yoy_required_metrics_data[metric_name] = (
-                self.yoy_required_metrics_data[columns[0]] * self.yoy_required_metrics_data[columns[1]]
+        self.period_summary[metric_name] = (
+                self.period_summary[columns[0]] * self.period_summary[columns[1]]
         )
 
-        yoy = self.yoy_required_metrics_data
+        yoy = self.period_summary
 
         # Calculate WoW (Week-over-Week) YOY product and store in box_totals
         box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
@@ -1170,7 +1170,7 @@ class WBR:
         and 12-month WBR frame or can be returned as a standalone data frame.
 
         Method to calculate various totals and metrics for different time periods
-        :return: box_total, py_box_total and yoy_required_metrics_data dataframe
+        :return: box_total, py_box_total and period_summary dataframe
         """
         # Initialize empty DataFrames for box totals and year-over-year (YoY) box totals
         box_totals = pd.DataFrame()
@@ -1238,7 +1238,7 @@ class WBR:
         for i in range(len(dataframe_list)):
             dataframe_list[i] = dataframe_list[i].drop(columns='Date').replace([0], np.nan)
 
-        yoy_required_metrics_data = pd.concat(dataframe_list, ignore_index=True)
+        period_summary = pd.concat(dataframe_list, ignore_index=True)
 
         # Initialize variables for week-over-week (WOW) and YoY calculations for business points (bps) and percentiles
         cy_wk6_wow = pd.DataFrame()
@@ -1341,7 +1341,7 @@ class WBR:
         py_box_totals.insert(1, 'Axis', pd.Series(summary_labels), allow_duplicates=True)
 
         # Set the calculated box_totals and py_box_totals to class attributes
-        return box_totals, py_box_totals, yoy_required_metrics_data
+        return box_totals, py_box_totals, period_summary
 
     def get_start_year(self):
         if self.fiscal_month == 'DEC':

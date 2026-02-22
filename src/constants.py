@@ -53,7 +53,7 @@ BOX_IDX_YOY_YTD = 8
 NUM_BOX_TOTAL_ROWS = 9
 
 # ---------------------------------------------------------------------------
-# period_summary (yoy_required_metrics_data) row indices
+# period_summary row indices
 #
 # The period_summary DataFrame has 10 rows — one for each data point
 # needed to compute all the YOY comparisons in the box totals:
