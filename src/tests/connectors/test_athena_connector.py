@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import time  # For mocking time.sleep
 import unittest
 from datetime import datetime

@@ -530,8 +530,7 @@ For detailed information on how to use the WBR App's API, please refer to the [A
 
 ## License
 The WBR App is developed and maintained by the Working Backwards engineering team.
-The WBR App is released under the MIT License (https://opensource.org/licenses/MIT).
-For more information on licensing, refer to the **LICENSE.md** file.
+The WBR App is released under the Apache License, Version 2.0. See the [LICENSE.md](LICENSE.md) file for details.
 
 
 ## Helpful Links

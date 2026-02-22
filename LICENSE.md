@@ -1,57 +1,191 @@
-**End User License Agreement**
 
-This End User License Agreement (this " **Agreement**") governs your use of the web-based downloadable software application commonly known as "_Weekly Business Review_" (the " **Software**") including, without limitation, all user manuals, technical manuals and any other materials provided by Licensor, in printed, electronic, or other form, that describe the Software or its use or specifications (collectively, the " **Documentation**") provided to you (" **you**" or " **your**", or " **End User** ," as applicable) by Working Backwards, LLC, a Washington limited liability company (" **Licensor**") for your use pursuant to and subject to this Agreement and subject to the terms and conditions of that certain Master Services Agreement and any Statement of Work thereto, as they may be amended from time to time (collectively, the " **MSA**") by and between Licensor and your employer or other person, business or entity who owns or otherwise lawfully controls the computer on which the Software is installed or through which the Software is accessed (" **Licensee**").
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
 
-LICENSOR PROVIDES THE SOFTWARE SOLELY ON THE TERMS AND CONDITIONS SET FORTH IN THIS AGREEMENT AND ON THE CONDITION THAT LICENSEE ACCEPTS AND COMPLIES WITH THEM. BY DOWNLOADING, USING, OR OTHERWISE ACCESSING THE SOFTWARE (EITHER BY CLONING CODE OR OTHERWISE) YOU: (A) ACCEPT THIS AGREEMENT ON BEHALF LICENSEE AND AGREE THAT LICENSEE IS LEGALLY BOUND BY ITS TERMS; AND (B) REPRESENT AND WARRANT THAT: (I) YOU ARE 18 YEARS OF AGE OR OLDER/OF LEGAL AGE TO ENTER INTO A BINDING AGREEMENT; AND (II) IF LICENSEE IS A CORPORATION, GOVERNMENTAL ORGANIZATION, OR OTHER LEGAL ENTITY, YOU HAVE THE RIGHT, POWER, AND AUTHORITY TO ENTER INTO THIS AGREEMENT ON BEHALF OF LICENSEE AND BIND LICENSEE TO ITS TERMS. IF LICENSEE DOES NOT AGREE TO THE TERMS OF THIS AGREEMENT, LICENSOR WILL NOT AND DOES NOT LICENSE THE SOFTWARE TO LICENSEE AND YOU MUST NOT ACCESS, DOWNLOAD OR INSTALL THE SOFTWARE OR DOCUMENTATION.
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
-IF YOU DO NOT AGREE TO THIS AGREEMENT, DO NOT DOWNLOAD, USE, OR OTHERWISE ACCESS THE SOFTWARE (EITHER BY CLONING CODE OR OTHERWISE). IF YOU DO NOT ACCEPT THESE TERMS, YOU WILL HAVE NO LICENSE TO, AND MUST NOT ACCESS OR USE, THE SOFTWARE OR DOCUMENTATION.
+   1. Definitions.
 
-**1.   License Grant.** Subject to your strict compliance with this Agreement, Licensor hereby grants you a non-exclusive, non-transferable, non-sublicensable, limited license to: (i) use the Software for Licensee's non-commercial internal business purposes only, as it may be: (A) accessed online at: [https://app.workingbackwards.com/wbr.html](https://app.workingbackwards.com/wbr.html%20) (the "**URL**"); or (B) downloaded, copied and installed on the Licensee Network (as defined below) in accordance with the Documentation; (ii) use and make a reasonable number of copies of the Documentation solely for Licensee's internal business purposes in connection with Licensee's use of the Software; and (iii) generate reports ("**Reports**") from the Software using Licensee data or inputs ("**Licensee Data**"), for internal business purposes only (the "**License**"). If the Software is downloaded, copied or installed to Licensee's Network, Licensee shall be permitted to download copies of the Software only on computers owned, leased or controlled by Licensee or its affiliates. The foregoing License will terminate immediately without any notice of any kind requiredon your ceasing to be authorized by Licensee to use the Software for any breach of this Agreement or an applicable MSA.
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
 
-**2. Use Restrictions.** You shall not, directly or indirectly, except as expressly permitted by this Agreement:
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
 
-(a) use, copy, modify, translate, adapt, or otherwise create derivative works or improvements, whether or not patentable, of the Software or Documentation or any part thereof for any commercial purpose except as expreslly permitted by Licensor;
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
 
-(b) combine the Software or any part thereof with, or incorporate the Software or any part thereof in, any other programs for any commercial purpose except as expressly permitted by Licensor;
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
 
-(c) reverse engineer, disassemble, decompile, decode, or otherwise attempt to derive or gain access to the source code of the Software or any part thereof for any commercial purposes except as expressly permitted by the License;
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
 
-(d) remove, delete, alter, or obscure any trademarks or any copyright, trademark, patent, or other intellectual property or proprietary rights notices included on or in the Software or Documentation, including any copy thereof;
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
 
-(e) rent, lease, lend, sell, sublicense, assign, distribute, publish, transfer, or otherwise provide any access to or use of the Software or any features or functionality of the Software, for any reason, to any other person, business or entity, including any subcontractor, independent contractor, affiliate (other than wholly-owned subsidiaries of Licensee), or service provider of Licensee, whether or not over a network and whether or not on a hosted basis, including in connection with the internet, web hosting, wide area network (WAN), virtual private network (VPN), virtualization, time-sharing, service bureau, software as a service, cloud, or other technology or service;
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
 
-(f) share or disseminate your password or login, as applicable to users of the URL, to any unauthorized user, or otherwise use the Software or Documentation in, or in association with, the design, construction, maintenance, or operation of any hazardous environments or systems;
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
 
-(g) use the Software or Documentation in violation of the MSA, this Agreement, or any law, regulation, order or rule; or
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to the Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
 
-(h) use the Software or Documentation for purposes of competitive analysis of the Software, the development of a competing software product or service, or any other purpose that is for a commercial purpose or to the Licensor's commercial disadvantage, in each case as determined by Licensor in its sole and exclusive discretion.
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by the Licensor and
+      subsequently incorporated within the Work.
 
-**3. Compliance Measures.** The Software may contain technological copy protection or other security features designed to prevent unauthorized use of the Software, including features to protect against use of the Software: (a) beyond the scope of the License granted to pursuant to Section 1; or (b) prohibited under Section 2. You shall not, and shall not attempt to, remove, disable, circumvent, or otherwise create or implement any workaround to, any such copy protection or security features.
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
 
-**4. Collection and Use of Data.** Licensor may, from time to time, receive Licensee Data in connection with the provision of the Software hereunder. You acknowledge and agree that the Licensee Data is used solely to transform Licensee Data in memory and send it back to you for review, and such Licensee Data is not stored permanently by Licensor. You further acknowledge that Licensor does not assume and hereby disclaims any and all liability and responsibility of any kind for any Licensee Data or the transmission thereof, and Licensor shall have no obligation or duty to provide or employ any security measures related thereto. To the fullest extent permitted under applicable law, LICENSOR HAS NO OBLIGATION OR LIABILITY FOR ANY LOSS, ALTERATION, TRANSMISSION, DISSEMINATION, DESTRUCTION, DAMAGE, CORRUPTION, OR RECOVERY OF LICENSEE DATA.Licensee has and will retain sole responsibility for: (a) all Licensee Data, including its content and use; (b) all information, instructions, and materials provided by or on behalf of Licensee or you in connection with the Software; (c) Licensee's information technology infrastructure, including computers, software, databases, electronic systems (including database management systems), and networks, whether operated directly by Licensee or through the use of third-party services ("**Licensee Networks**"); (d) the security and use of Licensee's and your access credentials; and (e) all access to and use of the Software and Documentation directly or indirectly by or through the Licensee Network or its or your access credentials, with or without Licensee's knowledge or consent, including all results obtained from, and all conclusions, decisions, and actions based on, such access or use.
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
 
-**5. Intellectual Property Rights.** You acknowledge that the Software is provided under limited license, and not sold, to you or to Licensee. You and Licensee do not acquire any ownership interest in the Software under this Agreement, or any other rights to the Software other than to use the Software in accordance with the limited license granted under this Agreement, subject to all terms, conditions, and restrictions. Licensor reserves and shall retain its entire right, title, and interest in and to the Software and all Intellectual Property Rights arising out of or relating to the Software, subject to the License expressly granted to the Licensee in this Agreement. You shall safeguard all Software (including, without limitation, all copies thereof) from any infringement, misappropriation, theft, misuse, or unauthorized access.You shall promptly notify Licensor if you becomes aware of any infringement of the Licensor's Intellectual Property Rights in the Software and fully cooperate with Licensor in any legal action taken by Licensor to enforce its Intellectual Property Rights.
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
 
-" **Intellectual Property Rights**"means any and all registered and unregistered rights granted, applied for, or otherwise now or hereafter in existence under or related to any patent, copyright, trademark, trade secret, database protection, or other intellectual property rights laws, and all similar or equivalent rights or forms of protection, in any part of the world.
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
 
-**6. Disclaimer of Liability.** TO THE FULLEST EXTENT PERMITTED UNDER APPLICABLE LAW:
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
 
-  (a) IN NO EVENT WILL LICENSOR OR ITS AFFILIATES, OR ANY OF ITS OR THEIR RESPECTIVE LICENSORS, MEMBERS, MANAGERS, SUCCESSORS, ASSIGNS OR SERVICE PROVIDERS, BE LIABLE TO LICENSEE, ANY END USER OR ANY THIRD PARTY FOR ANY USE, INTERRUPTION, DELAY, OR INABILITY TO USE THE SOFTWARE; LOST REVENUES OR PROFITS; DELAYS, INTERRUPTION, OR LOSS OF SERVICES, BUSINESS, OR GOODWILL; LOSS OR CORRUPTION OF DATA; LOSS RESULTING FROM SYSTEM OR SYSTEM SERVICE FAILURE, MALFUNCTION, OR SHUTDOWN; LOSS RESULTING FROM ANY DATA TRANSMISSION TO ANY AUTHORIZED OR UNAUTHORIZED THIRD PARTY, FAILURE TO ACCURATELY TRANSFER, READ, STORE, OR TRANSMIT INFORMATION OR LICENSEE DATA; FAILURE TO UPDATE OR PROVIDE CORRECT INFORMATION; SYSTEM INCOMPATIBILITY OR PROVISION OF INCORRECT COMPATIBILITY INFORMATION; OR BREACHES IN SYSTEM SECURITY; OR FOR ANY CONSEQUENTIAL, INCIDENTAL, INDIRECT, EXEMPLARY, SPECIAL, OR PUNITIVE DAMAGES, WHETHER ARISING OUT OF OR IN CONNECTION WITH THIS AGREEMENT, BREACH OF CONTRACT, TORT (INCLUDING NEGLIGENCE), OR OTHERWISE, REGARDLESS OF WHETHER SUCH DAMAGES WERE FORESEEABLE AND WHETHER OR NOT THE LICENSOR WAS ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
-  (b) IN NO EVENT WILL LICENSOR'S AND ITS AFFILIATES', INCLUDING ANY OF ITS OR THEIR RESPECTIVE LICENSORS', EMPLOYEES', MEMBERS', MANAGERS', SUCCESSORS', ASSIGNS', AND SERVICE PROVIDERS', COLLECTIVE AGGREGATE LIABILITY UNDER OR IN CONNECTION WITH THIS AGREEMENT OR ITS SUBJECT MATTER, UNDER ANY LEGAL OR EQUITABLE THEORY, INCLUDING BREACH OF CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY, AND OTHERWISE, EXCEED THE TOTAL AMOUNT PAID TO THE LICENSOR BY THE LICENSEE PURSUANT TO THE MSA.
-  (c) THE LIMITATIONS SET FORTH IN THIS SECTION SHALL APPLY EVEN IF THE LICENSEE'S (OR ANY END USER'S) REMEDIES UNDER THIS AGREEMENT FAIL OF THEIR ESSENTIAL PURPOSE.
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
 
-**7. Disclaimer of Warranties.** THE SOFTWARE, ANY REPORT GENERATED THEREFROM AND DOCUMENTATION ARE PROVIDED TO LICENSEE AND ANY END USER THEREOF "AS IS" AND WITH ALL FAULTS AND DEFECTS WITHOUT WARRANTY OF ANY KIND. TO THE MAXIMUM EXTENT PERMITTED UNDER APPLICABLE LAW, LICENSOR, ON ITS OWN BEHALF AND ON BEHALF OF ITS AFFILIATES AND ITS AND THEIR RESPECTIVE LICENSORS, MEMBERS, MANAGERS, AFFILIATES, SUCCESSORS, ASSIGNS AND SERVICE PROVIDERS, EXPRESSLY DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, WITH RESPECT TO THE SOFTWARE, ANY REPORT GENERATED THEREFROM AND DOCUMENTATION, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT, AND WARRANTIES THAT MAY ARISE OUT OF COURSE OF DEALING, COURSE OF PERFORMANCE, USAGE, OR TRADE PRACTICE. WITHOUT LIMITATION TO THE FOREGOING, THE LICENSOR PROVIDES NO WARRANTY OR UNDERTAKING, AND MAKES NO REPRESENTATION OF ANY KIND THAT THE LICENSED SOFTWARE WILL MEET THE LICENSEE'S REQUIREMENTS, ACHIEVE ANY INTENDED RESULTS, BE COMPATIBLE, OR WORK WITH ANY OTHER SOFTWARE, APPLICATIONS, SYSTEMS, OR SERVICES, OPERATE WITHOUT INTERRUPTION, MEET ANY PERFORMANCE OR RELIABILITY STANDARDS OR BE ERROR FREE, BE STORED OR PROTECTED IN ANY WAY, OR THAT ANY ERRORS OR DEFECTS CAN OR WILL BE CORRECTED.
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding any notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
 
-**8. Export Regulation.** The Software may be subject to US export control laws, including the US Export Administration Act and its associated regulations. You shall not, directly or indirectly, export, re-export, or release the Software to, or make the Software, Reports or Documentation accessible from, any jurisdiction or country to which export, re-export, or release is prohibited by law, rule, or regulation. You shall comply with all applicable laws, regulations, orders and rules, and complete all required undertakings (including obtaining any necessary export license or other governmental approval), prior to exporting, re-exporting, releasing, or otherwise making the Software available outside the US.
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
 
-**9. Miscellaneous.**
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
 
-  (a)  All matters arising out of or relating to this Agreement shall be governed by and construed in accordance with the internal laws of the State of Washington without giving effect to any choice or conflict of law provision or rule of the State of Washington. Any legal suit, action, or proceeding arising out of or relating to this Agreement or the transactions contemplated hereby shall be instituted in the federal courts of the United States of America or the courts of the State of Washington in each case located in the City of Seattle and County of King, and each party irrevocably submits to the non-exclusive jurisdiction of such courts in any such legal suit, action, or proceeding. Service of process, summons, notice, or other document by mail to such party's address set forth herein shall be effective service of process for any suit, action, or other proceeding brought in any such court. If any suit or action is instituted by Licensor in connection with any controversy arising out of this Agreement or to enforce any rights hereunder, Licensor, if the substantially prevailing party, shall be entitled to recover, in addition to costs, such sums as the court may find reasonable as attorneys' fees, including litigation expenses and costs, and such similar sums incurred on any appeal.
-  
-  (b)  Licensor will not be responsible or liable to Licensee or any End User, or deemed in default or breach hereunder by reason of any failure or delay in the performance of its obligations hereunder where such failure or delay is due to strikes, labor disputes, civil disturbances, riot, rebellion, invasion, epidemic, pandemic, hostilities, war, terrorist attack, embargo, natural disaster, acts of God, flood, fire, sabotage, fluctuations or non-availability of electrical power, heat, light, air conditioning, or Licensee equipment, loss and destruction of property, or any other circumstances or causes beyond Licensor's reasonable control.
-  (c) All notices, requests, consents, claims, demands, waivers, and other communications hereunder shall be in writing and shall be deemed to have been given: (i) when delivered by hand (with written confirmation of receipt); (ii) when received by the addressee if sent by a nationally recognized overnight courier (receipt requested); (iii) on the date sent by or email (with confirmation of transmission) if sent during normal business hours of the recipient, and on the next business day if sent after normal business hours of the recipient; or (iv) on the third day after the date mailed, by certified or registered mail, return receipt requested, postage prepaid. Such communications must be sent to the respective parties at the addresses set forth in the MSA.
-  
-  (d) This Agreement may only be amended, modified, or supplemented by an agreement in writing signed by each of Licensee and Licensor. No waiver by any party of any of the provisions hereof shall be effective unless explicitly set forth in writing and signed by the party so waiving. Except as otherwise set forth in this Agreement, no failure to exercise, or delay in exercising, any right, remedy, power, or privilege arising from this Agreement shall operate or be construed as a waiver thereof; nor shall any single or partial exercise of any right, remedy, power, or privilege hereunder preclude any other or further exercise thereof or the exercise of any other right, remedy, power, or privilege.
-  
-  (e) If any term or provision of this Agreement is invalid, illegal, or unenforceable in any jurisdiction, such invalidity, illegality, or unenforceability shall not affect any other term or provision of this Agreement or invalidate or render unenforceable such term or provision in any other jurisdiction.
-  
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   Copyright 2024 Working Backwards, LLC
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
