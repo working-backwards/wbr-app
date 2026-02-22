@@ -45,6 +45,13 @@ _BOX_POSITIONS = (
 
 
 def build_agg(item):
+    """Build an aggregation entry for one metric from its YAML config.
+
+    Returns None for function metrics (they're computed later, not aggregated).
+    For sum aggregation, uses skipna=False so that a week with missing days produces
+    NaN rather than a misleading partial sum — the WBR would show incomplete data
+    as if it were a real total.
+    """
     if 'function' in item[1]:
         return None
     if item[1]['aggf'] == 'sum':
@@ -94,90 +101,156 @@ def get_function_metrics_configs(metrics_configs: dict):
 
 
 class WBR:
-    """
-        Represents the WBR (Weekly Business Review) class.
+    """Builds all data needed for an Amazon-style Weekly Business Review (WBR) deck.
 
-        Attributes:
-            daily_df (pandas.DataFrame): The daily data frame.
-            cfg (dict): The configuration dictionary.
-            cy_week_ending (datetime.datetime): The week ending date for the current year.
-            week_number (int): The week number.
-            fiscal_month (str): The fiscal year end month.
-            metrics_configs (dict): The metrics configuration dictionary.
-            metric_aggregation (dict): The metric aggregation dictionary.
-            daily_metrics (pandas.DataFrame): The daily data frame with columns for all configured metrics.
-            cy_trailing_six_weeks (pandas.DataFrame): The trailing six weeks data frame for the current year.
-            py_trailing_six_weeks (pandas.DataFrame): The trailing six weeks data frame for the previous year.
-            cy_monthly (pandas.DataFrame): The monthly data frame for the current year.
-            py_monthly (pandas.DataFrame): The monthly data frame for the previous year.
-            bps_metrics (list): The list of metrics for basis point comparison.
-            function_bps_metrics (list): The list of metrics with function for basis point comparison.
-            pct_change_metrics (list): The list of metrics for percent-change comparison.
-            fn_pct_change_metrics (list): The list of metrics with function for percent-change comparison.
-            graph_axis_label (str): The graph axis label.
-        """
+    A WBR is a standardized weekly report used to track business metrics over time.
+    Each metric is shown as a 6-12 chart: the last 6 weeks of data plus up to 12
+    months of trailing monthly data, with both current year (CY) and prior year (PY)
+    values for comparison. Below each chart is a "box total" summary with 9 rows:
+    LastWk, WOW (week-over-week), YOY (year-over-year for the week), MTD, YOY,
+    QTD, YOY, YTD, YOY.
+
+    Metrics fall into two comparison categories configured in the YAML:
+    - **bps (basis points):** Rate metrics (e.g., conversion rate) compared by
+      subtraction: (CY - PY) * 10,000. A 0.5% improvement = 50 bps.
+    - **pct_change (percent change):** Volume metrics (e.g., page views) compared
+      by division: ((CY / PY) - 1) * 100. Doubling = +100%.
+
+    Some metrics are "function metrics" — derived from other metrics via arithmetic
+    (sum, difference, product, divide). These are defined in the YAML with a
+    `function:` block and evaluated after base metrics are computed.
+
+    Pipeline data-flow through __init__:
+
+        cfg, daily_df                         <- inputs
+          |
+          +-- cfg ----------> cy_week_ending, week_number, fiscal_month, metrics_configs
+          +-- metrics_configs --> metric_aggregation      (via build_agg)
+          +-- daily_df + metrics_configs --> daily_metrics     (via create_dynamic_data_frame)
+          |
+          +-- daily_metrics + cy_week_ending + metric_aggregation
+          |     --> cy_trailing_six_weeks     (CY last 6 weeks, aggregated per metric)
+          |     --> py_trailing_six_weeks     (PY last 6 weeks, 364 days back)
+          |     --> cy_monthly               (CY trailing 12 months)
+          |     --> py_monthly               (PY trailing 12 months)
+          |
+          +-- metrics_configs --> bps_metrics, function_bps_metrics,
+          |                       pct_change_metrics, fn_pct_change_metrics
+          |
+          +-- cy/py_trailing_six_weeks + daily_metrics + cy_week_ending
+          |     + fiscal_month + metric_aggregation
+          |     --> box_totals, py_box_total, period_summary
+          |                                        (via calculate_box_totals)
+          |
+          +-- MUTATES cy_monthly, py_monthly       (via compute_extra_months)
+          |     Appends partial-month and forecast months through fiscal year end.
+          |
+          +-- MUTATES cy/py_trailing_six_weeks, cy/py_monthly,
+          |     box_totals, py_box_total, period_summary
+          |                                        (via compute_functional_metrics)
+          |     Evaluates derived metrics (sum, difference, product, divide) across
+          |     all DataFrames in dependency order.
+          |
+          +-- cy_week_ending + week_number + len(cy_monthly) --> graph_axis_label
+          |
+          +-- ALL OF THE ABOVE --> metrics          (via create_wbr_metrics)
+                Assembles the final interlaced CY/PY DataFrame with WOW, MOM, YOY
+                columns. Also MUTATES 6 DataFrames for display cleanup (inf->NaN,
+                NaN->"N/A").
+    """
+
     def __init__(self, cfg, daily_df=None, csv=None):
         if daily_df is None:
-            # This case should ideally not happen if WBRValidator always provides daily_df.
-            # If it can, we need a strategy: error, or expect 'csv' path in cfg for fallback.
-            # For now, let's assume daily_df is always provided.
             raise ValueError("WBR class initialized without daily_df. This should be provided by WBRValidator.")
         self.daily_df = daily_df
         self.cfg = cfg
+
+        # --- Extract setup parameters from YAML config ---
         self.cy_week_ending = datetime.strptime(self.cfg['setup']['week_ending'], '%d-%b-%Y')
         self.week_number = self.cfg['setup']['week_number']
         self.fiscal_month = self.cfg['setup']['fiscal_year_end_month'] if 'fiscal_year_end_month' in self.cfg['setup']\
             else "DEC"
         self.metrics_configs = self.cfg['metrics']
-
         self.metrics_configs.__delitem__("__line__")
 
+        # Build the aggregation map: metric_name -> aggregation function.
+        # Function metrics (derived via sum/difference/etc.) get None here and are
+        # computed later by compute_functional_metrics.
         self.metric_aggregation = dict(filter(None, list(map(build_agg, self.metrics_configs.items()))))
+
+        # --- Build base DataFrames for all non-function metrics ---
+
+        # daily_metrics: the raw daily data filtered to only the columns defined in YAML
         self.daily_metrics = wbr_util.create_dynamic_data_frame(self.daily_df, self.metrics_configs)
 
+        # Trailing 6 weeks: weekly aggregates for the chart's left half (the "6" in 6-12)
         self.cy_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
             self.daily_metrics,
             self.cy_week_ending,
             self.metric_aggregation
         )
-
+        # PY offset is 364 days (52 weeks exactly) — NOT 365 — so that weekdays align
+        # for an apples-to-apples weekly comparison (e.g., Mon-Sun vs Mon-Sun).
         self.py_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
             self.daily_metrics,
             self.cy_week_ending - timedelta(days=PY_WEEKLY_OFFSET_DAYS),
             self.metric_aggregation
         ).add_prefix('PY__')
 
+        # Trailing 12 months: monthly aggregates for the chart's right half (the "12" in 6-12)
         self.cy_monthly = wbr_util.create_trailing_twelve_months(
             self.daily_metrics,
             self.cy_week_ending,
             self.metric_aggregation
         )
-
+        # PY monthly uses a calendar-year offset (relativedelta) rather than 364 days,
+        # because monthly periods align by calendar month, not by weekday.
         self.py_monthly = wbr_util.create_trailing_twelve_months(
             self.daily_metrics,
             self.cy_week_ending - relativedelta.relativedelta(years=1),
             self.metric_aggregation
         ).add_prefix('PY__')
 
+        # --- Classify metrics by comparison method ---
+        # Each metric is compared either by basis points (bps) or percent change.
+        # Function metrics (derived from other metrics) are tracked separately because
+        # their YOY box-total calculation must use the derived values, not raw inputs.
         self.function_bps_metrics, self.bps_metrics, self.fn_pct_change_metrics, self.pct_change_metrics =\
             get_bps_and_pct_change_metrics(self.metrics_configs)
 
+        # --- Box totals: the 9-row summary below each chart ---
+        # See constants.py BOX_IDX_* for the row layout.
         self.box_totals, self.py_box_total, self.period_summary = self.calculate_box_totals()
+
+        # Append months beyond the trailing 12 through fiscal year end.
+        # The CY partial month is aggregated manually (per-metric) with a count-mismatch
+        # guard: if any day's data is missing, the whole month becomes NaN rather than
+        # showing a misleading partial sum. PY uses resample since it has complete data.
         self.compute_extra_months()
+
+        # Evaluate derived (function) metrics across all DataFrames.
+        # Must run after base metrics and box totals are built, since function metrics
+        # reference base metrics as operands.
         self.compute_functional_metrics()
+
         self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number,
                                                            len(self.cy_monthly['Date']))
+
+        # Assemble the final interlaced CY/PY metric DataFrame with WOW, MOM, YOY
+        # comparison columns. Also cleans up inf/NaN values for display.
         self.metrics = self.create_wbr_metrics()
-        # init end
 
     def create_wbr_metrics(self):
-        """
-        We are going to create 4 dataframes
-            1. cy_wbr_graph_data_with_weekly
-            2. py_wbr_graph_data_with_weekly
-        Then we will create the final dataframe by interlacing the two merged dataframes
-        so that the metric and PY_metric are in adjacent columns
-        :return: metric dataframe
+        """Assemble the final WBR metrics DataFrame for the deck builder.
+
+        Combines weekly (6 rows) and monthly (12+ rows) data for both CY and PY
+        into a single interlaced DataFrame where each metric's CY and PY columns
+        are adjacent (e.g., PageViews, PY__PageViews). Appends WOW, MOM, and YOY
+        comparison columns, then cleans up inf/NaN values for display.
+
+        Mutates (for display cleanup):
+            self.cy/py_trailing_six_weeks, self.cy/py_monthly — inf -> NaN
+            self.box_totals, self.py_box_total — inf -> "N/A", NaN -> "N/A"
         """
 
         # Create #1 -cy_wbr_graph_data_with_weekly
@@ -379,25 +452,28 @@ class WBR:
 
     def calculate_mom_wow_yoy_bps_or_percent_values(self, current_trailing_six_weeks, previous_week_trailing_data,
                                                     do_multiply):
-        """
-        Calculates Month-over-Month (MoM), Week-over-Week (WoW), Year-over-Year (YoY),
-        Basis Points (bps), or Percent values based on the provided data.
+        """Compare CY vs PY data using each metric's configured comparison method.
 
-        The method compares current trailing six-week metrics with the previous week's data
-        and computes differences, ratios, or percentages as specified by the provided metric categories.
+        This is the core comparison engine used by WOW, MOM, and YOY calculations.
+        Each metric is compared using one of two methods (configured in YAML):
+
+        - **bps metrics:** CY - PY (subtraction). Used for rate metrics like conversion
+          rate where the meaningful comparison is the difference in rates.
+          When do_multiply=True, scaled by 10,000 to express as basis points.
+        - **pct_change metrics:** (CY / PY) - 1 (percent change). Used for volume
+          metrics like page views where the meaningful comparison is relative growth.
+          When do_multiply=True, scaled by 100 to express as a percentage.
 
         Args:
-            current_trailing_six_weeks (pd.DataFrame): DataFrame containing the current trailing six weeks metrics.
-            previous_week_trailing_data (pd.DataFrame): DataFrame containing the previous week's metrics for comparison.
-            do_multiply (bool): If True, multiplies the results by 10,000 for bps metrics or by 100 for percentage
-            metrics.
-
-        Returns:
-            pd.DataFrame: DataFrame containing the calculated metrics.
+            current_trailing_six_weeks: CY period data (despite the name, can be any period).
+            previous_week_trailing_data: PY/comparison period data.
+            do_multiply: If True, apply BPS_MULTIPLIER (10,000) or PCT_MULTIPLIER (100).
+                Used for box-total comparisons; False for raw chart-level comparisons.
         """
-        operated_data_frame = pd.DataFrame()  # Initialize an empty DataFrame for results
+        operated_data_frame = pd.DataFrame()
 
-        # Calculate differences for basis points metrics
+        # bps metrics: subtraction (CY - PY). Rate metrics are compared by absolute
+        # difference because a 2% conversion rate vs 1.5% is "50 bps better", not "33% better".
         if len(self.bps_metrics) > 0:
             operated_data_frame = pd.concat(
                 [
@@ -425,7 +501,8 @@ class WBR:
             if do_multiply:
                 operated_data_frame = operated_data_frame.mul(BPS_MULTIPLIER)
 
-        # Calculate percentage changes for percentile metrics
+        # pct_change metrics: division ((CY / PY) - 1). Volume metrics are compared by
+        # relative change because "20M vs 10M page views" is meaningful as "+100%".
         if len(self.pct_change_metrics) > 0:
             operated_data_frame = pd.concat(
                 [
@@ -598,6 +675,17 @@ class WBR:
             )
 
     def _apply_function_to_all_series(self, column_list, py_column_list, metric_name, operation):
+        """Apply a function metric's operation across all 6 DataFrames.
+
+        A function metric derives its value from other metrics using one of four
+        operations defined in the YAML: sum (N-ary), difference, product, or divide
+        (all binary). This method computes the result for each time series (CY/PY
+        weekly, CY/PY monthly, box_totals, py_box_total) and also triggers the
+        box-total YOY computation via _compute_box_total_yoy.
+
+        Mutates: self.cy/py_trailing_six_weeks, self.cy/py_monthly,
+                 self.box_totals, self.py_box_total, self.period_summary
+        """
         def apply_op(df):
             if operation == 'sum':
                 return df.iloc[:].sum(axis=1)
@@ -615,6 +703,17 @@ class WBR:
         self.py_box_total[metric_name] = apply_op(self.py_box_total[column_list])
 
     def _compute_box_total_yoy(self, metric_name, columns, box_totals, operation):
+        """Compute YOY box-total rows for a function metric.
+
+        Two paths based on operation type:
+        - divide/product: Compute the derived metric directly from period_summary
+          values (e.g., revenue / units = price), then compare CY vs PY.
+        - sum/difference: Replace NaN with 0 (partial periods should sum as zero,
+          not propagate NaN), then use wbr_util helpers for aggregation.
+
+        Mutates: self.period_summary (adds the derived metric column),
+                 box_totals (fills in the 5 YOY comparison rows)
+        """
         if operation in ('divide', 'product'):
             if operation == 'divide':
                 self.period_summary[metric_name] = (
@@ -643,6 +742,9 @@ class WBR:
                     self.period_summary[columns[0]] - self.period_summary[columns[1]]
                 )
 
+            # Copy period_summary and replace NaN with 0 for sum/difference operations.
+            # Partial periods (e.g., incomplete QTD) have NaN for missing months;
+            # when summing, those should contribute 0 rather than making the total NaN.
             yoy_field_values = pd.DataFrame()
             yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
             yoy_field_values = yoy_field_values.replace(np.nan, 0)
@@ -662,27 +764,43 @@ class WBR:
                 )
 
     def calculate_yoy_box_total(self, operand_1, operand_2, metric_name):
+        """Compute a single YOY comparison value for a function metric's box total.
+
+        Uses subtraction for bps metrics (rate comparison) or division for
+        pct_change metrics (volume comparison). See class docstring for why.
+        """
         return (operand_1 - operand_2) * BPS_MULTIPLIER if metric_name in self.function_bps_metrics else (
                 ((operand_1/operand_2) - 1) * PCT_MULTIPLIER)
 
     def compute_extra_months(self):
+        """Extend cy_monthly/py_monthly beyond the trailing 12 months.
+
+        Two cases require extra months appended to the monthly DataFrames:
+        1. Partial month: if the week ends mid-month, manually aggregate the
+           partial CY month (with missing-day guard) and full PY month.
+        2. Fiscal year extension: if the fiscal year doesn't end this month,
+           append forecast months through fiscal year end (with 0 -> NaN).
+
+        Mutates: self.cy_monthly, self.py_monthly
+        """
         if not wbr_util.is_last_day_of_month(self.cy_week_ending):
             self.aggregate_week_ending_month()
         if self.fiscal_month.lower() != self.cy_week_ending.strftime("%b").lower():
             self.aggregate_months_to_fiscal_year_end()
 
     def aggregate_months_to_fiscal_year_end(self):
-        """
-        Aggregates monthly data to fiscal year-end based on the provided fiscal month.
+        """Append forecast months from the current month through fiscal year end.
 
-        This method resamples the data to a monthly frequency and performs aggregation
-        using the specified metrics. It calculates the fiscal year-end dates and
-        corresponding dates for the previous year. The resulting monthly aggregates
-        are filtered for the current and previous fiscal years, and concatenated
-        to existing trailing twelve-month data.
+        When the fiscal year doesn't end in December (or the current month isn't the
+        last month of the fiscal year), the 6-12 chart needs to show future months
+        through fiscal year end. This method appends those months so the chart's
+        right half extends to the fiscal year boundary.
 
-        Returns:
-            None: The method updates the instance variables directly.
+        Future months with zero values are replaced with NaN because zeros in future
+        months represent missing data (no actuals yet), not actual zero values. NaN
+        renders as blank on the chart rather than a misleading zero line.
+
+        Mutates: self.cy_monthly, self.py_monthly
         """
         # Resample data to monthly frequency and perform aggregation
         monthly_data = (
@@ -734,17 +852,19 @@ class WBR:
         ).reset_index(drop=True)
 
     def aggregate_week_ending_month(self):
-        """
-        Aggregates daily data into monthly metrics based on the current week ending date.
+        """Build a partial-month aggregate when the week doesn't end on month-end.
 
-        This method computes the first and last day of the month corresponding to
-        the current week ending date. It then filters daily data within that month,
-        aggregates the metrics according to the specified aggregation methods,
-        and appends the results to the trailing twelve months data for both
-        current and previous years.
+        When cy_week_ending falls mid-month, the trailing-12-months data won't
+        include the current month (resample only produces complete months). This
+        method manually aggregates daily data for the partial CY month and appends
+        it to cy_monthly/py_monthly.
 
-        Returns:
-            None: The method updates the instance variables directly.
+        The CY partial month is aggregated per-metric with a count-mismatch guard:
+        if any day's data is missing for a metric, the whole month becomes NaN. This
+        prevents the WBR from showing a misleading partial sum as if it were a
+        complete month. PY uses resample since it has complete data for that month.
+
+        Mutates: self.cy_monthly, self.py_monthly
         """
         # Get the first day of the current month
         first_day_of_month = date(
@@ -810,21 +930,25 @@ class WBR:
         ).reset_index(drop=True)
 
     def calculate_box_totals(self):
-        """
-        calculate_box_totals takes a dataframe containing daily data and a date.
-        It creates a data frame with the columns of the original data frame.
-        The date column is the period end date for either the current period
-        or the comp period (prior week or prior year).
+        """Build the 9-row summary table shown below each WBR chart.
 
-        It will contain 9 rows with following axis labels for WBR box total.
+        The box totals provide at-a-glance period comparisons:
+            Row 0: LastWk  — most recent full CY week's value
+            Row 1: WOW     — week-over-week change (CY wk6 vs CY wk5)
+            Row 2: YOY     — year-over-year change for the week (CY wk6 vs PY wk6)
+            Row 3: MTD     — month-to-date total
+            Row 4: YOY     — year-over-year change for MTD
+            Row 5: QTD     — quarter-to-date total (aligned to fiscal calendar)
+            Row 6: YOY     — year-over-year change for QTD
+            Row 7: YTD     — year-to-date total (aligned to fiscal calendar)
+            Row 8: YOY     — year-over-year change for YTD
 
-        LastWk, WOW, YOY, MTD, YOY, QTD, YOY, YTD, YOY
-
-        The box_totals member will be appended at the end of the trailing 6-week
-        and 12-month WBR frame or can be returned as a standalone data frame.
-
-        Method to calculate various totals and metrics for different time periods
-        :return: box_total, py_box_total and period_summary dataframe
+        Returns three DataFrames:
+            box_totals:     CY summary values + comparison rows (WOW/YOY)
+            py_box_total:   PY absolute values (used later for YOY in append_yoy_values)
+            period_summary: Raw CY/PY period aggregates (10 rows, see constants.py
+                            YOY_IDX_*) used by compute_functional_metrics to derive
+                            function-metric box totals
         """
         # Initialize empty DataFrames for box totals and year-over-year (YoY) box totals
         box_totals = pd.DataFrame()
