@@ -111,7 +111,7 @@ class TestGoldenOutput:
         block = self._get_block(scenario_name, test_dict)
 
         if isinstance(block, TrailingTable):
-            actual = wbr1.py_trailing_twelve_months.shape[0]
+            actual = wbr1.py_monthly.shape[0]
         elif "WOW" in metric_name or "MOM" in metric_name or "YOY" in metric_name:
             return  # Not applicable for comparison metrics
         else:

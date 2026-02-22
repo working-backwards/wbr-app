@@ -387,7 +387,7 @@ def check_py_df_shape(test, wbr1):
     """
 
     # Retrieve the previous year trailing twelve months DataFrame from the WBR object
-    py_monthly_df = wbr1.py_trailing_twelve_months
+    py_monthly_df = wbr1.py_monthly
 
     # Get the number of rows and columns in the DataFrame
     row_length, col_length = py_monthly_df.shape
