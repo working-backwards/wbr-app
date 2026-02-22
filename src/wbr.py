@@ -929,7 +929,9 @@ class WBR:
             [self.py_monthly, py_month_agg_data]
         ).reset_index(drop=True)
 
-    def calculate_box_totals(self):
+    def calculate_box_totals(self, cy_trailing_six_weeks=None, py_trailing_six_weeks=None,
+                             cy_week_ending=None, fiscal_month=None, daily_metrics=None,
+                             metric_aggregation=None, bps_metrics=None, pct_change_metrics=None):
         """Build the 9-row summary table shown below each WBR chart.
 
         The box totals provide at-a-glance period comparisons:
@@ -943,6 +945,10 @@ class WBR:
             Row 7: YTD     — year-to-date total (aligned to fiscal calendar)
             Row 8: YOY     — year-over-year change for YTD
 
+        All parameters default to self.* attributes when None, so existing callers
+        work unchanged. Tests can pass explicit DataFrames to exercise this method
+        without constructing a full WBR pipeline.
+
         Returns three DataFrames:
             box_totals:     CY summary values + comparison rows (WOW/YOY)
             py_box_total:   PY absolute values (used later for YOY in append_yoy_values)
@@ -950,16 +956,25 @@ class WBR:
                             YOY_IDX_*) used by compute_functional_metrics to derive
                             function-metric box totals
         """
+        cy_trailing_six_weeks = cy_trailing_six_weeks if cy_trailing_six_weeks is not None else self.cy_trailing_six_weeks
+        py_trailing_six_weeks = py_trailing_six_weeks if py_trailing_six_weeks is not None else self.py_trailing_six_weeks
+        cy_week_ending = cy_week_ending if cy_week_ending is not None else self.cy_week_ending
+        fiscal_month = fiscal_month if fiscal_month is not None else self.fiscal_month
+        daily_metrics = daily_metrics if daily_metrics is not None else self.daily_metrics
+        metric_aggregation = metric_aggregation if metric_aggregation is not None else self.metric_aggregation
+        bps_metrics = bps_metrics if bps_metrics is not None else self.bps_metrics
+        pct_change_metrics = pct_change_metrics if pct_change_metrics is not None else self.pct_change_metrics
+
         # Initialize empty DataFrames for box totals and year-over-year (YoY) box totals
         box_totals = pd.DataFrame()
         py_box_totals = pd.DataFrame()
 
         # Extract specific rows from current year (cy) and previous year (py) trailing six weeks dataframes
         cy_wk6, cy_wk5, py_wk6, py_wk5 = (
-            self.cy_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 1]],
-            self.cy_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 2]],
-            self.py_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 1]],
-            self.py_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 2]],
+            cy_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 1]],
+            cy_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 2]],
+            py_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 1]],
+            py_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 2]],
         )
 
         # Remove 'PY__' prefix from column names for py_wk6 and py_wk5
@@ -970,7 +985,7 @@ class WBR:
         [x.reset_index(drop=True, inplace=True) for x in dataframe_list]
 
         # Extract common dates for year-over-year comparison
-        cy_last_day = pd.to_datetime(self.cy_week_ending)
+        cy_last_day = pd.to_datetime(cy_week_ending)
         py_last_day = pd.to_datetime(cy_last_day) - relativedelta.relativedelta(years=1)
 
         # Calculate start dates for MTD, QTD, and YTD
@@ -978,10 +993,10 @@ class WBR:
         py_first_day_mtd = py_last_day.replace(day=1)
 
         try:
-            cy_first_day_qtd = cy_last_day.to_period('Q-' + self.fiscal_month).to_timestamp()
-            py_first_day_qtd = py_last_day.to_period('Q-' + self.fiscal_month).to_timestamp()
-            cy_first_day_ytd = cy_last_day.to_period('Y-' + self.fiscal_month).to_timestamp()
-            py_first_day_ytd = py_last_day.to_period('Y-' + self.fiscal_month).to_timestamp()
+            cy_first_day_qtd = cy_last_day.to_period('Q-' + fiscal_month).to_timestamp()
+            py_first_day_qtd = py_last_day.to_period('Q-' + fiscal_month).to_timestamp()
+            cy_first_day_ytd = cy_last_day.to_period('Y-' + fiscal_month).to_timestamp()
+            py_first_day_ytd = py_last_day.to_period('Y-' + fiscal_month).to_timestamp()
         except ValueError:
             raise ValueError(f"fiscal_year_end_month' value is in incorrect format from setup section "
                              f"at line: {self.cfg['setup']['__line__']}")
@@ -993,14 +1008,14 @@ class WBR:
             ('YTD', [('cy_first_day_ytd', 'cy_last_day'), ('py_first_day_ytd', 'py_last_day')])
         ]:
             # Filter data for the specified period
-            cy_data = self.daily_metrics.query(f'Date >= @{period_range[0][0]} and Date <= @{period_range[0][1]}')
-            py_data = self.daily_metrics.query(f'Date >= @{period_range[1][0]} and Date <= @{period_range[1][1]}')
+            cy_data = daily_metrics.query(f'Date >= @{period_range[0][0]} and Date <= @{period_range[0][1]}')
+            py_data = daily_metrics.query(f'Date >= @{period_range[1][0]} and Date <= @{period_range[1][1]}')
 
             # Resample data annually based on fiscal month and calculate aggregated metric
-            cy_total = cy_data.resample('YE-' + self.fiscal_month, label='right', closed='right', on='Date').agg(
-                self.metric_aggregation).reset_index().sort_values(by='Date')
-            py_total = py_data.resample('YE-' + self.fiscal_month, label='right', closed='right', on='Date').agg(
-                self.metric_aggregation).reset_index().sort_values(by='Date')
+            cy_total = cy_data.resample('YE-' + fiscal_month, label='right', closed='right', on='Date').agg(
+                metric_aggregation).reset_index().sort_values(by='Date')
+            py_total = py_data.resample('YE-' + fiscal_month, label='right', closed='right', on='Date').agg(
+                metric_aggregation).reset_index().sort_values(by='Date')
 
             # If the resulting dataframe is empty, create a new row
             if cy_total.empty:
@@ -1031,11 +1046,11 @@ class WBR:
 
         # Extract bps and percentiles data for different time periods
         for df in dataframe_list:
-            if len(self.bps_metrics) > 0:
-                bps_metric_df = df[self.bps_metrics]
+            if len(bps_metrics) > 0:
+                bps_metric_df = df[bps_metrics]
                 list_bps_df.append(bps_metric_df)
-            if len(self.pct_change_metrics) > 0:
-                pct_change_metric_df = df[self.pct_change_metrics]
+            if len(pct_change_metrics) > 0:
+                pct_change_metric_df = df[pct_change_metrics]
                 list_pct_change_df.append(pct_change_metric_df)
 
         # Calculate WOW and YoY for bps
