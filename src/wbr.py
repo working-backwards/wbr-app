@@ -105,7 +105,7 @@ class WBR:
             bps_metrics (list): The list of metrics for basis point comparison.
             function_bps_metrics (list): The list of metrics with function for basis point comparison.
             pct_change_metrics (list): The list of metrics for percent-change comparison.
-            function_percentile_metrics (list): The list of metrics with function for percentile comparison.
+            fn_pct_change_metrics (list): The list of metrics with function for percent-change comparison.
             graph_axis_label (str): The graph axis label.
         """
     def __init__(self, cfg, daily_df=None, csv=None):
@@ -165,7 +165,7 @@ class WBR:
             self.metric_aggregation
         ).add_prefix('PY__')
 
-        self.function_bps_metrics, self.bps_metrics, self.function_percentile_metrics, self.pct_change_metrics =\
+        self.function_bps_metrics, self.bps_metrics, self.fn_pct_change_metrics, self.pct_change_metrics =\
             get_bps_and_pct_change_metrics(self.metrics_configs)
 
         self.box_totals, self.py_box_total, self.yoy_required_metrics_data = self.calculate_box_totals()
@@ -446,12 +446,12 @@ class WBR:
                 operated_data_frame = operated_data_frame.mul(PCT_MULTIPLIER)
 
         # Calculate percentage changes for function percentile metrics
-        if len(self.function_percentile_metrics) > 0:
+        if len(self.fn_pct_change_metrics) > 0:
             operated_data_frame = pd.concat(
                 [
                     operated_data_frame,
-                    (current_trailing_six_weeks[self.function_percentile_metrics]
-                     .div(previous_week_trailing_data[self.function_percentile_metrics]) - 1)
+                    (current_trailing_six_weeks[self.fn_pct_change_metrics]
+                     .div(previous_week_trailing_data[self.fn_pct_change_metrics]) - 1)
                 ],
                 axis=1
             )
