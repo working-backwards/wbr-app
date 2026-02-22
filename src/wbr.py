@@ -45,7 +45,7 @@ def build_agg(item):
         return item[0], item[1]["aggf"]
 
 
-def bps_or_percentile_collector(entry):
+def bps_or_pct_change_collector(entry):
     metric_config = entry[1]
     return "metric_comparison_method" in metric_config and metric_config["metric_comparison_method"] == "bps"
 
@@ -54,31 +54,31 @@ def function_exists_collector(entry):
     return "function" if "function" in entry[1] else "non_function"
 
 
-def get_bps_and_percentile_metrics(metrics_configs):
+def get_bps_and_pct_change_metrics(metrics_configs):
     # holds key as true or false and value as the list of (metric, metric config)
-    bps_and_percentile_metric_map = {k: list(v) for k, v in groupby(sorted(metrics_configs.items(),
-                                                                           key=bps_or_percentile_collector),
-                                                                    key=bps_or_percentile_collector)}
+    bps_and_pct_change_metric_map = {k: list(v) for k, v in groupby(sorted(metrics_configs.items(),
+                                                                           key=bps_or_pct_change_collector),
+                                                                    key=bps_or_pct_change_collector)}
 
     # Further grouping by
-    bps_metric_map = {k: list(v) for k, v in groupby(sorted(bps_and_percentile_metric_map[True],
+    bps_metric_map = {k: list(v) for k, v in groupby(sorted(bps_and_pct_change_metric_map[True],
                                                             key=function_exists_collector),
                                                      key=function_exists_collector)} \
-        if True in bps_and_percentile_metric_map else {}
+        if True in bps_and_pct_change_metric_map else {}
 
-    percentile_metric_map = {k: list(v) for k, v in groupby(sorted(bps_and_percentile_metric_map[False],
+    pct_change_metric_map = {k: list(v) for k, v in groupby(sorted(bps_and_pct_change_metric_map[False],
                                                                    key=function_exists_collector),
                                                             key=function_exists_collector)} \
-        if False in bps_and_percentile_metric_map else {}
+        if False in bps_and_pct_change_metric_map else {}
 
     # Extract lists of metrics
     fn_bps_metrics = [entry[0] for entry in bps_metric_map["function"]] if "function" in bps_metric_map else []
     bps_metrics = [entry[0] for entry in bps_metric_map["non_function"]] if "non_function" in bps_metric_map else []
-    fn_percentile_metrics = [entry[0] for entry in percentile_metric_map["function"]] \
-        if "function" in percentile_metric_map else []
-    percentile_metrics = [entry[0] for entry in percentile_metric_map["non_function"]] \
-        if "non_function" in percentile_metric_map else []
-    return fn_bps_metrics, bps_metrics, fn_percentile_metrics, percentile_metrics
+    fn_pct_change_metrics = [entry[0] for entry in pct_change_metric_map["function"]] \
+        if "function" in pct_change_metric_map else []
+    pct_change_metrics = [entry[0] for entry in pct_change_metric_map["non_function"]] \
+        if "non_function" in pct_change_metric_map else []
+    return fn_bps_metrics, bps_metrics, fn_pct_change_metrics, pct_change_metrics
 
 
 def get_function_metrics_configs(metrics_configs: dict):
@@ -104,7 +104,7 @@ class WBR:
             py_trailing_twelve_months (pandas.DataFrame): The trailing twelve months data frame for the previous year.
             bps_metrics (list): The list of metrics for basis point comparison.
             function_bps_metrics (list): The list of metrics with function for basis point comparison.
-            percentile_metrics (list): The list of metrics for percentile comparison.
+            pct_change_metrics (list): The list of metrics for percent-change comparison.
             function_percentile_metrics (list): The list of metrics with function for percentile comparison.
             graph_axis_label (str): The graph axis label.
         """
@@ -165,8 +165,8 @@ class WBR:
             self.metric_aggregation
         ).add_prefix('PY__')
 
-        self.function_bps_metrics, self.bps_metrics, self.function_percentile_metrics, self.percentile_metrics =\
-            get_bps_and_percentile_metrics(self.metrics_configs)
+        self.function_bps_metrics, self.bps_metrics, self.function_percentile_metrics, self.pct_change_metrics =\
+            get_bps_and_pct_change_metrics(self.metrics_configs)
 
         self.box_totals, self.py_box_total, self.yoy_required_metrics_data = self.calculate_box_totals()
         self.compute_extra_months()
@@ -432,12 +432,12 @@ class WBR:
                 operated_data_frame = operated_data_frame.mul(BPS_MULTIPLIER)
 
         # Calculate percentage changes for percentile metrics
-        if len(self.percentile_metrics) > 0:
+        if len(self.pct_change_metrics) > 0:
             operated_data_frame = pd.concat(
                 [
                     operated_data_frame,
-                    (current_trailing_six_weeks[self.percentile_metrics]
-                     .div(previous_week_trailing_data[self.percentile_metrics]) - 1)
+                    (current_trailing_six_weeks[self.pct_change_metrics]
+                     .div(previous_week_trailing_data[self.pct_change_metrics]) - 1)
                 ],
                 axis=1
             )
@@ -1249,16 +1249,16 @@ class WBR:
 
         # Separate dataframes for bps and percentiles
         list_bps_df = []
-        list_percentile_df = []
+        list_pct_change_df = []
 
         # Extract bps and percentiles data for different time periods
         for df in dataframe_list:
             if len(self.bps_metrics) > 0:
                 bps_metric_df = df[self.bps_metrics]
                 list_bps_df.append(bps_metric_df)
-            if len(self.percentile_metrics) > 0:
-                percentile_metric_df = df[self.percentile_metrics]
-                list_percentile_df.append(percentile_metric_df)
+            if len(self.pct_change_metrics) > 0:
+                pct_change_metric_df = df[self.pct_change_metrics]
+                list_pct_change_df.append(pct_change_metric_df)
 
         # Calculate WOW and YoY for bps
         if len(list_bps_df) > 0:
@@ -1274,21 +1274,21 @@ class WBR:
                 list_bps_df[YOY_IDX_CY_YTD].subtract(list_bps_df[YOY_IDX_PY_YTD])).mul(BPS_MULTIPLIER)], axis=1)
 
         # Calculate WOW and YoY for percentiles
-        if len(list_percentile_df) > 0:
+        if len(list_pct_change_df) > 0:
             cy_wk6_wow = pd.concat([cy_wk6_wow, pd.DataFrame(
-                list_percentile_df[YOY_IDX_CY_WK6].div(list_percentile_df[YOY_IDX_CY_WK5]) - 1
+                list_pct_change_df[YOY_IDX_CY_WK6].div(list_pct_change_df[YOY_IDX_CY_WK5]) - 1
             ).mul(PCT_MULTIPLIER)], axis=1)
             cy_wk6_yoy = pd.concat([cy_wk6_yoy, pd.DataFrame(
-                list_percentile_df[YOY_IDX_CY_WK6].div(list_percentile_df[YOY_IDX_PY_WK6]) - 1
+                list_pct_change_df[YOY_IDX_CY_WK6].div(list_pct_change_df[YOY_IDX_PY_WK6]) - 1
             ).mul(PCT_MULTIPLIER)], axis=1)
             cy_mtd_yoy = pd.concat([cy_mtd_yoy, pd.DataFrame(
-                list_percentile_df[YOY_IDX_CY_MTD].div(list_percentile_df[YOY_IDX_PY_MTD]) - 1
+                list_pct_change_df[YOY_IDX_CY_MTD].div(list_pct_change_df[YOY_IDX_PY_MTD]) - 1
             ).mul(PCT_MULTIPLIER)], axis=1)
             cy_qtd_yoy = pd.concat([cy_qtd_yoy, pd.DataFrame(
-                list_percentile_df[YOY_IDX_CY_QTD].div(list_percentile_df[YOY_IDX_PY_QTD]) - 1
+                list_pct_change_df[YOY_IDX_CY_QTD].div(list_pct_change_df[YOY_IDX_PY_QTD]) - 1
             ).mul(PCT_MULTIPLIER)], axis=1)
             cy_ytd_yoy = pd.concat([cy_ytd_yoy, pd.DataFrame(
-                list_percentile_df[YOY_IDX_CY_YTD].div(list_percentile_df[YOY_IDX_PY_YTD]) - 1
+                list_pct_change_df[YOY_IDX_CY_YTD].div(list_pct_change_df[YOY_IDX_PY_YTD]) - 1
             ).mul(PCT_MULTIPLIER)], axis=1)
 
         # Combine calculated metrics into box totals dataframe

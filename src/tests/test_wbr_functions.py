@@ -3,7 +3,7 @@
 Behavioral tests for standalone functions in wbr.py.
 
 These tests exercise the module-level functions (build_agg,
-get_bps_and_percentile_metrics, etc.) that don't require a full WBR
+get_bps_and_pct_change_metrics, etc.) that don't require a full WBR
 instance. Each test uses minimal inputs to isolate one behavior.
 """
 import numpy as np
@@ -11,7 +11,7 @@ import pandas as pd
 
 from src.wbr import (
     build_agg,
-    get_bps_and_percentile_metrics,
+    get_bps_and_pct_change_metrics,
     get_function_metrics_configs,
 )
 from src.wbr_utility import (
@@ -71,7 +71,7 @@ class TestBuildAgg:
 
 
 # ---------------------------------------------------------------------------
-# get_bps_and_percentile_metrics
+# get_bps_and_pct_change_metrics
 # ---------------------------------------------------------------------------
 
 class TestGetBpsAndPercentileMetrics:
@@ -91,7 +91,7 @@ class TestGetBpsAndPercentileMetrics:
             "FnRate": {"metric_comparison_method": "bps", "function": {"divide": []}},
             "FnRevenue": {"function": {"sum": []}},
         }
-        fn_bps, bps, fn_pct, pct = get_bps_and_percentile_metrics(configs)
+        fn_bps, bps, fn_pct, pct = get_bps_and_pct_change_metrics(configs)
 
         assert fn_bps == ["FnRate"]
         assert bps == ["ConvRate"]
@@ -104,7 +104,7 @@ class TestGetBpsAndPercentileMetrics:
             "Rate1": {"metric_comparison_method": "bps", "column": "r1", "aggf": "mean"},
             "Rate2": {"metric_comparison_method": "bps", "column": "r2", "aggf": "mean"},
         }
-        fn_bps, bps, fn_pct, pct = get_bps_and_percentile_metrics(configs)
+        fn_bps, bps, fn_pct, pct = get_bps_and_pct_change_metrics(configs)
         assert bps == ["Rate1", "Rate2"]
         assert fn_bps == []
         assert pct == []
@@ -116,13 +116,13 @@ class TestGetBpsAndPercentileMetrics:
             "Rev": {"column": "rev", "aggf": "sum"},
             "Units": {"column": "units", "aggf": "sum"},
         }
-        fn_bps, bps, fn_pct, pct = get_bps_and_percentile_metrics(configs)
+        fn_bps, bps, fn_pct, pct = get_bps_and_pct_change_metrics(configs)
         assert pct == ["Rev", "Units"]
         assert bps == []
 
     def test_empty_config(self):
         """Empty config returns all empty lists."""
-        fn_bps, bps, fn_pct, pct = get_bps_and_percentile_metrics({})
+        fn_bps, bps, fn_pct, pct = get_bps_and_pct_change_metrics({})
         assert fn_bps == []
         assert bps == []
         assert fn_pct == []
@@ -132,7 +132,7 @@ class TestGetBpsAndPercentileMetrics:
         configs = {
             "FnRate": {"metric_comparison_method": "bps", "function": {"divide": []}},
         }
-        fn_bps, bps, fn_pct, pct = get_bps_and_percentile_metrics(configs)
+        fn_bps, bps, fn_pct, pct = get_bps_and_pct_change_metrics(configs)
         assert fn_bps == ["FnRate"]
         assert bps == []
 
