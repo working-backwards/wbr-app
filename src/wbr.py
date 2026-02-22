@@ -35,6 +35,14 @@ from src.constants import (
 )
 import src.wbr_utility as wbr_util
 
+_BOX_POSITIONS = (
+    (BOX_IDX_WOW,     YOY_IDX_CY_WK6, YOY_IDX_CY_WK5),
+    (BOX_IDX_YOY_WK,  YOY_IDX_CY_WK6, YOY_IDX_PY_WK6),
+    (BOX_IDX_YOY_MTD, YOY_IDX_CY_MTD, YOY_IDX_PY_MTD),
+    (BOX_IDX_YOY_QTD, YOY_IDX_CY_QTD, YOY_IDX_PY_QTD),
+    (BOX_IDX_YOY_YTD, YOY_IDX_CY_YTD, YOY_IDX_PY_YTD),
+)
+
 
 def build_agg(item):
     if 'function' in item[1]:
@@ -109,20 +117,6 @@ class WBR:
             graph_axis_label (str): The graph axis label.
         """
     def __init__(self, cfg, daily_df=None, csv=None):
-        self.__function_cal_dict = {
-            "product": lambda columns, py_columns, metric:
-            self.function_product_calculation(columns, py_columns, metric),
-            "difference": lambda columns, py_columns, metric:
-            self.function_diff_calculation(columns, py_columns, metric),
-            "sum": lambda columns, py_columns, metric: self.function_sum_calculation(columns, py_columns, metric),
-            "divide": lambda columns, py_columns, metric: self.function_div_calculation(columns, py_columns, metric)
-        }
-        self.__box_total_calc_dict = {
-            "divide": lambda name, column, box_total: self.box_total_div_calculation(name, column, box_total),
-            "sum": lambda name, column, box_total: self.box_total_sum_calculation(name, column, box_total),
-            "difference": lambda name, column, box_total: self.box_total_diff_calculation(name, column, box_total),
-            "product": lambda name, column, box_total: self.box_total_product_calculation(name, column, box_total)
-        }
         if daily_df is None:
             # This case should ideally not happen if WBRValidator always provides daily_df.
             # If it can, we need a strategy: error, or expect 'csv' path in cfg for fallback.
@@ -587,425 +581,76 @@ class WBR:
 
         # Execute the corresponding function from the function calculation dictionary
         try:
-            self.__function_cal_dict[operation](column_list, py_column_list, metric)
+            self._apply_function_to_all_series(column_list, py_column_list, metric, operation)
         except KeyError as e:
             raise KeyError(
                 f"Unknown metric found at line: {metric_config['__line__']} in yaml. Please check if you "
                 f"have defined this in metric section {e.__str__()}"
             )
 
-    def function_product_calculation(self, column_list, py_column_list, metric_name):
-        """
-        Calculates the product of specified columns for current year (CY) and previous year (PY) data.
+    def _apply_function_to_all_series(self, column_list, py_column_list, metric_name, operation):
+        def apply_op(df):
+            if operation == 'sum':
+                return df.iloc[:].sum(axis=1)
+            op_method = {'product': 'mul', 'difference': 'sub', 'divide': 'div'}[operation]
+            return getattr(df.iloc[:, 0], op_method)(df.iloc[:, 1])
 
-        This method computes the product of two specified columns for both the current and previous year data
-        across six-week and twelve-month periods. It updates the respective DataFrames and box totals accordingly.
+        self.cy_trailing_six_weeks[metric_name] = apply_op(self.cy_trailing_six_weeks[column_list])
+        self.py_trailing_six_weeks['PY__' + metric_name] = apply_op(self.py_trailing_six_weeks[py_column_list])
+        self.cy_monthly[metric_name] = apply_op(self.cy_monthly[column_list])
+        self.py_monthly['PY__' + metric_name] = apply_op(self.py_monthly[py_column_list])
 
-        Args:
-            column_list (list): List of columns for current year calculations.
-            py_column_list (list): List of columns for previous year calculations.
-            metric_name (str): The name of the metric being calculated.
-        """
-
-        # Extract relevant data for current year and previous year calculations
-        cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
-        py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_monthly = self.cy_monthly[column_list]
-        py_monthly = self.py_monthly[py_column_list]
-        summary_data_points = self.box_totals[column_list]
-        py_summary_data_points = self.py_box_total[column_list]
-
-        # Calculate products for current year's trailing six weeks
-        self.cy_trailing_six_weeks[metric_name] = cy_trailing_six_weeks.iloc[:, 0].mul(
-            cy_trailing_six_weeks.iloc[:, 1]
-        )
-
-        # Calculate products for previous year's trailing six weeks
-        self.py_trailing_six_weeks['PY__' + metric_name] = py_trailing_six_weeks.iloc[:, 0].mul(
-            py_trailing_six_weeks.iloc[:, 1]
-        )
-
-        # Calculate products for current year's trailing twelve months
-        self.cy_monthly[metric_name] = cy_monthly.iloc[:, 0].mul(
-            cy_monthly.iloc[:, 1]
-        )
-
-        # Calculate products for previous year's trailing twelve months
-        self.py_monthly['PY__' + metric_name] = py_monthly.iloc[:, 0].mul(
-            py_monthly.iloc[:, 1]
-        )
-
-        # Calculate box totals for current year and update the corresponding dictionary
-        box_totals = summary_data_points.iloc[:, 0].mul(summary_data_points.iloc[:, 1])
-        self.__box_total_calc_dict["product"](metric_name, column_list, box_totals)
-
-        # Update box totals DataFrames
+        box_totals = apply_op(self.box_totals[column_list])
+        self._compute_box_total_yoy(metric_name, column_list, box_totals, operation)
         self.box_totals[metric_name] = box_totals
-        self.py_box_total[metric_name] = py_summary_data_points.iloc[:, 0].mul(py_summary_data_points.iloc[:, 1])
-
-    def function_diff_calculation(self, column_list, py_column_list, metric_name):
-        """
-        Calculates the difference between two specified columns for current year (CY) and previous year (PY) data.
-
-        This method computes the difference of two specified columns for both the current and previous year data
-        across six-week and twelve-month periods. It updates the respective DataFrames and box totals accordingly.
-
-        Args:
-            column_list (list): List of columns for current year calculations.
-            py_column_list (list): List of columns for previous year calculations.
-            metric_name (str): The name of the metric being calculated.
-        """
-
-        # Extract relevant data for current year and previous year calculations
-        cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
-        py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_monthly = self.cy_monthly[column_list]
-        py_monthly = self.py_monthly[py_column_list]
-        summary_data_points = self.box_totals[column_list]
-        py_summary_data_points = self.py_box_total[column_list]
-
-        # Calculate differences for current year's trailing six weeks
-        self.cy_trailing_six_weeks[metric_name] = cy_trailing_six_weeks.iloc[:, 0].sub(
-            cy_trailing_six_weeks.iloc[:, 1]
-        )
-
-        # Calculate differences for previous year's trailing six weeks
-        self.py_trailing_six_weeks['PY__' + metric_name] = py_trailing_six_weeks.iloc[:, 0].sub(
-            py_trailing_six_weeks.iloc[:, 1]
-        )
-
-        # Calculate differences for current year's trailing twelve months
-        self.cy_monthly[metric_name] = cy_monthly.iloc[:, 0].sub(
-            cy_monthly.iloc[:, 1]
-        )
-
-        # Calculate differences for previous year's trailing twelve months
-        self.py_monthly['PY__' + metric_name] = py_monthly.iloc[:, 0].sub(
-            py_monthly.iloc[:, 1]
-        )
-
-        # Calculate box totals for current year and update the corresponding dictionary
-        box_totals = summary_data_points.iloc[:, 0].sub(summary_data_points.iloc[:, 1])
-        self.__box_total_calc_dict["difference"](metric_name, column_list, box_totals)
-
-        # Update box totals DataFrames
-        self.box_totals[metric_name] = box_totals
-        self.py_box_total[metric_name] = py_summary_data_points.iloc[:, 0].sub(py_summary_data_points.iloc[:, 1])
-
-    def function_sum_calculation(self, column_list, py_column_list, metric_name):
-        """
-        Calculates the sum of specified columns for current year (CY) and previous year (PY) data.
-
-        This method computes the sum of specified columns for both the current and previous year data
-        across six-week and twelve-month periods. It updates the respective DataFrames and box totals accordingly.
-
-        Args:
-            column_list (list): List of columns for current year calculations.
-            py_column_list (list): List of columns for previous year calculations.
-            metric_name (str): The name of the metric being calculated.
-        """
-
-        # Extract relevant data for current year and previous year calculations
-        cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
-        py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_monthly = self.cy_monthly[column_list]
-        py_monthly = self.py_monthly[py_column_list]
-        summary_data_points = self.box_totals[column_list]
-        py_summary_data_points = self.py_box_total[column_list]
-
-        # Calculate sums for current year's trailing six weeks
-        self.cy_trailing_six_weeks[metric_name] = cy_trailing_six_weeks.iloc[:].sum(axis=1)
-
-        # Calculate sums for previous year's trailing six weeks
-        self.py_trailing_six_weeks['PY__' + metric_name] = py_trailing_six_weeks.iloc[:].sum(axis=1)
-
-        # Calculate sums for current year's trailing twelve months
-        self.cy_monthly[metric_name] = cy_monthly.iloc[:].sum(axis=1)
-
-        # Calculate sums for previous year's trailing twelve months
-        self.py_monthly['PY__' + metric_name] = py_monthly.iloc[:].sum(axis=1)
-
-        # Calculate box totals for current year and update the corresponding dictionary
-        box_totals = summary_data_points.iloc[:].sum(axis=1)
-
-        # Store the calculated sum in the box total calculation dictionary
-        self.__box_total_calc_dict["sum"](metric_name, column_list, box_totals)
-
-        # Update box totals DataFrames for current year and previous year
-        self.box_totals[metric_name] = box_totals
-        self.py_box_total[metric_name] = py_summary_data_points.iloc[:].sum(axis=1)
-
-    def function_div_calculation(self, column_list, py_column_list, metric_name):
-        """
-        Calculates the division of specified columns for current year (CY) and previous year (PY) data.
-
-        This method computes the division of specified columns for both the current and previous year data
-        across six-week and twelve-month periods. It updates the respective DataFrames and box totals accordingly.
-
-        Args:
-            column_list (list): List of columns for current year calculations.
-            py_column_list (list): List of columns for previous year calculations.
-            metric_name (str): The name of the metric being calculated.
-        """
-
-        # Extract relevant data for current year and previous year calculations
-        cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
-        py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_monthly = self.cy_monthly[column_list]
-        py_monthly = self.py_monthly[py_column_list]
-        summary_data_points = self.box_totals[column_list]
-        py_summary_data_points = self.py_box_total[column_list]
-
-        # Calculate divisions for current year's trailing six weeks
-        self.cy_trailing_six_weeks[metric_name] = cy_trailing_six_weeks.iloc[:, 0].div(
-            cy_trailing_six_weeks.iloc[:, 1]
-        )
-
-        # Calculate divisions for previous year's trailing six weeks
-        self.py_trailing_six_weeks['PY__' + metric_name] = py_trailing_six_weeks.iloc[:, 0].div(
-            py_trailing_six_weeks.iloc[:, 1]
-        )
-
-        # Calculate divisions for current year's trailing twelve months
-        self.cy_monthly[metric_name] = cy_monthly.iloc[:, 0].div(
-            cy_monthly.iloc[:, 1]
-        )
-
-        # Calculate divisions for previous year's trailing twelve months
-        self.py_monthly['PY__' + metric_name] = py_monthly.iloc[:, 0].div(
-            py_monthly.iloc[:, 1]
-        )
-
-        # Calculate box totals for current year and update the corresponding dictionary
-        box_totals = summary_data_points.iloc[:, 0].div(summary_data_points.iloc[:, 1])
-
-        # Store the calculated division in the box total calculation dictionary
-        self.__box_total_calc_dict["divide"](metric_name, column_list, box_totals)
-
-        # Update box totals DataFrames for current year and previous year
-        self.box_totals[metric_name] = box_totals
-        self.py_box_total[metric_name] = py_summary_data_points.iloc[:, 0].div(py_summary_data_points.iloc[:, 1])
-
-    def box_total_div_calculation(self, metric_name, columns, box_totals):
-        """
-        Calculate and store the year-over-year (YOY) metrics based on the division of two specified columns.
-
-        This method computes the division of values from two columns for the current year (CY)
-        and previous year (PY) metrics, and updates the box totals for various time frames
-        such as week-over-week (WoW), month-to-date (MTD), quarter-to-date (QTD),
-        and year-to-date (YTD).
-
-        Parameters:
-            metric_name (str): The name of the metric to be calculated and stored.
-            columns (list): A list containing two column names to divide.
-            box_totals (list): A list that holds calculated totals for different time frames.
-        """
-        # Calculate the year-over-year required metric for the specified metric name
-        self.period_summary[metric_name] = (self.period_summary[columns[0]]
-                                                       / self.period_summary[columns[1]])
-
-        yoy = self.period_summary
-
-        # Calculate WoW (Week-over-Week) YOY values
-        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_WK6] / yoy[columns[1]][YOY_IDX_CY_WK6]),
-            (yoy[columns[0]][YOY_IDX_CY_WK5] / yoy[columns[1]][YOY_IDX_CY_WK5]),
-            metric_name
-        )
-
-        # Calculate weekly YOY values
-        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_WK6] / yoy[columns[1]][YOY_IDX_CY_WK6]),
-            (yoy[columns[0]][YOY_IDX_PY_WK6] / yoy[columns[1]][YOY_IDX_PY_WK6]),
-            metric_name
-        )
-
-        # Calculate MTD (Month-to-Date) YOY values
-        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_MTD] / yoy[columns[1]][YOY_IDX_CY_MTD]),
-            (yoy[columns[0]][YOY_IDX_PY_MTD] / yoy[columns[1]][YOY_IDX_PY_MTD]),
-            metric_name
-        )
-
-        # Calculate QTD (Quarter-to-Date) YOY values
-        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_QTD] / yoy[columns[1]][YOY_IDX_CY_QTD]),
-            (yoy[columns[0]][YOY_IDX_PY_QTD] / yoy[columns[1]][YOY_IDX_PY_QTD]),
-            metric_name
-        )
-
-        # Calculate YTD (Year-to-Date) YOY values
-        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_YTD] / yoy[columns[1]][YOY_IDX_CY_YTD]),
-            (yoy[columns[0]][YOY_IDX_PY_YTD] / yoy[columns[1]][YOY_IDX_PY_YTD]),
-            metric_name
-        )
-
-    def box_total_sum_calculation(self, metric_name, columns, box_totals):
-        """
-        Calculate and store the year-over-year (YOY) sums based on specified columns.
-
-        This method computes the sum of values from specified columns for the current year (CY)
-        and updates the box totals for various time frames, including week-over-week (WoW),
-        month-to-date (MTD), quarter-to-date (QTD), and year-to-date (YTD).
-
-        Parameters:
-            metric_name (str): The name of the metric to be calculated and stored.
-            columns (list): A list containing column names to sum.
-            box_totals (list): A list that holds calculated totals for different time frames.
-        """
-        # Calculate the year-over-year required metric for the specified metric name by summing all relevant data
-        self.period_summary[metric_name] = self.period_summary.iloc[:].sum(axis=1)
-
-        # Initialize a DataFrame to hold YOY field values
-        yoy_field_values = pd.DataFrame()
-        yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
-
-        # Replace NaN values with 0 in the YOY field values DataFrame
-        yoy_field_values = yoy_field_values.replace(np.nan, 0)
-
-        # Apply the operation to return the denominator values for the specified columns
-        value_list = wbr_util.apply_operation_and_return_denominator_values('sum', columns, yoy_field_values)
-
-        # Calculate WoW (Week-over-Week) YOY values and store in box_totals
-        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_WK6), value_list[0], metric_name
-        )
-
-        # Calculate weekly YOY values and store in box_totals
-        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_WK6), value_list[1], metric_name
-        )
-
-        # Calculate MTD (Month-to-Date) YOY values and store in box_totals
-        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_MTD), value_list[2], metric_name
-        )
-
-        # Calculate QTD (Quarter-to-Date) YOY values and store in box_totals
-        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_QTD), value_list[3], metric_name
-        )
-
-        # Calculate YTD (Year-to-Date) YOY values and store in box_totals
-        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_YTD), value_list[4], metric_name
-        )
-
-    def box_total_diff_calculation(self, metric_name, columns, box_totals):
-        """
-        Calculate and store the year-over-year (YOY) differences based on specified columns.
-
-        This method computes the difference between two columns for the current year (CY)
-        and updates the box totals for various time frames, including week-over-week (WoW),
-        month-to-date (MTD), quarter-to-date (QTD), and year-to-date (YTD).
-
-        Parameters:
-            metric_name (str): The name of the metric to be calculated and stored.
-            columns (list): A list containing two column names to calculate the difference.
-            box_totals (list): A list that holds calculated totals for different time frames.
-        """
-        # Calculate the year-over-year required metric for the specified metric name
-        self.period_summary[metric_name] = (
-                self.period_summary[columns[0]] - self.period_summary[columns[1]]
-        )
-
-        # Initialize a DataFrame to hold YOY field values
-        yoy_field_values = pd.DataFrame()
-        yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
-
-        # Replace NaN values with 0 in the YOY field values DataFrame
-        yoy_field_values = yoy_field_values.replace(np.nan, 0)
-
-        # Apply the operation to return the denominator values for the specified columns
-        value_list = wbr_util.apply_operation_and_return_denominator_values(
-            'difference', columns, yoy_field_values
-        )
-
-        # Calculate WoW (Week-over-Week) YOY difference and store in box_totals
-        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][YOY_IDX_CY_WK6] - yoy_field_values[columns[1]][YOY_IDX_CY_WK6]),
-            value_list[0], metric_name
-        )
-
-        # Calculate weekly YOY difference and store in box_totals
-        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][YOY_IDX_CY_WK6] - yoy_field_values[columns[1]][YOY_IDX_CY_WK6]),
-            value_list[1], metric_name
-        )
-
-        # Calculate MTD (Month-to-Date) YOY difference and store in box_totals
-        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][YOY_IDX_CY_MTD] - yoy_field_values[columns[1]][YOY_IDX_CY_MTD]),
-            value_list[2], metric_name
-        )
-
-        # Calculate QTD (Quarter-to-Date) YOY difference and store in box_totals
-        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][YOY_IDX_CY_QTD] - yoy_field_values[columns[1]][YOY_IDX_CY_QTD]),
-            value_list[3], metric_name
-        )
-
-        # Calculate YTD (Year-to-Date) YOY difference and store in box_totals
-        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][YOY_IDX_CY_YTD] - yoy_field_values[columns[1]][YOY_IDX_CY_YTD]),
-            value_list[4], metric_name
-        )
-
-    def box_total_product_calculation(self, metric_name, columns, box_totals):
-        """
-        Calculate and store the year-over-year (YOY) product based on specified columns.
-
-        This method computes the product of two columns for the current year (CY)
-        and updates the box totals for various time frames, including week-over-week (WoW),
-        month-to-date (MTD), quarter-to-date (QTD), and year-to-date (YTD).
-
-        Parameters:
-            metric_name (str): The name of the metric to be calculated and stored.
-            columns (list): A list containing two column names to calculate the product.
-            box_totals (list): A list that holds calculated totals for different time frames.
-        """
-        # Calculate the year-over-year required metric for the specified metric name
-        self.period_summary[metric_name] = (
-                self.period_summary[columns[0]] * self.period_summary[columns[1]]
-        )
-
-        yoy = self.period_summary
-
-        # Calculate WoW (Week-over-Week) YOY product and store in box_totals
-        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_WK6] * yoy[columns[1]][YOY_IDX_CY_WK6]),
-            (yoy[columns[0]][YOY_IDX_CY_WK5] * yoy[columns[1]][YOY_IDX_CY_WK5]),
-            metric_name
-        )
-
-        # Calculate weekly YOY product and store in box_totals
-        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_WK6] * yoy[columns[1]][YOY_IDX_CY_WK6]),
-            (yoy[columns[0]][YOY_IDX_PY_WK6] * yoy[columns[1]][YOY_IDX_PY_WK6]),
-            metric_name
-        )
-
-        # Calculate MTD (Month-to-Date) YOY product and store in box_totals
-        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_MTD] * yoy[columns[1]][YOY_IDX_CY_MTD]),
-            (yoy[columns[0]][YOY_IDX_PY_MTD] * yoy[columns[1]][YOY_IDX_PY_MTD]),
-            metric_name
-        )
-
-        # Calculate QTD (Quarter-to-Date) YOY product and store in box_totals
-        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_QTD] * yoy[columns[1]][YOY_IDX_CY_QTD]),
-            (yoy[columns[0]][YOY_IDX_PY_QTD] * yoy[columns[1]][YOY_IDX_PY_QTD]),
-            metric_name
-        )
-
-        # Calculate YTD (Year-to-Date) YOY product and store in box_totals
-        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
-            (yoy[columns[0]][YOY_IDX_CY_YTD] * yoy[columns[1]][YOY_IDX_CY_YTD]),
-            (yoy[columns[0]][YOY_IDX_PY_YTD] * yoy[columns[1]][YOY_IDX_PY_YTD]),
-            metric_name
-        )
+        self.py_box_total[metric_name] = apply_op(self.py_box_total[column_list])
+
+    def _compute_box_total_yoy(self, metric_name, columns, box_totals, operation):
+        if operation in ('divide', 'product'):
+            if operation == 'divide':
+                self.period_summary[metric_name] = (
+                    self.period_summary[columns[0]] / self.period_summary[columns[1]]
+                )
+            else:
+                self.period_summary[metric_name] = (
+                    self.period_summary[columns[0]] * self.period_summary[columns[1]]
+                )
+
+            yoy = self.period_summary
+
+            for box_idx, cy_idx, py_idx in _BOX_POSITIONS:
+                if operation == 'divide':
+                    cy_val = yoy[columns[0]][cy_idx] / yoy[columns[1]][cy_idx]
+                    py_val = yoy[columns[0]][py_idx] / yoy[columns[1]][py_idx]
+                else:
+                    cy_val = yoy[columns[0]][cy_idx] * yoy[columns[1]][cy_idx]
+                    py_val = yoy[columns[0]][py_idx] * yoy[columns[1]][py_idx]
+                box_totals[box_idx] = self.calculate_yoy_box_total(cy_val, py_val, metric_name)
+        else:
+            if operation == 'sum':
+                self.period_summary[metric_name] = self.period_summary.iloc[:].sum(axis=1)
+            else:
+                self.period_summary[metric_name] = (
+                    self.period_summary[columns[0]] - self.period_summary[columns[1]]
+                )
+
+            yoy_field_values = pd.DataFrame()
+            yoy_field_values = pd.concat([yoy_field_values, self.period_summary], axis=1)
+            yoy_field_values = yoy_field_values.replace(np.nan, 0)
+
+            value_list = wbr_util.apply_operation_and_return_denominator_values(
+                operation, columns, yoy_field_values
+            )
+
+            for i, (box_idx, cy_idx, _py_idx) in enumerate(_BOX_POSITIONS):
+                if operation == 'sum':
+                    cy_value = wbr_util.apply_sum_operations(yoy_field_values, columns, cy_idx)
+                else:
+                    cy_value = (yoy_field_values[columns[0]][cy_idx]
+                                - yoy_field_values[columns[1]][cy_idx])
+                box_totals[box_idx] = self.calculate_yoy_box_total(
+                    cy_value, value_list[i], metric_name
+                )
 
     def calculate_yoy_box_total(self, operand_1, operand_2, metric_name):
         return (operand_1 - operand_2) * BPS_MULTIPLIER if metric_name in self.function_bps_metrics else (
