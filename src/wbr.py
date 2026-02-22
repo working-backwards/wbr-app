@@ -775,7 +775,7 @@ class WBR:
         return (operand_1 - operand_2) * BPS_MULTIPLIER if metric_name in fn_bps_metrics else (
                 ((operand_1/operand_2) - 1) * PCT_MULTIPLIER)
 
-    def compute_extra_months(self):
+    def compute_extra_months(self, cy_week_ending=None, fiscal_month=None):
         """Extend cy_monthly/py_monthly beyond the trailing 12 months.
 
         Two cases require extra months appended to the monthly DataFrames:
@@ -786,12 +786,18 @@ class WBR:
 
         Mutates: self.cy_monthly, self.py_monthly
         """
-        if not wbr_util.is_last_day_of_month(self.cy_week_ending):
-            self.aggregate_week_ending_month()
-        if self.fiscal_month.lower() != self.cy_week_ending.strftime("%b").lower():
-            self.aggregate_months_to_fiscal_year_end()
+        cy_week_ending = cy_week_ending if cy_week_ending is not None else self.cy_week_ending
+        fiscal_month = fiscal_month if fiscal_month is not None else self.fiscal_month
 
-    def aggregate_months_to_fiscal_year_end(self):
+        if not wbr_util.is_last_day_of_month(cy_week_ending):
+            self.aggregate_week_ending_month(cy_week_ending=cy_week_ending)
+        if fiscal_month.lower() != cy_week_ending.strftime("%b").lower():
+            self.aggregate_months_to_fiscal_year_end(
+                cy_week_ending=cy_week_ending, fiscal_month=fiscal_month
+            )
+
+    def aggregate_months_to_fiscal_year_end(self, cy_week_ending=None, fiscal_month=None,
+                                               daily_metrics=None, metric_aggregation=None):
         """Append forecast months from the current month through fiscal year end.
 
         When the fiscal year doesn't end in December (or the current month isn't the
@@ -805,20 +811,27 @@ class WBR:
 
         Mutates: self.cy_monthly, self.py_monthly
         """
+        cy_week_ending = cy_week_ending if cy_week_ending is not None else self.cy_week_ending
+        fiscal_month = fiscal_month if fiscal_month is not None else self.fiscal_month
+        daily_metrics = daily_metrics if daily_metrics is not None else self.daily_metrics
+        metric_aggregation = metric_aggregation if metric_aggregation is not None else self.metric_aggregation
+
         # Resample data to monthly frequency and perform aggregation
         monthly_data = (
-            self.daily_metrics.resample('ME', label='right', closed='right', on='Date')
-            .agg(self.metric_aggregation, skipna=False)  # Aggregate using predefined metrics
+            daily_metrics.resample('ME', label='right', closed='right', on='Date')
+            .agg(metric_aggregation, skipna=False)  # Aggregate using predefined metrics
             .reset_index()
             .sort_values(by='Date')
         )
 
         # Set up fiscal year and calculate relevant dates
-        fiscal_end_month = datetime.strptime(self.fiscal_month, "%b")  # Convert fiscal month to datetime
+        fiscal_end_month = datetime.strptime(fiscal_month, "%b")  # Convert fiscal month to datetime
         fiscalyear.setup_fiscal_calendar(start_month=(fiscal_end_month.month + 1) % 12)  # Setup fiscal calendar
-        fy = fiscalyear.FiscalYear(self.get_start_year())  # Get the fiscal year object
-        month_next_to_last_week = self.cy_week_ending.month + 1  # Determine the next month after the current week
-        first_day_of_month = date(self.cy_week_ending.year, month_next_to_last_week, 1).strftime(
+        fy = fiscalyear.FiscalYear(self.get_start_year(
+            cy_week_ending=cy_week_ending, fiscal_month=fiscal_month
+        ))  # Get the fiscal year object
+        month_next_to_last_week = cy_week_ending.month + 1  # Determine the next month after the current week
+        first_day_of_month = date(cy_week_ending.year, month_next_to_last_week, 1).strftime(
             "%d-%b-%Y")  # First day of the next month
         last_day_of_fiscal_year = fy.end.strftime("%d-%b-%Y")  # Last day of the fiscal year
 
@@ -854,7 +867,8 @@ class WBR:
             [self.py_monthly, py_future_month_aggregate_data]
         ).reset_index(drop=True)
 
-    def aggregate_week_ending_month(self):
+    def aggregate_week_ending_month(self, cy_week_ending=None, daily_metrics=None,
+                                     metric_aggregation=None):
         """Build a partial-month aggregate when the week doesn't end on month-end.
 
         When cy_week_ending falls mid-month, the trailing-12-months data won't
@@ -869,19 +883,23 @@ class WBR:
 
         Mutates: self.cy_monthly, self.py_monthly
         """
+        cy_week_ending = cy_week_ending if cy_week_ending is not None else self.cy_week_ending
+        daily_metrics = daily_metrics if daily_metrics is not None else self.daily_metrics
+        metric_aggregation = metric_aggregation if metric_aggregation is not None else self.metric_aggregation
+
         # Get the first day of the current month
         first_day_of_month = date(
-            self.cy_week_ending.year, self.cy_week_ending.month, 1
+            cy_week_ending.year, cy_week_ending.month, 1
         ).strftime("%d-%b-%Y")
 
         # Get the last day of the current month
         last_day_of_month = date(
-            self.cy_week_ending.year + self.cy_week_ending.month // 12,
-            self.cy_week_ending.month % 12 + 1, 1
+            cy_week_ending.year + cy_week_ending.month // 12,
+            cy_week_ending.month % 12 + 1, 1
         ) - timedelta(1)
 
         # Filter daily data for the current month
-        month_daily_data = self.daily_metrics.query(
+        month_daily_data = daily_metrics.query(
             'Date >= @first_day_of_month and Date <= @last_day_of_month'
         ).reset_index(drop=True).sort_values(by="Date")
 
@@ -896,15 +914,15 @@ class WBR:
             # Check if the count of non-null values matches
             if month_daily_data['Date'].count() != month_daily_data[metric].count():
                 agg_series[metric] = np.nan  # Assign NaN if counts do not match
-            elif self.metric_aggregation[metric] == 'last':
+            elif metric_aggregation[metric] == 'last':
                 # Get the last value for the metric
                 agg_series[metric] = month_daily_data.tail(1)[metric].reset_index(drop=True).get(0)
-            elif self.metric_aggregation[metric] == 'first':
+            elif metric_aggregation[metric] == 'first':
                 # Get the first value for the metric
                 agg_series[metric] = month_daily_data.head(1)[metric].reset_index(drop=True).get(0)
             else:
                 # Aggregate using the specified method
-                agg_result = month_daily_data[metric].agg(self.metric_aggregation[metric])
+                agg_result = month_daily_data[metric].agg(metric_aggregation[metric])
                 agg_series = pd.concat([agg_series, pd.DataFrame.from_dict(
                     {metric: [agg_result]}
                 )], axis=1)
@@ -921,11 +939,11 @@ class WBR:
         py_last_day_of_month = last_day_of_month - relativedelta.relativedelta(years=1)
 
         # Filter daily data for the previous year
-        py_month_agg_data = self.daily_metrics.query(
+        py_month_agg_data = daily_metrics.query(
             'Date >= @py_first_day_of_month and Date <= @py_last_day_of_month'
         ).reset_index(drop=True).sort_values(by="Date").resample(
             'ME', label='right', closed='right', on='Date'
-        ).agg(self.metric_aggregation, skipna=False).reset_index().sort_values(by='Date').add_prefix('PY__')
+        ).agg(metric_aggregation, skipna=False).reset_index().sort_values(by='Date').add_prefix('PY__')
 
         # Append the previous year's aggregated data to the trailing twelve months
         self.py_monthly = pd.concat(
@@ -1139,16 +1157,19 @@ class WBR:
         # Set the calculated box_totals and py_box_totals to class attributes
         return box_totals, py_box_totals, period_summary
 
-    def get_start_year(self):
-        if self.fiscal_month == 'DEC':
-            return self.cy_week_ending.year + 1
+    def get_start_year(self, cy_week_ending=None, fiscal_month=None):
+        cy_week_ending = cy_week_ending if cy_week_ending is not None else self.cy_week_ending
+        fiscal_month = fiscal_month if fiscal_month is not None else self.fiscal_month
+
+        if fiscal_month == 'DEC':
+            return cy_week_ending.year + 1
         else:
-            week_ending_month = self.cy_week_ending.month
+            week_ending_month = cy_week_ending.month
             for i in range(week_ending_month, 13):
-                if i == datetime.strptime(self.fiscal_month, "%b").month:
-                    return self.cy_week_ending.year
-                if self.cy_week_ending.year + i // 12 > self.cy_week_ending.year:
-                    return self.cy_week_ending.year + 1
+                if i == datetime.strptime(fiscal_month, "%b").month:
+                    return cy_week_ending.year
+                if cy_week_ending.year + i // 12 > cy_week_ending.year:
+                    return cy_week_ending.year + 1
 
     def __str__(self):
         return (f'Current YearTrailing 6 Weeks: \n {self.cy_trailing_six_weeks} \n'
