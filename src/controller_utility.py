@@ -168,7 +168,8 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     return primary_and_secondary_axis_value_list, is_single_axis
 
 
-def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics=None):
+def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics=None,
+                box_totals=None, bps_metrics=None, function_bps_metrics=None):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -181,6 +182,9 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics
         block_number (str): The block number for which the chart is being built, useful for logging and error handling.
         events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
     Raises:
         SyntaxError: If required metrics are not specified in the plot configuration.
         KeyError: If a specified metric is not found in the WBR data.
@@ -222,9 +226,11 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics
         is_trailing_twelve_months,
         metrices,
         six_twelve_chart,
-        wbr1,
         events_dict,
         metrics=metrics,
+        box_totals=box_totals,
+        bps_metrics=bps_metrics,
+        function_bps_metrics=function_bps_metrics,
     )
 
     # Set the number of axes based on whether a single or dual-axis is needed.
@@ -241,9 +247,11 @@ def process_metric(
         is_trailing_twelve_months,
         block_metrics,
         six_twelve_chart,
-        wbr1,
         events_dict,
         metrics=None,
+        box_totals=None,
+        bps_metrics=None,
+        function_bps_metrics=None,
 ):
     """
     Processes metrics to build chart data for the 6-12 chart, including handling current and prior year data,
@@ -256,9 +264,11 @@ def process_metric(
         is_trailing_twelve_months (bool): Flag indicating if the data represents trailing twelve months.
         block_metrics (dict): Dictionary of metrics and their configuration from the plotting YAML.
         six_twelve_chart (SixTwelveChart): Chart object to which the processed data is added.
-        wbr1 (WBR): Data object containing the report box totals and configurations.
         events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description.
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
 
     Returns:
         bool: Updated flag indicating if the chart should use a single axis.
@@ -288,7 +298,8 @@ def process_metric(
 
             # Configure the table headers for the box totals and append box total values.
             box_value_list = _update_box_totals(
-                metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart
+                metric, metrics_dictionary, box_totals, bps_metrics, function_bps_metrics,
+                box_value_list, six_twelve_chart
             )
 
             if metric in events_dict:
@@ -377,14 +388,17 @@ def _build_metric_dictionary(metric, metric_configs, metric_object):
     return metrics_dictionary
 
 
-def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart):
+def _update_box_totals(metric, metrics_dictionary, box_totals, bps_metrics, function_bps_metrics,
+                       box_value_list, six_twelve_chart):
     """
     Updates the box totals for the given metric and configures the table headers.
 
     Args:
         metric (str): The metric being processed.
         metrics_dictionary (dict): Dictionary containing the metric's properties.
-        wbr1 (WBR): Data object containing the report metrics.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
         box_value_list (list): List of box total values to update.
         six_twelve_chart (SixTwelveChart): Chart object to which the processed data is added.
 
@@ -393,17 +407,17 @@ def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twe
     """
 
     # Set the table headers for the box totals.
-    box_axis_list = list(wbr1.box_totals['Axis'])
+    box_axis_list = list(box_totals['Axis'])
     six_twelve_chart.table["tableHeader"] = box_axis_list
 
     # Configure the box total scale based on whether the metric is a BPS metric.
     six_twelve_chart.boxTotalScale = 'bps' if (
-            metric in wbr1.bps_metrics or metric in wbr1.function_bps_metrics) else "%"
+            metric in bps_metrics or metric in function_bps_metrics) else "%"
 
     # Append the box total values for the metric, handling NaN and string values.
     if metrics_dictionary['lineStyle'] != 'target':
         box_value_list.append([value if not isinstance(value, str) and not numpy.isnan(value) else "N/A"
-                               for value in wbr1.box_totals[metric]])
+                               for value in box_totals[metric]])
 
     return box_value_list
 
@@ -607,13 +621,13 @@ def get_x_axis_label(wbr1, month_start):
     return x_axis_label
 
 
-def get_six_weeks_table_row_data(metrics, wbr1, metric, line_number):
+def get_six_weeks_table_row_data(metrics, box_totals, metric, line_number):
     """
     Retrieves and constructs row data for a six-week table block, using metric data from the WBR object.
 
     Args:
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
-        wbr1 (WBR): The WBR object containing box totals data.
+        box_totals (pd.DataFrame): The box totals DataFrame.
         metric (str): The name of the metric to retrieve the six-week data for.
         line_number (int): The line number in the configuration file, used for error reporting.
 
@@ -640,12 +654,12 @@ def get_six_weeks_table_row_data(metrics, wbr1, metric, line_number):
     # If the metric is not a Week-over-Week (WOW) type, append additional data from box_totals.
     if "WOW" not in metric:
         # Check the QTD box total value, append " " if it is NaN or 'N/A', otherwise append the value.
-        if_else(wbr1.box_totals.loc[BOX_IDX_QTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
+        if_else(box_totals.loc[BOX_IDX_QTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
                 lambda x: append_to_list(" ", six_weeks_table_data),
                 lambda x: append_to_list(x, six_weeks_table_data))
 
         # Check the YTD box total value, and apply the same logic.
-        if_else(wbr1.box_totals.loc[BOX_IDX_YTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
+        if_else(box_totals.loc[BOX_IDX_YTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
                 lambda x: append_to_list(" ", six_weeks_table_data),
                 lambda x: append_to_list(x, six_weeks_table_data))
     else:
@@ -676,7 +690,8 @@ def get_twelve_months_table_row(metrics, metric, itr_start):
     return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
 
 
-def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict, metrics=None):
+def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict, metrics=None,
+                   box_totals=None):
     """
     Constructs a 6-week table block for a specified plot using data from a WBR object.
 
@@ -708,7 +723,7 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict, metri
     table_column_header = [wbr1.graph_axis_label[i] for i in range(0, NUM_TRAILING_WEEKS)]
     table_column_header.append("QTD")  # Add QTD column header.
     table_column_header.append("YTD")  # Add YTD column header.
-    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, metrics, wbr1, event_dict)
+    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, metrics, box_totals, event_dict)
 
     # Append the completed six weeks table to the decks collection.
     decks.blocks.append(six_weeks_table)
@@ -720,7 +735,7 @@ def build_six_weeks_table(
         six_weeks_table: TrailingTable,
         table_column_header: list,
         metrics,
-        wbr1,
+        box_totals,
         event_dict: dict
 ):
     """
@@ -732,7 +747,7 @@ def build_six_weeks_table(
         six_weeks_table (TrailingTable): The table object to populate with rows and headers.
         table_column_header (list): The headers for the table, representing the weeks and additional metrics.
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
-        wbr1: The WBR object containing box totals data.
+        box_totals (pd.DataFrame): The box totals DataFrame.
         event_dict (dict): An dictionary consisting of the metric and the respective events
 
     Raises:
@@ -748,7 +763,7 @@ def build_six_weeks_table(
         # Iterate over each row configuration to build table rows.
         for row_configs in plotting_dict['rows']:
             try:
-                row = build_six_week_table_row(six_weeks_table, row_configs, metrics, wbr1, event_dict)
+                row = build_six_week_table_row(six_weeks_table, row_configs, metrics, box_totals, event_dict)
 
                 # Append the constructed row to the table.
                 six_weeks_table.rows.append(row)
@@ -759,7 +774,7 @@ def build_six_weeks_table(
                                 f"{row_configs['__line__']}")
 
 
-def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, metrics, wbr1, event_dict: dict):
+def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, metrics, box_totals, event_dict: dict):
     """
     Constructs a row for the six weeks table based on the provided configuration.
 
@@ -768,7 +783,7 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
         row_configs (dict): A dictionary containing the configuration for the row, which includes
                             'header', 'metric', 'style', and 'y_scaling'.
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
-        wbr1 (WBR): The WBR object containing box totals data.
+        box_totals (pd.DataFrame): The box totals DataFrame.
         event_dict (dict): An dictionary consisting of the metric and the respective events
 
     Raises:
@@ -789,7 +804,7 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
                 f"Error in yaml at line: {row_config['__line__']}, Metric {row_config['metric']} not found in "
                 f"the dataframe, please check if you have defined this metric in metric section")
         # Get data for the six weeks table row.
-        row.rowData = get_six_weeks_table_row_data(metrics, wbr1, row_config['metric'], row_config['__line__'])
+        row.rowData = get_six_weeks_table_row_data(metrics, box_totals, row_config['metric'], row_config['__line__'])
         if row_config['metric'] in event_dict:
             six_weeks_table.events.append(event_dict[row_config['metric']])
     # Set additional properties for the row if specified.
@@ -1001,6 +1016,9 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
         Deck: A Deck object populated with plots, titles, and other settings defined in the wbr1 configuration.
     """
     metrics = report.metrics
+    box_totals = report.box_totals
+    bps_metrics = report.bps_metrics
+    function_bps_metrics = report.function_bps_metrics
     plots = report.cfg['deck']
     deck = Deck()
 
@@ -1016,7 +1034,9 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
         deck.xAxisMonthlyDisplay = report.cfg['setup']['x_axis_monthly_display']
 
     for i in range(len(plots)):
-        build_a_block(deck, i, plots, report, event_dict, metrics=metrics)
+        build_a_block(deck, i, plots, report, event_dict, metrics=metrics,
+                      box_totals=box_totals, bps_metrics=bps_metrics,
+                      function_bps_metrics=function_bps_metrics)
 
     deck.title = report.cfg['setup']['title']
 
@@ -1031,7 +1051,8 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     return deck
 
 
-def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict, metrics=None):
+def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict, metrics=None,
+                  box_totals=None, bps_metrics=None, function_bps_metrics=None):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1042,6 +1063,9 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
         report (WBR): An instance of the WBR class containing additional configuration data.
         event_dict (dict): An dictionary consisting of the metric and the respective events
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
     Raises:
         Exception: If the block configuration is invalid or if the UI type is not recognized.
     """
@@ -1053,9 +1077,12 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
         raise Exception(f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
                         f" {plotting_dict['__line__']}")
     elif plotting_dict['ui_type'] == '6_12Graph':
-        _6_12_chart(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics)
+        _6_12_chart(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
+                    box_totals=box_totals, bps_metrics=bps_metrics,
+                    function_bps_metrics=function_bps_metrics)
     elif plotting_dict['ui_type'] == '6_WeeksTable':
-        _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics)
+        _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
+                       box_totals=box_totals)
     elif plotting_dict['ui_type'] == '12_MonthsTable':
         _12_months_table(deck, plots[i], report, str(i + 1), metrics=metrics)
     elif plotting_dict['ui_type'] == 'section':
