@@ -115,7 +115,17 @@ def process_input(wbr_yaml_config: dict, data: any = None):
 
     try:
         # Generate the WBR deck using the WBR object
-        deck = controller_util.get_wbr_deck(report=report, event_data=data_loader.events)
+        deck = controller_util.get_wbr_deck(
+            metrics=report.metrics,
+            box_totals=report.box_totals,
+            cfg=report.cfg,
+            cy_week_ending=report.cy_week_ending,
+            fiscal_month=report.fiscal_month,
+            graph_axis_label=report.graph_axis_label,
+            bps_metrics=report.bps_metrics,
+            function_bps_metrics=report.function_bps_metrics,
+            event_data=data_loader.events,
+        )
     except Exception as err:
         logging.error(err, exc_info=True)
         raise Exception(f"Error while creating deck, caused by: {err.__str__()}")

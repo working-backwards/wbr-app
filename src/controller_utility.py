@@ -27,7 +27,6 @@ from src.constants import (
     PY_WEEKLY_OFFSET_DAYS,
     SIX_WEEKS_LOOKBACK_DAYS,
 )
-from src.wbr import WBR
 from src.wbr_utility import if_else, put_into_map, if_else_supplier, append_to_list, is_last_day_of_month
 
 
@@ -168,9 +167,9 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     return primary_and_secondary_axis_value_list, is_single_axis
 
 
-def _6_12_chart(decks, plot, wbr1, block_number, events_dict: dict, metrics=None,
+def _6_12_chart(decks, plot, block_number, events_dict: dict, metrics=None,
                 box_totals=None, bps_metrics=None, function_bps_metrics=None,
-                graph_axis_label=None, cy_week_ending=None, fiscal_month=None):
+                graph_axis_label=None, cy_week_ending=None, fiscal_month=None, cfg=None):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -179,13 +178,13 @@ def _6_12_chart(decks, plot, wbr1, block_number, events_dict: dict, metrics=None
     Args:
         decks (Deck): Object containing the deck of blocks/charts being created.
         plot (dict): Configuration for the plot block, containing parameters such as title, y-axis scaling, etc.
-        wbr1 (WBR): Data object that contains the current week's report data and configurations.
         block_number (str): The block number for which the chart is being built, useful for logging and error handling.
         events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
         box_totals (pd.DataFrame): The box totals DataFrame.
         bps_metrics (list): List of metrics compared using basis points.
         function_bps_metrics (list): List of function metrics compared using basis points.
+        cfg (dict): The WBR configuration dictionary.
     Raises:
         SyntaxError: If required metrics are not specified in the plot configuration.
         KeyError: If a specified metric is not found in the WBR data.
@@ -195,7 +194,7 @@ def _6_12_chart(decks, plot, wbr1, block_number, events_dict: dict, metrics=None
 
     is_single_axis = False  # Flag to determine if a single axis is sufficient for display.
     plotting_dict = plot['block']
-    six_twelve_chart = get_6_12_chart_instance(plotting_dict, wbr1)
+    six_twelve_chart = get_6_12_chart_instance(plotting_dict, cfg)
 
     # Determine the end date, accounting for whether it's the last day of the month.
     end_date = if_else_supplier(cy_week_ending, lambda we: is_last_day_of_month(we),
@@ -444,7 +443,7 @@ def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, fiscal
     return is_trailing_twelve_months, month_start
 
 
-def get_6_12_chart_instance(plotting_dict, wbr1):
+def get_6_12_chart_instance(plotting_dict, cfg):
     """
     Initializes the SixTwelveChart with basic properties such as title, y-scale, and tooltip.
     """
@@ -455,7 +454,7 @@ def get_6_12_chart_instance(plotting_dict, wbr1):
     six_twelve_chart.yScale = plotting_dict['y_scaling'] \
         if 'y_scaling' in plotting_dict and plotting_dict['y_scaling'] is not None else ""
     # Set tooltip based on the WBR configuration.
-    six_twelve_chart.tooltip = "true" if 'tooltip' in wbr1.cfg['setup'] and wbr1.cfg['setup']['tooltip'] else "false"
+    six_twelve_chart.tooltip = "true" if 'tooltip' in cfg['setup'] and cfg['setup']['tooltip'] else "false"
     return six_twelve_chart
 
 
@@ -692,7 +691,7 @@ def get_twelve_months_table_row(metrics, metric, itr_start):
     return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
 
 
-def _6_weeks_table(decks, plot, wbr1, block_number, event_dict: dict, metrics=None,
+def _6_weeks_table(decks, plot, block_number, event_dict: dict, metrics=None,
                    box_totals=None, graph_axis_label=None):
     """
     Constructs a 6-week table block for a specified plot using data from a WBR object.
@@ -700,7 +699,6 @@ def _6_weeks_table(decks, plot, wbr1, block_number, event_dict: dict, metrics=No
     Args:
         decks: An object representing the collection of blocks for the report.
         plot: A dictionary containing plotting configurations for the table block.
-        wbr1 (WBR): The WBR object containing graph_axis_label and other data.
         block_number (str): The identifier for the block being constructed.
         event_dict (dict): An dictionary consisting of the metric and the respective events
 
@@ -824,8 +822,10 @@ def _12_months_table(decks, plot, block_number, metrics=None, graph_axis_label=N
     Args:
         decks (Decks): The Decks object to which the table will be appended.
         plot (dict): A dictionary containing the configuration for the plot, including block settings.
-        wbr1 (WBR): The WBR object containing financial data and metadata.
         block_number (str): The number representing the current block in the configuration.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        graph_axis_label (list): The full list of graph axis labels.
+        fiscal_month (str): The fiscal year-end month abbreviation (e.g. 'Dec').
 
     Raises:
         ValueError: If a valid month_start cannot be determined or if other configuration errors occur.
@@ -1009,24 +1009,38 @@ def filter_events(event_df, event_errors: list, metrics=None, cy_week_ending=Non
     return events_dict
 
 
-def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
+def get_wbr_deck(
+    metrics,
+    box_totals,
+    cfg: dict,
+    cy_week_ending,
+    fiscal_month: str,
+    graph_axis_label: list,
+    bps_metrics: list,
+    function_bps_metrics: list,
+    event_data: pd.DataFrame = None,
+) -> Deck:
     """
-    Constructs a Deck object based on the configuration provided in the wbr1 object.
+    Constructs a Deck object from explicit WBR outputs.
+
+    The caller unpacks the WBR object's attributes and passes them individually,
+    so this function (and everything it calls) is decoupled from the WBR class.
 
     Args:
-        report (WBR): An instance of the WBR class containing configuration data for the deck.
-        event_data (DataFrame): Event dataframe that consists the event data for the wbr metrics
+        metrics (pd.DataFrame): The computed metrics DataFrame.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        cfg (dict): The WBR YAML configuration dictionary.
+        cy_week_ending (datetime): The current-year week-ending date.
+        fiscal_month (str): The fiscal year-end month abbreviation (e.g. 'Dec').
+        graph_axis_label (list): The full list of graph axis labels.
+        bps_metrics (list): Metrics compared using basis points.
+        function_bps_metrics (list): Function metrics compared using basis points.
+        event_data (pd.DataFrame): Optional event data for chart annotations.
+
     Returns:
-        Deck: A Deck object populated with plots, titles, and other settings defined in the wbr1 configuration.
+        Deck: A Deck object populated with charts, tables, and settings.
     """
-    metrics = report.metrics
-    box_totals = report.box_totals
-    bps_metrics = report.bps_metrics
-    function_bps_metrics = report.function_bps_metrics
-    graph_axis_label = report.graph_axis_label
-    cy_week_ending = report.cy_week_ending
-    fiscal_month = report.fiscal_month
-    plots = report.cfg['deck']
+    plots = cfg['deck']
     deck = Deck()
 
     event_dict = {}
@@ -1037,32 +1051,32 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
         logging.error(err, exc_info=True)
         event_errors.append(err.__str__())
 
-    if 'x_axis_monthly_display' in report.cfg['setup']:
-        deck.xAxisMonthlyDisplay = report.cfg['setup']['x_axis_monthly_display']
+    if 'x_axis_monthly_display' in cfg['setup']:
+        deck.xAxisMonthlyDisplay = cfg['setup']['x_axis_monthly_display']
 
     for i in range(len(plots)):
-        build_a_block(deck, i, plots, report, event_dict, metrics=metrics,
+        build_a_block(deck, i, plots, event_dict, metrics=metrics,
                       box_totals=box_totals, bps_metrics=bps_metrics,
                       function_bps_metrics=function_bps_metrics,
                       graph_axis_label=graph_axis_label,
-                      cy_week_ending=cy_week_ending, fiscal_month=fiscal_month)
+                      cy_week_ending=cy_week_ending, fiscal_month=fiscal_month, cfg=cfg)
 
-    deck.title = report.cfg['setup']['title']
+    deck.title = cfg['setup']['title']
 
-    week_ending = datetime.datetime.strptime(report.cfg['setup']['week_ending'], '%d-%b-%Y')
+    week_ending = datetime.datetime.strptime(cfg['setup']['week_ending'], '%d-%b-%Y')
     deck.weekEnding = week_ending.strftime("%d") + " " + week_ending.strftime("%B") + " " + week_ending.strftime("%Y")
 
-    if 'block_starting_number' in report.cfg['setup']:
-        deck.blockStartingNumber = report.cfg['setup']['block_starting_number']
+    if 'block_starting_number' in cfg['setup']:
+        deck.blockStartingNumber = cfg['setup']['block_starting_number']
 
     deck.eventErrors = "\n".join(event_errors) if len(event_errors) > 0 else None
 
     return deck
 
 
-def build_a_block(deck: Deck, i: int, plots: list, report, event_dict: dict, metrics=None,
+def build_a_block(deck: Deck, i: int, plots: list, event_dict: dict, metrics=None,
                   box_totals=None, bps_metrics=None, function_bps_metrics=None,
-                  graph_axis_label=None, cy_week_ending=None, fiscal_month=None):
+                  graph_axis_label=None, cy_week_ending=None, fiscal_month=None, cfg=None):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1070,12 +1084,12 @@ def build_a_block(deck: Deck, i: int, plots: list, report, event_dict: dict, met
         deck (Deck): The Deck object to which the block will be added.
         i (int): The index of the current block in the plots list.
         plots (list): A list of plot configurations, each containing a block configuration.
-        report (WBR): An instance of the WBR class containing additional configuration data.
         event_dict (dict): An dictionary consisting of the metric and the respective events
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
         box_totals (pd.DataFrame): The box totals DataFrame.
         bps_metrics (list): List of metrics compared using basis points.
         function_bps_metrics (list): List of function metrics compared using basis points.
+        cfg (dict): The WBR configuration dictionary.
     Raises:
         Exception: If the block configuration is invalid or if the UI type is not recognized.
     """
@@ -1087,13 +1101,13 @@ def build_a_block(deck: Deck, i: int, plots: list, report, event_dict: dict, met
         raise Exception(f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
                         f" {plotting_dict['__line__']}")
     elif plotting_dict['ui_type'] == '6_12Graph':
-        _6_12_chart(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
+        _6_12_chart(deck, plots[i], str(i + 1), event_dict, metrics=metrics,
                     box_totals=box_totals, bps_metrics=bps_metrics,
                     function_bps_metrics=function_bps_metrics,
                     graph_axis_label=graph_axis_label,
-                    cy_week_ending=cy_week_ending, fiscal_month=fiscal_month)
+                    cy_week_ending=cy_week_ending, fiscal_month=fiscal_month, cfg=cfg)
     elif plotting_dict['ui_type'] == '6_WeeksTable':
-        _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
+        _6_weeks_table(deck, plots[i], str(i + 1), event_dict, metrics=metrics,
                        box_totals=box_totals, graph_axis_label=graph_axis_label)
     elif plotting_dict['ui_type'] == '12_MonthsTable':
         _12_months_table(deck, plots[i], str(i + 1), metrics=metrics,

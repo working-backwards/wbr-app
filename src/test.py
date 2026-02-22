@@ -158,7 +158,16 @@ def build_and_test_wbr(wbr1, test):
     """
     try:
         # Generate the WBR deck using the WBR object
-        deck = get_wbr_deck(wbr1)
+        deck = get_wbr_deck(
+            metrics=wbr1.metrics,
+            box_totals=wbr1.box_totals,
+            cfg=wbr1.cfg,
+            cy_week_ending=wbr1.cy_week_ending,
+            fiscal_month=wbr1.fiscal_month,
+            graph_axis_label=wbr1.graph_axis_label,
+            bps_metrics=wbr1.bps_metrics,
+            function_bps_metrics=wbr1.function_bps_metrics,
+        )
     except Exception as error:
         logging.error(error, exc_info=True)
         raise error
