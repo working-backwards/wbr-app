@@ -524,68 +524,77 @@ class WBR:
 
     def compute_functional_metrics(self):
         """
-        aggregates the metric data for whatever time period (weekly, monthly, quarterly, yearly etc) and
-        applies the operation onto the given metrics in the metric config.
-        :return: None
+        Evaluates all function metrics using iterative DFS with cycle detection.
+
+        Metrics are evaluated in dependency order: if metric A depends on metric B,
+        B is evaluated first. A circular dependency raises ValueError.
         """
         function_metrics = get_function_metrics_configs(self.metrics_configs)
-        [self.recursive_function_calculator(k, v["function"]) for k, v in function_metrics.items()]
+        computed = set()
+        pending = set()
 
-    def recursive_function_calculator(self, metric, metric_config):
-        """
-        Recursively calculates metrics based on the provided metric configuration.
+        for metric_name, config in function_metrics.items():
+            if metric_name in computed:
+                continue
 
-        This method processes the given metric configuration to gather the necessary columns
-        and then applies the specified operation from the function calculation dictionary.
+            stack = [(metric_name, config["function"], False)]
 
-        Args:
-            metric (str): The name of the metric being processed.
-            metric_config (dict): Configuration for the metric, containing operational details.
+            while stack:
+                name, func_config, deps_resolved = stack.pop()
 
-        Raises:
-            TypeError: If an error occurs during the recursive calculation of metrics.
-            KeyError: If an unknown metric is found in the configuration.
-        """
-        column_list = []  # List to store the column names for calculations
-        operation = list(metric_config.keys())[0]  # Get the operation type from the metric config
+                if name in computed:
+                    continue
 
-        # Group the metric configurations into 'metric' and 'column'
+                if deps_resolved:
+                    self._evaluate_function_metric(name, func_config)
+                    computed.add(name)
+                    pending.discard(name)
+                    continue
+
+                if name in pending:
+                    raise ValueError(
+                        f"Circular dependency detected for metric '{name}' "
+                        f"at line {func_config.get('__line__', '?')} in yaml"
+                    )
+
+                pending.add(name)
+                stack.append((name, func_config, True))
+
+                # Push uncomputed function-metric dependencies (reversed to preserve order)
+                operation = list(func_config.keys())[0]
+                operands = list(func_config.values())[0]
+                deps = [
+                    (op['metric']['name'], op['metric']['function'])
+                    for op in operands
+                    if 'metric' in op and 'function' in op['metric']
+                ]
+                for dep_name, dep_config in reversed(deps):
+                    if dep_name not in computed:
+                        stack.append((dep_name, dep_config, False))
+
+    def _evaluate_function_metric(self, metric_name, func_config):
+        """Compute a single function metric, assuming all its dependencies are already computed."""
+        operation = list(func_config.keys())[0]
+
         grouped = {
             key: list(group) for key, group in
-            groupby(list(metric_config.values())[0], key=lambda x: 'metric' if 'metric' in x else 'column')
+            groupby(list(func_config.values())[0],
+                    key=lambda x: 'metric' if 'metric' in x else 'column')
         }
 
-        # Process 'metric' configurations
-        group_value_metric = grouped.get("metric", [])
-        if group_value_metric:
-            for config in group_value_metric:
-                if "function" in config['metric']:
-                    try:
-                        # Recursively calculate for nested metrics
-                        self.recursive_function_calculator(config['metric']['name'], config['metric']['function'])
-                    except TypeError as type_err:
-                        raise TypeError(
-                            f'Error occurred while creating {metric} because {type_err.__str__()}, '
-                            f'please contact system admin'
-                        )
-                column_list.append(config['metric']['name'])  # Add the metric name to the column list
-
-        # Process 'column' configurations
-        group_value_column = grouped.get("column", [])
+        column_list = [cfg['metric']['name'] for cfg in grouped.get("metric", [])]
         column_list.extend(
-            [each_config["column"]["name"] for each_config in group_value_column]
+            cfg["column"]["name"] for cfg in grouped.get("column", [])
         )
 
-        # Prefix previous year (PY) column names
         py_column_list = ['PY__' + name for name in column_list]
 
-        # Execute the corresponding function from the function calculation dictionary
         try:
-            self._apply_function_to_all_series(column_list, py_column_list, metric, operation)
+            self._apply_function_to_all_series(column_list, py_column_list, metric_name, operation)
         except KeyError as e:
             raise KeyError(
-                f"Unknown metric found at line: {metric_config['__line__']} in yaml. Please check if you "
-                f"have defined this in metric section {e.__str__()}"
+                f"Unknown metric found at line: {func_config['__line__']} in yaml. "
+                f"Please check if you have defined this in metric section {e}"
             )
 
     def _apply_function_to_all_series(self, column_list, py_column_list, metric_name, operation):
