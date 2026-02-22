@@ -97,7 +97,7 @@ class WBR:
             fiscal_month (str): The fiscal year end month.
             metrics_configs (dict): The metrics configuration dictionary.
             metric_aggregation (dict): The metric aggregation dictionary.
-            dyna_data_frame (pandas.DataFrame): The dynamically created data frame for all the given metrics.
+            daily_metrics (pandas.DataFrame): The daily data frame with columns for all configured metrics.
             cy_trailing_six_weeks (pandas.DataFrame): The trailing six weeks data frame for the current year.
             py_trailing_six_weeks (pandas.DataFrame): The trailing six weeks data frame for the previous year.
             cy_monthly (pandas.DataFrame): The monthly data frame for the current year.
@@ -139,28 +139,28 @@ class WBR:
         self.metrics_configs.__delitem__("__line__")
 
         self.metric_aggregation = dict(filter(None, list(map(build_agg, self.metrics_configs.items()))))
-        self.dyna_data_frame = wbr_util.create_dynamic_data_frame(self.daily_df, self.metrics_configs)
+        self.daily_metrics = wbr_util.create_dynamic_data_frame(self.daily_df, self.metrics_configs)
 
         self.cy_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
-            self.dyna_data_frame,
+            self.daily_metrics,
             self.cy_week_ending,
             self.metric_aggregation
         )
 
         self.py_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
-            self.dyna_data_frame,
+            self.daily_metrics,
             self.cy_week_ending - timedelta(days=PY_WEEKLY_OFFSET_DAYS),
             self.metric_aggregation
         ).add_prefix('PY__')
 
         self.cy_monthly = wbr_util.create_trailing_twelve_months(
-            self.dyna_data_frame,
+            self.daily_metrics,
             self.cy_week_ending,
             self.metric_aggregation
         )
 
         self.py_monthly = wbr_util.create_trailing_twelve_months(
-            self.dyna_data_frame,
+            self.daily_metrics,
             self.cy_week_ending - relativedelta.relativedelta(years=1),
             self.metric_aggregation
         ).add_prefix('PY__')
@@ -259,12 +259,12 @@ class WBR:
         """
         # Calculate the current trailing six weeks metrics
         current_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
-            self.dyna_data_frame, self.cy_week_ending, self.metric_aggregation
+            self.daily_metrics, self.cy_week_ending, self.metric_aggregation
         )
 
         # Calculate the previous week's trailing six weeks metrics
         previous_week_trailing_data = wbr_util.create_trailing_six_weeks(
-            self.dyna_data_frame, self.cy_week_ending - timedelta(7), self.metric_aggregation
+            self.daily_metrics, self.cy_week_ending - timedelta(7), self.metric_aggregation
         )
 
         # Process each metric based on its configuration
@@ -331,11 +331,11 @@ class WBR:
 
         # Calculate the current and previous trailing twelve months metrics
         current_trailing_twelve_months = wbr_util.create_trailing_twelve_months(
-            self.dyna_data_frame, current_date, self.metric_aggregation
+            self.daily_metrics, current_date, self.metric_aggregation
         )
 
         previous_trailing_twelve_months = wbr_util.create_trailing_twelve_months(
-            self.dyna_data_frame, previous_month_date, self.metric_aggregation
+            self.daily_metrics, previous_month_date, self.metric_aggregation
         )
 
         # Process each metric based on its configuration
@@ -1032,7 +1032,7 @@ class WBR:
         """
         # Resample data to monthly frequency and perform aggregation
         monthly_data = (
-            self.dyna_data_frame.resample('ME', label='right', closed='right', on='Date')
+            self.daily_metrics.resample('ME', label='right', closed='right', on='Date')
             .agg(self.metric_aggregation, skipna=False)  # Aggregate using predefined metrics
             .reset_index()
             .sort_values(by='Date')
@@ -1104,7 +1104,7 @@ class WBR:
         ) - timedelta(1)
 
         # Filter daily data for the current month
-        month_daily_data = self.dyna_data_frame.query(
+        month_daily_data = self.daily_metrics.query(
             'Date >= @first_day_of_month and Date <= @last_day_of_month'
         ).reset_index(drop=True).sort_values(by="Date")
 
@@ -1144,7 +1144,7 @@ class WBR:
         py_last_day_of_month = last_day_of_month - relativedelta.relativedelta(years=1)
 
         # Filter daily data for the previous year
-        py_month_agg_data = self.dyna_data_frame.query(
+        py_month_agg_data = self.daily_metrics.query(
             'Date >= @py_first_day_of_month and Date <= @py_last_day_of_month'
         ).reset_index(drop=True).sort_values(by="Date").resample(
             'ME', label='right', closed='right', on='Date'
@@ -1215,8 +1215,8 @@ class WBR:
             ('YTD', [('cy_first_day_ytd', 'cy_last_day'), ('py_first_day_ytd', 'py_last_day')])
         ]:
             # Filter data for the specified period
-            cy_data = self.dyna_data_frame.query(f'Date >= @{period_range[0][0]} and Date <= @{period_range[0][1]}')
-            py_data = self.dyna_data_frame.query(f'Date >= @{period_range[1][0]} and Date <= @{period_range[1][1]}')
+            cy_data = self.daily_metrics.query(f'Date >= @{period_range[0][0]} and Date <= @{period_range[0][1]}')
+            py_data = self.daily_metrics.query(f'Date >= @{period_range[1][0]} and Date <= @{period_range[1][1]}')
 
             # Resample data annually based on fiscal month and calculate aggregated metric
             cy_total = cy_data.resample('YE-' + self.fiscal_month, label='right', closed='right', on='Date').agg(
