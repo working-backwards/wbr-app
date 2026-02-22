@@ -733,7 +733,9 @@ class WBR:
                 else:
                     cy_val = yoy[columns[0]][cy_idx] * yoy[columns[1]][cy_idx]
                     py_val = yoy[columns[0]][py_idx] * yoy[columns[1]][py_idx]
-                box_totals[box_idx] = self.calculate_yoy_box_total(cy_val, py_val, metric_name)
+                box_totals[box_idx] = self.calculate_yoy_box_total(
+                    cy_val, py_val, metric_name, self.function_bps_metrics
+                )
         else:
             if operation == 'sum':
                 self.period_summary[metric_name] = self.period_summary.iloc[:].sum(axis=1)
@@ -760,16 +762,17 @@ class WBR:
                     cy_value = (yoy_field_values[columns[0]][cy_idx]
                                 - yoy_field_values[columns[1]][cy_idx])
                 box_totals[box_idx] = self.calculate_yoy_box_total(
-                    cy_value, value_list[i], metric_name
+                    cy_value, value_list[i], metric_name, self.function_bps_metrics
                 )
 
-    def calculate_yoy_box_total(self, operand_1, operand_2, metric_name):
+    @staticmethod
+    def calculate_yoy_box_total(operand_1, operand_2, metric_name, fn_bps_metrics):
         """Compute a single YOY comparison value for a function metric's box total.
 
         Uses subtraction for bps metrics (rate comparison) or division for
         pct_change metrics (volume comparison). See class docstring for why.
         """
-        return (operand_1 - operand_2) * BPS_MULTIPLIER if metric_name in self.function_bps_metrics else (
+        return (operand_1 - operand_2) * BPS_MULTIPLIER if metric_name in fn_bps_metrics else (
                 ((operand_1/operand_2) - 1) * PCT_MULTIPLIER)
 
     def compute_extra_months(self):
