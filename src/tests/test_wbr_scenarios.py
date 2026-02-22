@@ -96,11 +96,11 @@ class TestGoldenOutput:
 
         if isinstance(block, TrailingTable):
             # TrailingTable checks total DataFrame shape, not a specific metric column
-            actual = wbr1.cy_trailing_twelve_months.shape[0]
+            actual = wbr1.cy_monthly.shape[0]
         elif "WOW" in metric_name or "MOM" in metric_name or "YOY" in metric_name:
             actual = len(wbr1.metrics[metric_name][7:])
         else:
-            actual = len(list(wbr1.cy_trailing_twelve_months[metric_name]))
+            actual = len(list(wbr1.cy_monthly[metric_name]))
         assert actual == expected, f"CY length {actual} != {expected}"
 
     def test_py_dataframe_length(self, scenario_name, test_dict):

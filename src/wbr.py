@@ -100,7 +100,7 @@ class WBR:
             dyna_data_frame (pandas.DataFrame): The dynamically created data frame for all the given metrics.
             cy_trailing_six_weeks (pandas.DataFrame): The trailing six weeks data frame for the current year.
             py_trailing_six_weeks (pandas.DataFrame): The trailing six weeks data frame for the previous year.
-            cy_trailing_twelve_months (pandas.DataFrame): The trailing twelve months data frame for the current year.
+            cy_monthly (pandas.DataFrame): The monthly data frame for the current year.
             py_trailing_twelve_months (pandas.DataFrame): The trailing twelve months data frame for the previous year.
             bps_metrics (list): The list of metrics for basis point comparison.
             function_bps_metrics (list): The list of metrics with function for basis point comparison.
@@ -153,7 +153,7 @@ class WBR:
             self.metric_aggregation
         ).add_prefix('PY__')
 
-        self.cy_trailing_twelve_months = wbr_util.create_trailing_twelve_months(
+        self.cy_monthly = wbr_util.create_trailing_twelve_months(
             self.dyna_data_frame,
             self.cy_week_ending,
             self.metric_aggregation
@@ -172,7 +172,7 @@ class WBR:
         self.compute_extra_months()
         self.compute_functional_metrics()
         self.graph_axis_label = wbr_util.create_axis_label(self.cy_week_ending, self.week_number,
-                                                           len(self.cy_trailing_twelve_months['Date']))
+                                                           len(self.cy_monthly['Date']))
         self.metrics = self.create_wbr_metrics()
         # init end
 
@@ -194,7 +194,7 @@ class WBR:
         cy_wbr_graph_data_with_weekly = wbr_util.create_new_row(None, cy_wbr_graph_data_with_weekly)
         cy_wbr_graph_data_with_weekly.reset_index(drop=True, inplace=True)
         cy_wbr_graph_data_with_weekly = pd.concat(
-            [cy_wbr_graph_data_with_weekly, self.cy_trailing_twelve_months], ignore_index=True
+            [cy_wbr_graph_data_with_weekly, self.cy_monthly], ignore_index=True
         )
 
         # Create #2 -py_wbr_graph_data_with_weekly
@@ -230,7 +230,7 @@ class WBR:
 
         self.cy_trailing_six_weeks.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.py_trailing_six_weeks.replace([np.inf, -np.inf], np.nan, inplace=True)
-        self.cy_trailing_twelve_months.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.cy_monthly.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.py_trailing_twelve_months.replace([np.inf, -np.inf], np.nan, inplace=True)
 
         self.box_totals.replace([np.inf, -np.inf], "N/A", inplace=True)
@@ -610,7 +610,7 @@ class WBR:
         # Extract relevant data for current year and previous year calculations
         cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
         py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_trailing_twelve_months = self.cy_trailing_twelve_months[column_list]
+        cy_monthly = self.cy_monthly[column_list]
         py_trailing_twelve_months = self.py_trailing_twelve_months[py_column_list]
         summary_data_points = self.box_totals[column_list]
         py_summary_data_points = self.py_box_total[column_list]
@@ -626,8 +626,8 @@ class WBR:
         )
 
         # Calculate products for current year's trailing twelve months
-        self.cy_trailing_twelve_months[metric_name] = cy_trailing_twelve_months.iloc[:, 0].mul(
-            cy_trailing_twelve_months.iloc[:, 1]
+        self.cy_monthly[metric_name] = cy_monthly.iloc[:, 0].mul(
+            cy_monthly.iloc[:, 1]
         )
 
         # Calculate products for previous year's trailing twelve months
@@ -659,7 +659,7 @@ class WBR:
         # Extract relevant data for current year and previous year calculations
         cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
         py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_trailing_twelve_months = self.cy_trailing_twelve_months[column_list]
+        cy_monthly = self.cy_monthly[column_list]
         py_trailing_twelve_months = self.py_trailing_twelve_months[py_column_list]
         summary_data_points = self.box_totals[column_list]
         py_summary_data_points = self.py_box_total[column_list]
@@ -675,8 +675,8 @@ class WBR:
         )
 
         # Calculate differences for current year's trailing twelve months
-        self.cy_trailing_twelve_months[metric_name] = cy_trailing_twelve_months.iloc[:, 0].sub(
-            cy_trailing_twelve_months.iloc[:, 1]
+        self.cy_monthly[metric_name] = cy_monthly.iloc[:, 0].sub(
+            cy_monthly.iloc[:, 1]
         )
 
         # Calculate differences for previous year's trailing twelve months
@@ -708,7 +708,7 @@ class WBR:
         # Extract relevant data for current year and previous year calculations
         cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
         py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_trailing_twelve_months = self.cy_trailing_twelve_months[column_list]
+        cy_monthly = self.cy_monthly[column_list]
         py_trailing_twelve_months = self.py_trailing_twelve_months[py_column_list]
         summary_data_points = self.box_totals[column_list]
         py_summary_data_points = self.py_box_total[column_list]
@@ -720,7 +720,7 @@ class WBR:
         self.py_trailing_six_weeks['PY__' + metric_name] = py_trailing_six_weeks.iloc[:].sum(axis=1)
 
         # Calculate sums for current year's trailing twelve months
-        self.cy_trailing_twelve_months[metric_name] = cy_trailing_twelve_months.iloc[:].sum(axis=1)
+        self.cy_monthly[metric_name] = cy_monthly.iloc[:].sum(axis=1)
 
         # Calculate sums for previous year's trailing twelve months
         self.py_trailing_twelve_months['PY__' + metric_name] = py_trailing_twelve_months.iloc[:].sum(axis=1)
@@ -751,7 +751,7 @@ class WBR:
         # Extract relevant data for current year and previous year calculations
         cy_trailing_six_weeks = self.cy_trailing_six_weeks[column_list]
         py_trailing_six_weeks = self.py_trailing_six_weeks[py_column_list]
-        cy_trailing_twelve_months = self.cy_trailing_twelve_months[column_list]
+        cy_monthly = self.cy_monthly[column_list]
         py_trailing_twelve_months = self.py_trailing_twelve_months[py_column_list]
         summary_data_points = self.box_totals[column_list]
         py_summary_data_points = self.py_box_total[column_list]
@@ -767,8 +767,8 @@ class WBR:
         )
 
         # Calculate divisions for current year's trailing twelve months
-        self.cy_trailing_twelve_months[metric_name] = cy_trailing_twelve_months.iloc[:, 0].div(
-            cy_trailing_twelve_months.iloc[:, 1]
+        self.cy_monthly[metric_name] = cy_monthly.iloc[:, 0].div(
+            cy_monthly.iloc[:, 1]
         )
 
         # Calculate divisions for previous year's trailing twelve months
@@ -1071,8 +1071,8 @@ class WBR:
         )
 
         # Concatenate current year and previous year data to trailing twelve months
-        self.cy_trailing_twelve_months = pd.concat(
-            [self.cy_trailing_twelve_months, future_month_aggregate_data]
+        self.cy_monthly = pd.concat(
+            [self.cy_monthly, future_month_aggregate_data]
         ).reset_index(drop=True)
 
         self.py_trailing_twelve_months = pd.concat(
@@ -1133,7 +1133,7 @@ class WBR:
                 )], axis=1)
 
         # Append the aggregated results to the current year trailing twelve months data
-        self.cy_trailing_twelve_months = pd.concat([self.cy_trailing_twelve_months, agg_series]).reset_index(drop=True)
+        self.cy_monthly = pd.concat([self.cy_monthly, agg_series]).reset_index(drop=True)
 
         # Calculate previous year's corresponding dates
         py_first_day_of_month = (
@@ -1357,6 +1357,6 @@ class WBR:
     def __str__(self):
         return (f'Current YearTrailing 6 Weeks: \n {self.cy_trailing_six_weeks} \n'
                 f'Prior Year Trailing 6 Weeks: \n {self.py_trailing_six_weeks} \n'
-                f'Current Year Trailing 12 months \n {self.cy_trailing_twelve_months} \n'
+                f'Current Year Trailing 12 months \n {self.cy_monthly} \n'
                 f'Prior Year Trailing 12 months \n {self.py_trailing_twelve_months} \n'
                 f'x-axis \n {self.graph_axis_label} \n Box Totals \n {self.graph_axis_label} \n metrics {self.metrics}')

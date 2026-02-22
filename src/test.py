@@ -348,7 +348,7 @@ def check_cy_df_shape(test, wbr1):
     """
 
     # Retrieve the current year trailing twelve months DataFrame from the WBR object
-    cy_monthly_df = wbr1.cy_trailing_twelve_months
+    cy_monthly_df = wbr1.cy_monthly
 
     # Get the number of rows and columns in the DataFrame
     row_length, col_length = cy_monthly_df.shape
@@ -475,7 +475,7 @@ def cy_validate_dataframe_length(wbr1, test):
         cy_monthly_length = len(wbr1.metrics[metric_name][7:])
     else:
         # For regular metrics, calculate the length of the metric in the current year DataFrame
-        cy_monthly_length = len(list(wbr1.cy_trailing_twelve_months[metric_name]))
+        cy_monthly_length = len(list(wbr1.cy_monthly[metric_name]))
 
     try:
         # Assert that the length of the CY DataFrame matches the expected length from the test configuration
