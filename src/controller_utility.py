@@ -168,9 +168,9 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     return primary_and_secondary_axis_value_list, is_single_axis
 
 
-def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics=None,
+def _6_12_chart(decks, plot, wbr1, block_number, events_dict: dict, metrics=None,
                 box_totals=None, bps_metrics=None, function_bps_metrics=None,
-                graph_axis_label=None):
+                graph_axis_label=None, cy_week_ending=None, fiscal_month=None):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -198,16 +198,17 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics
     six_twelve_chart = get_6_12_chart_instance(plotting_dict, wbr1)
 
     # Determine the end date, accounting for whether it's the last day of the month.
-    end_date = if_else_supplier(wbr1, lambda wbr: is_last_day_of_month(wbr.cy_week_ending),
-                                lambda wbr: wbr.cy_week_ending,
-                                lambda wbr: wbr.cy_week_ending.replace(day=1) - datetime.timedelta(days=1))
+    end_date = if_else_supplier(cy_week_ending, lambda we: is_last_day_of_month(we),
+                                lambda we: we,
+                                lambda we: we.replace(day=1) - datetime.timedelta(days=1))
 
     # Get the fiscal start date based on the current week and fiscal month configuration.
-    fiscal_start = get_month_start(wbr1.cy_week_ending.month, wbr1.cy_week_ending.year,
-                                   datetime.datetime.strptime(wbr1.fiscal_month, '%b').month)
+    fiscal_start = get_month_start(cy_week_ending.month, cy_week_ending.year,
+                                   datetime.datetime.strptime(fiscal_month, '%b').month)
 
     # Determine the starting month for the x-axis display.
-    is_trailing_twelve_months, month_start = _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1)
+    is_trailing_twelve_months, month_start = _get_x_axis_start_month(block_number, decks, end_date, plotting_dict,
+                                                                     fiscal_month=fiscal_month)
 
     # Set the x-axis label based on the determined start month.
     six_twelve_chart.xAxis = get_x_axis_label(graph_axis_label, month_start)
@@ -423,17 +424,17 @@ def _update_box_totals(metric, metrics_dictionary, box_totals, bps_metrics, func
     return box_value_list
 
 
-def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1):
+def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, fiscal_month=None):
     """
     Determines the start month for the x-axis based on plot configuration or deck settings.
     """
     if 'x_axis_monthly_display' in plotting_dict:
         month_start, is_trailing_twelve_months = get_x_axis_display_start_month(
-            block_number, end_date, plotting_dict['x_axis_monthly_display'], wbr1, plotting_dict['__line__']
+            block_number, end_date, plotting_dict['x_axis_monthly_display'], fiscal_month, plotting_dict['__line__']
         )
     elif decks.xAxisMonthlyDisplay is not None:
         month_start, is_trailing_twelve_months = get_x_axis_display_start_month(
-            block_number, end_date, decks.xAxisMonthlyDisplay, wbr1, plotting_dict['__line__']
+            block_number, end_date, decks.xAxisMonthlyDisplay, fiscal_month, plotting_dict['__line__']
         )
     else:
         # Default to a 12-month trailing view.
@@ -458,7 +459,7 @@ def get_6_12_chart_instance(plotting_dict, wbr1):
     return six_twelve_chart
 
 
-def get_x_axis_display_start_month(block_number, end_date: datetime, month_start, wbr1, line):
+def get_x_axis_display_start_month(block_number, end_date: datetime, month_start, fiscal_month, line):
     """
     Determines the start month for the X-axis display based on the provided `month_start` value.
     Supports two options: 'fiscal_year' and 'trailing_twelve_months'.
@@ -467,7 +468,7 @@ def get_x_axis_display_start_month(block_number, end_date: datetime, month_start
         block_number (int): The block number, useful for logging and error handling.
         end_date (datetime): The end date for the current period.
         month_start (str): The type of month start to display ('fiscal_year' or 'trailing_twelve_months').
-        wbr1 (WBR): The WBR object containing fiscal month and other configurations.
+        fiscal_month (str): The fiscal year-end month abbreviation (e.g. 'Dec').
         line (int): The line number in the configuration file, used for error logging.
 
     Returns:
@@ -481,9 +482,9 @@ def get_x_axis_display_start_month(block_number, end_date: datetime, month_start
 
     if month_start == 'fiscal_year':
         # Return the month following the fiscal year-end month as the fiscal year start month.
-        # Convert the fiscal end month (wbr1.fiscal_month) into a datetime object, add one month,
+        # Convert the fiscal end month into a datetime object, add one month,
         # and return the month name in abbreviated format ("%b").
-        return (datetime.datetime.strptime(wbr1.fiscal_month, "%b") +
+        return (datetime.datetime.strptime(fiscal_month, "%b") +
                 dateutil.relativedelta.relativedelta(months=1)).strftime("%b"), False
 
     elif month_start == 'trailing_twelve_months':
@@ -816,7 +817,7 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
     return row
 
 
-def _12_months_table(decks, plot, wbr1, block_number, metrics=None, graph_axis_label=None):
+def _12_months_table(decks, plot, block_number, metrics=None, graph_axis_label=None, fiscal_month=None):
     """
     Constructs and populates a 12-months table based on the provided plotting configuration and WBR data.
 
@@ -849,13 +850,13 @@ def _12_months_table(decks, plot, wbr1, block_number, metrics=None, graph_axis_l
 
     # Determine the fiscal month if month_start is 'fiscal_year'
     if month_start == 'fiscal_year':
-        fiscal_month = (datetime.datetime.strptime(wbr1.fiscal_month, "%b") +
+        fiscal_month_start = (datetime.datetime.strptime(fiscal_month, "%b") +
                         dateutil.relativedelta.relativedelta(months=1)).strftime("%b")
 
         # Calculate the starting index for the twelve-month table
         itr_start = next(
             (i for i, month in enumerate(graph_axis_label[MONTHLY_DATA_START_INDEX:])
-             if month.lower() == fiscal_month.lower()),
+             if month.lower() == fiscal_month_start.lower()),
             len(graph_axis_label[MONTHLY_DATA_START_INDEX:])  # Fallback in case fiscal_month is not found
         )
 
@@ -981,10 +982,10 @@ def filter_metric(metric, metric_list, event_errors):
     return True
 
 
-def filter_events(wbr, event_df, event_errors: list, metrics=None) -> dict:
+def filter_events(event_df, event_errors: list, metrics=None, cy_week_ending=None) -> dict:
     if event_df is None:
         return {}
-    week_ending = wbr.cy_week_ending
+    week_ending = cy_week_ending
     cy_six_weeks_ago = week_ending - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
     py_six_weeks_end = week_ending - datetime.timedelta(days=PY_WEEKLY_OFFSET_DAYS)
     py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
@@ -1023,13 +1024,15 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     bps_metrics = report.bps_metrics
     function_bps_metrics = report.function_bps_metrics
     graph_axis_label = report.graph_axis_label
+    cy_week_ending = report.cy_week_ending
+    fiscal_month = report.fiscal_month
     plots = report.cfg['deck']
     deck = Deck()
 
     event_dict = {}
     event_errors = []
     try:
-        event_dict = filter_events(report, event_data, event_errors, metrics=metrics)
+        event_dict = filter_events(event_data, event_errors, metrics=metrics, cy_week_ending=cy_week_ending)
     except Exception as err:
         logging.error(err, exc_info=True)
         event_errors.append(err.__str__())
@@ -1041,7 +1044,8 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
         build_a_block(deck, i, plots, report, event_dict, metrics=metrics,
                       box_totals=box_totals, bps_metrics=bps_metrics,
                       function_bps_metrics=function_bps_metrics,
-                      graph_axis_label=graph_axis_label)
+                      graph_axis_label=graph_axis_label,
+                      cy_week_ending=cy_week_ending, fiscal_month=fiscal_month)
 
     deck.title = report.cfg['setup']['title']
 
@@ -1056,9 +1060,9 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     return deck
 
 
-def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict, metrics=None,
+def build_a_block(deck: Deck, i: int, plots: list, report, event_dict: dict, metrics=None,
                   box_totals=None, bps_metrics=None, function_bps_metrics=None,
-                  graph_axis_label=None):
+                  graph_axis_label=None, cy_week_ending=None, fiscal_month=None):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1086,13 +1090,14 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
         _6_12_chart(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
                     box_totals=box_totals, bps_metrics=bps_metrics,
                     function_bps_metrics=function_bps_metrics,
-                    graph_axis_label=graph_axis_label)
+                    graph_axis_label=graph_axis_label,
+                    cy_week_ending=cy_week_ending, fiscal_month=fiscal_month)
     elif plotting_dict['ui_type'] == '6_WeeksTable':
         _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
                        box_totals=box_totals, graph_axis_label=graph_axis_label)
     elif plotting_dict['ui_type'] == '12_MonthsTable':
-        _12_months_table(deck, plots[i], report, str(i + 1), metrics=metrics,
-                         graph_axis_label=graph_axis_label)
+        _12_months_table(deck, plots[i], str(i + 1), metrics=metrics,
+                         graph_axis_label=graph_axis_label, fiscal_month=fiscal_month)
     elif plotting_dict['ui_type'] == 'section':
         append_section_to_deck(deck, plots[i])
     elif plotting_dict['ui_type'] == 'embedded_content':
