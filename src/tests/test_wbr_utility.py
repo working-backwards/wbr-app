@@ -313,9 +313,7 @@ class TestHandleFunctionMetricsForExtraAttribute:
         handle_function_metrics_for_extra_attribute("Total", config, current, previous)
 
         assert current["Total"].iloc[0] == 15.0  # 10+5
-        # NOTE: Known behavior (B.2) — operation_map is built from current_trailing_data,
-        # so previous result = CY_col0 + PY_col1 = 10 + 4 = 14, not PY_col0 + PY_col1 = 12
-        assert previous["Total"].iloc[0] == 14.0
+        assert previous["Total"].iloc[0] == 12.0  # 8+4
 
     def test_difference_operation(self):
         """Difference operation: metric = col0 - col1."""
@@ -326,8 +324,7 @@ class TestHandleFunctionMetricsForExtraAttribute:
         handle_function_metrics_for_extra_attribute("Diff", config, current, previous)
 
         assert current["Diff"].iloc[0] == 7.0  # 10-3
-        # NOTE: Known behavior (B.2) — uses CY_col0 - PY_col1 = 10 - 2 = 8
-        assert previous["Diff"].iloc[0] == 8.0
+        assert previous["Diff"].iloc[0] == 6.0  # 8-2
 
     def test_product_operation(self):
         """Product operation: metric = col0 * col1."""
@@ -338,8 +335,7 @@ class TestHandleFunctionMetricsForExtraAttribute:
         handle_function_metrics_for_extra_attribute("Prod", config, current, previous)
 
         assert current["Prod"].iloc[0] == 12.0  # 3*4
-        # NOTE: Known behavior (B.2) — uses CY_col0 * PY_col1 = 3 * 5 = 15
-        assert previous["Prod"].iloc[0] == 15.0
+        assert previous["Prod"].iloc[0] == 10.0  # 2*5
 
     def test_unsupported_operation_raises(self):
         current = pd.DataFrame({"A": [1.0], "B": [2.0]})

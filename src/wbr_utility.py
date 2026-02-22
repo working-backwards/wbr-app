@@ -409,18 +409,25 @@ def handle_function_metrics_for_extra_attribute(metric_name, metric_config, curr
     current_trailing_data = current_trailing_df[column_list]
     previous_trailing_data = previous_trailing_df[column_list]
 
-    # Define a mapping of operations to corresponding pandas functions
-    operation_map = {
+    # Define operation mappings for current and previous periods separately
+    # so each uses its own col0 as the left operand.
+    cy_ops = {
         'divide': current_trailing_data.iloc[:, 0].div,
         'sum': current_trailing_data.iloc[:, 0].add,
         'difference': current_trailing_data.iloc[:, 0].sub,
         'product': current_trailing_data.iloc[:, 0].mul
     }
+    py_ops = {
+        'divide': previous_trailing_data.iloc[:, 0].div,
+        'sum': previous_trailing_data.iloc[:, 0].add,
+        'difference': previous_trailing_data.iloc[:, 0].sub,
+        'product': previous_trailing_data.iloc[:, 0].mul
+    }
 
     # Perform the operation if it's valid
-    if operation in operation_map:
-        current_trailing_df[metric_name] = operation_map[operation](current_trailing_data.iloc[:, 1])
-        previous_trailing_df[metric_name] = operation_map[operation](previous_trailing_data.iloc[:, 1])
+    if operation in cy_ops:
+        current_trailing_df[metric_name] = cy_ops[operation](current_trailing_data.iloc[:, 1])
+        previous_trailing_df[metric_name] = py_ops[operation](previous_trailing_data.iloc[:, 1])
     else:
         raise ValueError(f"Unsupported operation: {operation}")
 
