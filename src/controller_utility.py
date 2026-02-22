@@ -169,7 +169,8 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
 
 
 def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics=None,
-                box_totals=None, bps_metrics=None, function_bps_metrics=None):
+                box_totals=None, bps_metrics=None, function_bps_metrics=None,
+                graph_axis_label=None):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -209,7 +210,7 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict, metrics
     is_trailing_twelve_months, month_start = _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1)
 
     # Set the x-axis label based on the determined start month.
-    six_twelve_chart.xAxis = get_x_axis_label(wbr1, month_start)
+    six_twelve_chart.xAxis = get_x_axis_label(graph_axis_label, month_start)
 
     # Validate that metrics are defined in the plot configuration.
     if 'metrics' not in plotting_dict:
@@ -588,12 +589,12 @@ def get_metric_series_data(metrics, metric, fiscal_start, is_trailing_twelve_mon
     return metric_series
 
 
-def get_x_axis_label(wbr1, month_start):
+def get_x_axis_label(graph_axis_label, month_start):
     """
     Generates the x-axis labels for a chart, starting from a specific month and including up to 12 months of data.
 
     Args:
-        wbr1 (WBR): The WBR object that contains the graph axis labels.
+        graph_axis_label (list): The full list of graph axis labels (weeks + separator + months).
         month_start (str): The name of the month from which to start generating x-axis labels.
 
     Returns:
@@ -601,14 +602,14 @@ def get_x_axis_label(wbr1, month_start):
         up to 12 months of data starting from `month_start`.
     """
     # Start with the first MONTHLY_DATA_START_INDEX x-axis labels (weeks + separator).
-    x_axis_label = list(wbr1.graph_axis_label)[0:MONTHLY_DATA_START_INDEX]
+    x_axis_label = list(graph_axis_label)[0:MONTHLY_DATA_START_INDEX]
 
     # Track whether we've encountered the starting month and count the total number of months added.
     month_cond = False
     total_months = 1
 
     # Extract the remaining month labels from beyond the weekly section.
-    month_labels = list(wbr1.graph_axis_label[MONTHLY_DATA_START_INDEX:])
+    month_labels = list(graph_axis_label[MONTHLY_DATA_START_INDEX:])
 
     # Iterate over the month labels, appending them once the start month is found.
     for month_label in month_labels:
@@ -690,8 +691,8 @@ def get_twelve_months_table_row(metrics, metric, itr_start):
     return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
 
 
-def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict, metrics=None,
-                   box_totals=None):
+def _6_weeks_table(decks, plot, wbr1, block_number, event_dict: dict, metrics=None,
+                   box_totals=None, graph_axis_label=None):
     """
     Constructs a 6-week table block for a specified plot using data from a WBR object.
 
@@ -720,7 +721,7 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict, metri
         six_weeks_table.title = plotting_dict['title']
 
     # Create the column headers for the table.
-    table_column_header = [wbr1.graph_axis_label[i] for i in range(0, NUM_TRAILING_WEEKS)]
+    table_column_header = [graph_axis_label[i] for i in range(0, NUM_TRAILING_WEEKS)]
     table_column_header.append("QTD")  # Add QTD column header.
     table_column_header.append("YTD")  # Add YTD column header.
     build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, metrics, box_totals, event_dict)
@@ -815,7 +816,7 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
     return row
 
 
-def _12_months_table(decks, plot, wbr1: WBR, block_number, metrics=None):
+def _12_months_table(decks, plot, wbr1, block_number, metrics=None, graph_axis_label=None):
     """
     Constructs and populates a 12-months table based on the provided plotting configuration and WBR data.
 
@@ -853,17 +854,19 @@ def _12_months_table(decks, plot, wbr1: WBR, block_number, metrics=None):
 
         # Calculate the starting index for the twelve-month table
         itr_start = next(
-            (i for i, month in enumerate(wbr1.graph_axis_label[MONTHLY_DATA_START_INDEX:])
+            (i for i, month in enumerate(graph_axis_label[MONTHLY_DATA_START_INDEX:])
              if month.lower() == fiscal_month.lower()),
-            len(wbr1.graph_axis_label[MONTHLY_DATA_START_INDEX:])  # Fallback in case fiscal_month is not found
+            len(graph_axis_label[MONTHLY_DATA_START_INDEX:])  # Fallback in case fiscal_month is not found
         )
 
-    build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, wbr1, metrics=metrics)
+    build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table,
+                          metrics=metrics, graph_axis_label=graph_axis_label)
 
     decks.blocks.append(twelve_months_table)
 
 
-def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, wbr1, metrics=None):
+def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, metrics=None,
+                          graph_axis_label=None):
     """
     Constructs and populates a 12-months table with the specified headers and rows based on the provided
     plotting configuration and WBR data.
@@ -873,8 +876,8 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
         itr_start (int): The starting index for the 12-month period in the graph axis labels.
         plotting_dict (dict): A dictionary containing the configuration for the plot, including row settings.
         twelve_months_table (TrailingTable): The table object to be populated with data.
-        wbr1 (WBR): The WBR object containing graph_axis_label and other data.
         metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        graph_axis_label (list): The full list of graph axis labels.
 
     Raises:
         SyntaxError: If the 'rows' key is not present in the plotting_dict.
@@ -884,7 +887,7 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
         None: This function does not return a value; it appends the constructed rows to the twelve_months_table.
     """
     # Set the headers for the twelve-months table
-    twelve_months_table.headers = wbr1.graph_axis_label[itr_start:itr_start + NUM_TRAILING_MONTHS]
+    twelve_months_table.headers = graph_axis_label[itr_start:itr_start + NUM_TRAILING_MONTHS]
     if 'rows' not in plotting_dict:
         raise SyntaxError(f"Bad Request! rows are not specified in the configuration at block: {block_number} at line: "
                           f"{plotting_dict['__line__']}")
@@ -1019,6 +1022,7 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     box_totals = report.box_totals
     bps_metrics = report.bps_metrics
     function_bps_metrics = report.function_bps_metrics
+    graph_axis_label = report.graph_axis_label
     plots = report.cfg['deck']
     deck = Deck()
 
@@ -1036,7 +1040,8 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     for i in range(len(plots)):
         build_a_block(deck, i, plots, report, event_dict, metrics=metrics,
                       box_totals=box_totals, bps_metrics=bps_metrics,
-                      function_bps_metrics=function_bps_metrics)
+                      function_bps_metrics=function_bps_metrics,
+                      graph_axis_label=graph_axis_label)
 
     deck.title = report.cfg['setup']['title']
 
@@ -1052,7 +1057,8 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
 
 
 def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict, metrics=None,
-                  box_totals=None, bps_metrics=None, function_bps_metrics=None):
+                  box_totals=None, bps_metrics=None, function_bps_metrics=None,
+                  graph_axis_label=None):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1079,12 +1085,14 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
     elif plotting_dict['ui_type'] == '6_12Graph':
         _6_12_chart(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
                     box_totals=box_totals, bps_metrics=bps_metrics,
-                    function_bps_metrics=function_bps_metrics)
+                    function_bps_metrics=function_bps_metrics,
+                    graph_axis_label=graph_axis_label)
     elif plotting_dict['ui_type'] == '6_WeeksTable':
         _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict, metrics=metrics,
-                       box_totals=box_totals)
+                       box_totals=box_totals, graph_axis_label=graph_axis_label)
     elif plotting_dict['ui_type'] == '12_MonthsTable':
-        _12_months_table(deck, plots[i], report, str(i + 1), metrics=metrics)
+        _12_months_table(deck, plots[i], report, str(i + 1), metrics=metrics,
+                         graph_axis_label=graph_axis_label)
     elif plotting_dict['ui_type'] == 'section':
         append_section_to_deck(deck, plots[i])
     elif plotting_dict['ui_type'] == 'embedded_content':
