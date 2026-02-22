@@ -18,6 +18,15 @@ import yaml
 from yaml import SafeLoader
 from yaml._yaml import ScannerError
 
+from src.constants import (
+    BOX_IDX_QTD,
+    BOX_IDX_YTD,
+    MONTHLY_DATA_START_INDEX,
+    NUM_TRAILING_MONTHS,
+    NUM_TRAILING_WEEKS,
+    PY_WEEKLY_OFFSET_DAYS,
+    SIX_WEEKS_LOOKBACK_DAYS,
+)
 from src.wbr import WBR
 from src.wbr_utility import if_else, put_into_map, if_else_supplier, append_to_list, is_last_day_of_month
 
@@ -119,15 +128,16 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
                                      based on the ratio of monthly to weekly maximum values.
     """
 
-    # Extract weekly (first 7 elements) and monthly (next 13 elements) data from the series
-    weekly_series = series[0:6]
-    monthly_series = series[7:19]
+    # Extract weekly and monthly data from the series
+    weekly_series = series[0:NUM_TRAILING_WEEKS]
+    monthly_series = series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS]
 
     # Check if the series contains float or integer values and compute maximum values
     if weekly_series.dtype.type is numpy.float64 or weekly_series.dtype.type is numpy.int:
         # Mask NaN values and calculate the maximum of weekly and monthly series
-        weekly_max = numpy.ma.array(weekly_series, mask=numpy.isnan(series[0:6])).max()
-        monthly_max = numpy.ma.array(monthly_series, mask=numpy.isnan(series[7:19])).max()
+        weekly_max = numpy.ma.array(weekly_series, mask=numpy.isnan(series[0:NUM_TRAILING_WEEKS])).max()
+        monthly_max = numpy.ma.array(monthly_series, mask=numpy.isnan(
+            series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS])).max()
 
         # Determine if both weekly and monthly data can be shown on a single axis
         is_single_axis = True if weekly_max > 0 and 0 < monthly_max / weekly_max <= 3 else False
@@ -139,12 +149,12 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     primary_and_secondary_axis_value_list = []
 
     # Prepare primary (weekly) axis values with padding to align with monthly data
-    wkd = series[0:6]
-    wkd.extend(['', '', '', '', '', '', '', '', '', '', '', '', ''])  # Pad to align with monthly data length
+    wkd = series[0:NUM_TRAILING_WEEKS]
+    wkd.extend([''] * (1 + NUM_TRAILING_MONTHS))  # Pad to align with monthly data length
 
     # Prepare secondary (monthly) axis values with padding to align with weekly data
-    md = ['', '', '', '', '', '', '']  # Pad to align with weekly data length
-    md.extend(series[7:19])
+    md = [''] * MONTHLY_DATA_START_INDEX  # Pad to align with weekly data length
+    md.extend(series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS])
 
     # Store the primary and secondary axis values in dictionaries
     primary_axis_values = {'primaryAxis': wkd}
@@ -408,7 +418,7 @@ def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1):
         )
     else:
         # Default to a 12-month trailing view.
-        month_start = (end_date - dateutil.relativedelta.relativedelta(months=11)).strftime("%b")
+        month_start = (end_date - dateutil.relativedelta.relativedelta(months=NUM_TRAILING_MONTHS - 1)).strftime("%b")
         is_trailing_twelve_months = True
 
     return is_trailing_twelve_months, month_start
@@ -460,7 +470,7 @@ def get_x_axis_display_start_month(block_number, end_date: datetime, month_start
     elif month_start == 'trailing_twelve_months':
         # Return the month that is 11 months prior to the `end_date`, representing the start of the trailing twelve
         # months.
-        return (end_date - dateutil.relativedelta.relativedelta(months=11)).strftime("%b"), True
+        return (end_date - dateutil.relativedelta.relativedelta(months=NUM_TRAILING_MONTHS - 1)).strftime("%b"), True
 
     else:
         # Raise an error if the `month_start` value is not 'fiscal_year' or 'trailing_twelve_months'.
@@ -493,7 +503,7 @@ def get_month_start(week_ending_month, week_ending_year, fiscal_month):
 
     # Return the last day of the fiscal month, subtracting 11 months to get the start of the 12-month period.
     return last_day_of_month(datetime.date(week_ending_year, fiscal_month, 1)) - dateutil.relativedelta.relativedelta(
-        months=11)
+        months=NUM_TRAILING_MONTHS - 1)
 
 
 def last_day_of_month(any_day):
@@ -529,27 +539,27 @@ def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months
         with up to 12 months of data.
     """
 
-    # Start by taking the first 6 data points of the metric.
-    metric_series = wbr1.metrics[metric].copy()[0:6]
+    # Start by taking the first NUM_TRAILING_WEEKS data points of the metric.
+    metric_series = wbr1.metrics[metric].copy()[0:NUM_TRAILING_WEEKS]
 
     # Concatenate a NaN value for padding, then reset index for proper series alignment.
     metric_series = pd.concat([metric_series, pd.Series(np.nan)]).reset_index(drop=True)
 
-    # Copy the metric data for the months beyond the first 6 data points.
-    months_data = list(wbr1.metrics[metric].copy()[7:])
+    # Copy the metric data for the months beyond the weekly data points.
+    months_data = list(wbr1.metrics[metric].copy()[MONTHLY_DATA_START_INDEX:])
 
     # Copy the corresponding dates from the 'Date' column in the WBR metrics.
-    axis_data = list(wbr1.metrics['Date'].copy()[7:])
+    axis_data = list(wbr1.metrics['Date'].copy()[MONTHLY_DATA_START_INDEX:])
 
     # Initialize conditions to track the month matching and total number of months processed.
     month_cond = False
     total_months = 1
 
-    # Iterate through the months data to collect up to 12 months of aligned metric data.
+    # Iterate through the months data to collect up to NUM_TRAILING_MONTHS of aligned metric data.
     for i in range(len(months_data)):
         # Check if the current date aligns with the fiscal start date or the trailing twelve months condition is met.
         if ((str(axis_data[i]).replace(' 00:00:00', '').lower() == str(
-                fiscal_start) or is_trailing_twelve_months or month_cond) and total_months <= 12):
+                fiscal_start) or is_trailing_twelve_months or month_cond) and total_months <= NUM_TRAILING_MONTHS):
             # Set month condition to True after the first match, and increment total_months.
             month_cond = True
             total_months += 1
@@ -572,20 +582,20 @@ def get_x_axis_label(wbr1, month_start):
         list: A list of x-axis labels, starting with the first 7 labels from the WBR object, followed by
         up to 12 months of data starting from `month_start`.
     """
-    # Start with the first 7 x-axis labels.
-    x_axis_label = list(wbr1.graph_axis_label)[0:7]
+    # Start with the first MONTHLY_DATA_START_INDEX x-axis labels (weeks + separator).
+    x_axis_label = list(wbr1.graph_axis_label)[0:MONTHLY_DATA_START_INDEX]
 
     # Track whether we've encountered the starting month and count the total number of months added.
     month_cond = False
     total_months = 1
 
-    # Extract the remaining month labels from the 8th element onward.
-    month_labels = list(wbr1.graph_axis_label[7:])
+    # Extract the remaining month labels from beyond the weekly section.
+    month_labels = list(wbr1.graph_axis_label[MONTHLY_DATA_START_INDEX:])
 
     # Iterate over the month labels, appending them once the start month is found.
     for month_label in month_labels:
         # Check if the current month matches the start month or if the condition to append is already True.
-        if (str(month_label).lower() == month_start.lower() or month_cond) and total_months <= 12:
+        if (str(month_label).lower() == month_start.lower() or month_cond) and total_months <= NUM_TRAILING_MONTHS:
             month_cond = True  # Start appending months once the condition is satisfied.
             total_months += 1  # Increment the count of months added.
             x_axis_label.append(month_label)
@@ -615,7 +625,7 @@ def get_six_weeks_table_row_data(wbr1, metric, line_number):
     metric_data = wbr1.metrics[metric]
 
     # Replace NaN values with blank spaces for the six weeks of data.
-    six_weeks_table_data = [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(0, 6)]
+    six_weeks_table_data = [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(0, NUM_TRAILING_WEEKS)]
 
     # Raise an exception if the metric is a Month-over-Month (MOM) type, as it's unsupported for six weeks tables.
     if "MOM" in metric:
@@ -624,13 +634,13 @@ def get_six_weeks_table_row_data(wbr1, metric, line_number):
 
     # If the metric is not a Week-over-Week (WOW) type, append additional data from box_totals.
     if "WOW" not in metric:
-        # Check the 6th week's box total value, append " " if it is NaN or 'N/A', otherwise append the value.
-        if_else(wbr1.box_totals.loc[5, metric], lambda x: x == 'N/A' or numpy.isnan(x),
+        # Check the QTD box total value, append " " if it is NaN or 'N/A', otherwise append the value.
+        if_else(wbr1.box_totals.loc[BOX_IDX_QTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
                 lambda x: append_to_list(" ", six_weeks_table_data),
                 lambda x: append_to_list(x, six_weeks_table_data))
 
-        # Check the 8th week's box total value, and apply the same logic as for the 6th week's value.
-        if_else(wbr1.box_totals.loc[7, metric], lambda x: x == 'N/A' or numpy.isnan(x),
+        # Check the YTD box total value, and apply the same logic.
+        if_else(wbr1.box_totals.loc[BOX_IDX_YTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
                 lambda x: append_to_list(" ", six_weeks_table_data),
                 lambda x: append_to_list(x, six_weeks_table_data))
     else:
@@ -658,7 +668,7 @@ def get_twelve_months_table_row(wbr1, metric, itr_start):
     metric_data = wbr1.metrics[metric]
 
     # Generate a list for twelve months of data, replacing NaN values with blank spaces.
-    return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + 12)]
+    return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
 
 
 def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
@@ -690,7 +700,7 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
         six_weeks_table.title = plotting_dict['title']
 
     # Create the column headers for the table.
-    table_column_header = [wbr1.graph_axis_label[i] for i in range(0, 6)]
+    table_column_header = [wbr1.graph_axis_label[i] for i in range(0, NUM_TRAILING_WEEKS)]
     table_column_header.append("QTD")  # Add QTD column header.
     table_column_header.append("YTD")  # Add YTD column header.
     build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1, event_dict)
@@ -804,7 +814,7 @@ def _12_months_table(decks, plot, wbr1: WBR, block_number):
     if 'title' in plotting_dict:
         twelve_months_table.title = plotting_dict['title']
 
-    itr_start = 7
+    itr_start = MONTHLY_DATA_START_INDEX
 
     if 'x_axis_monthly_display' in plotting_dict:
         month_start = plotting_dict['x_axis_monthly_display']
@@ -820,9 +830,9 @@ def _12_months_table(decks, plot, wbr1: WBR, block_number):
 
         # Calculate the starting index for the twelve-month table
         itr_start = next(
-            (i for i, month in enumerate(wbr1.graph_axis_label[7:])
+            (i for i, month in enumerate(wbr1.graph_axis_label[MONTHLY_DATA_START_INDEX:])
              if month.lower() == fiscal_month.lower()),
-            len(wbr1.graph_axis_label[7:])  # Fallback in case fiscal_month is not found
+            len(wbr1.graph_axis_label[MONTHLY_DATA_START_INDEX:])  # Fallback in case fiscal_month is not found
         )
 
     build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, wbr1)
@@ -850,7 +860,7 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
         None: This function does not return a value; it appends the constructed rows to the twelve_months_table.
     """
     # Set the headers for the twelve-months table
-    twelve_months_table.headers = wbr1.graph_axis_label[itr_start:itr_start + 12]
+    twelve_months_table.headers = wbr1.graph_axis_label[itr_start:itr_start + NUM_TRAILING_MONTHS]
     if 'rows' not in plotting_dict:
         raise SyntaxError(f"Bad Request! rows are not specified in the configuration at block: {block_number} at line: "
                           f"{plotting_dict['__line__']}")
@@ -948,9 +958,9 @@ def filter_events(wbr: WBR, event_df, event_errors: list) -> dict:
     if event_df is None:
         return {}
     week_ending = wbr.cy_week_ending
-    cy_six_weeks_ago = week_ending - datetime.timedelta(days=41)
-    py_six_weeks_end = week_ending - datetime.timedelta(days=364)
-    py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=41)
+    cy_six_weeks_ago = week_ending - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
+    py_six_weeks_end = week_ending - datetime.timedelta(days=PY_WEEKLY_OFFSET_DAYS)
+    py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
 
     cy_six_weeks_events = event_df.query('Date >= @cy_six_weeks_ago and Date <= @week_ending')
     py_six_weeks_events = event_df.query('Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end')

@@ -8,6 +8,18 @@ import numpy as np
 import pandas as pd
 from dateutil import relativedelta
 
+from src.constants import (
+    NUM_TRAILING_MONTHS,
+    NUM_TRAILING_WEEKS,
+    SIX_WEEKS_LOOKBACK_DAYS,
+    WEEKS_PER_YEAR,
+    YOY_IDX_CY_WK5,
+    YOY_IDX_PY_MTD,
+    YOY_IDX_PY_QTD,
+    YOY_IDX_PY_WK6,
+    YOY_IDX_PY_YTD,
+)
+
 
 def append_to_list(data: Any, to_append_list: list):
     to_append_list.append(data)
@@ -55,20 +67,20 @@ def apply_operation_and_return_denominator_values(operation, columns, yoy_requir
     value_list = []
 
     if operation == 'sum':
-        # Compute sum for specified indices and append to value_list
-        value_list.append(apply_sum_operations(yoy_required_values_df, columns, 1))
-        value_list.append(apply_sum_operations(yoy_required_values_df, columns, 2))
-        value_list.append(apply_sum_operations(yoy_required_values_df, columns, 5))
-        value_list.append(apply_sum_operations(yoy_required_values_df, columns, 7))
-        value_list.append(apply_sum_operations(yoy_required_values_df, columns, 9))
+        # Compute sum for specified PY indices and append to value_list
+        value_list.append(apply_sum_operations(yoy_required_values_df, columns, YOY_IDX_CY_WK5))
+        value_list.append(apply_sum_operations(yoy_required_values_df, columns, YOY_IDX_PY_WK6))
+        value_list.append(apply_sum_operations(yoy_required_values_df, columns, YOY_IDX_PY_MTD))
+        value_list.append(apply_sum_operations(yoy_required_values_df, columns, YOY_IDX_PY_QTD))
+        value_list.append(apply_sum_operations(yoy_required_values_df, columns, YOY_IDX_PY_YTD))
 
     elif operation == 'difference':
-        # Calculate the difference between the specified columns for specific indices
-        value_list.append(yoy_required_values_df[columns[0]][1] - yoy_required_values_df[columns[1]][1])
-        value_list.append(yoy_required_values_df[columns[0]][2] - yoy_required_values_df[columns[1]][2])
-        value_list.append(yoy_required_values_df[columns[0]][5] - yoy_required_values_df[columns[1]][5])
-        value_list.append(yoy_required_values_df[columns[0]][7] - yoy_required_values_df[columns[1]][7])
-        value_list.append(yoy_required_values_df[columns[0]][9] - yoy_required_values_df[columns[1]][9])
+        # Calculate the difference between the specified columns for PY indices
+        value_list.append(yoy_required_values_df[columns[0]][YOY_IDX_CY_WK5] - yoy_required_values_df[columns[1]][YOY_IDX_CY_WK5])
+        value_list.append(yoy_required_values_df[columns[0]][YOY_IDX_PY_WK6] - yoy_required_values_df[columns[1]][YOY_IDX_PY_WK6])
+        value_list.append(yoy_required_values_df[columns[0]][YOY_IDX_PY_MTD] - yoy_required_values_df[columns[1]][YOY_IDX_PY_MTD])
+        value_list.append(yoy_required_values_df[columns[0]][YOY_IDX_PY_QTD] - yoy_required_values_df[columns[1]][YOY_IDX_PY_QTD])
+        value_list.append(yoy_required_values_df[columns[0]][YOY_IDX_PY_YTD] - yoy_required_values_df[columns[1]][YOY_IDX_PY_YTD])
 
     # Replace zero values with NaN for proper handling of invalid data
     for i in range(len(value_list)):
@@ -206,7 +218,7 @@ def create_trailing_six_weeks(df, week_ending, aggf):
     week_number_and_week_day = {1: 'W-Mon', 2: 'W-Tue', 3: 'W-Wed', 4: 'W-Thu', 5: 'W-Fri', 6: 'W-Sat', 7: 'W-Sun'}
 
     # Calculate the date six weeks ago
-    six_weeks_ago = week_ending - datetime.timedelta(days=41)
+    six_weeks_ago = week_ending - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
 
     # Get daily data for the trailing 6 weeks
     trailing_six_weeks_daily = df.query('Date >= @six_weeks_ago and Date <= @week_ending')
@@ -226,8 +238,8 @@ def create_trailing_six_weeks(df, week_ending, aggf):
     else:
         earliest_week = trailing_six_weeks_weekly.loc[0].Date
 
-    # Pad the DataFrame to ensure it has exactly 6 rows
-    for _ in range(1, (6 - len(trailing_six_weeks_weekly) + 1)):
+    # Pad the DataFrame to ensure it has exactly NUM_TRAILING_WEEKS rows
+    for _ in range(1, (NUM_TRAILING_WEEKS - len(trailing_six_weeks_weekly) + 1)):
         earliest_week -= datetime.timedelta(days=7)
         trailing_six_weeks_weekly = create_new_row(earliest_week, trailing_six_weeks_weekly)
 
@@ -285,7 +297,7 @@ def create_trailing_twelve_months(df, week_ending, aggf):
         end_date = week_ending.replace(day=1) - datetime.timedelta(days=1)
 
     # Define the beginning date for the trailing twelve months
-    begin_date = end_date - dateutil.relativedelta.relativedelta(months=11)
+    begin_date = end_date - dateutil.relativedelta.relativedelta(months=NUM_TRAILING_MONTHS - 1)
 
     # Filter monthly data for the last twelve months
     trailing_twelve_months_monthly = (
@@ -302,8 +314,8 @@ def create_trailing_twelve_months(df, week_ending, aggf):
     else:
         earliest_month = trailing_twelve_months_monthly.loc[0].Date
 
-    # Pad with empty rows if there are less than 12 months of data
-    for i in range(1, (12 - len(trailing_twelve_months_monthly) + 1)):
+    # Pad with empty rows if there are less than NUM_TRAILING_MONTHS months of data
+    for i in range(1, (NUM_TRAILING_MONTHS - len(trailing_twelve_months_monthly) + 1)):
         earliest_month = earliest_month.replace(day=1) - datetime.timedelta(days=1)
         trailing_twelve_months_monthly = create_new_row(earliest_month, trailing_twelve_months_monthly)
 
@@ -332,8 +344,8 @@ def create_axis_label(week_ending, week_number, number_of_months):
     axis_label = []
 
     # Append last six-week labels
-    for i in range(6, 0, -1):
-        axis_label.append("wk " + str((week_number - i) % 52 + 1))
+    for i in range(NUM_TRAILING_WEEKS, 0, -1):
+        axis_label.append("wk " + str((week_number - i) % WEEKS_PER_YEAR + 1))
 
     # Append an empty space to separate weeks and months on the chart
     axis_label.append(" ")
@@ -347,7 +359,7 @@ def create_axis_label(week_ending, week_number, number_of_months):
         last_full_month = week_ending.replace(day=1) - datetime.timedelta(days=1)
 
     # Calculate the first full month in the trailing twelve months
-    first_full_month = last_full_month - dateutil.relativedelta.relativedelta(months=11)
+    first_full_month = last_full_month - dateutil.relativedelta.relativedelta(months=NUM_TRAILING_MONTHS - 1)
 
     # Append month abbreviations for the trailing twelve months
     for i in range(number_of_months):

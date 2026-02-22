@@ -7,6 +7,32 @@ import numpy as np
 import pandas as pd
 from dateutil import relativedelta
 
+from src.constants import (
+    BPS_MULTIPLIER,
+    BOX_IDX_LAST_WK,
+    BOX_IDX_MTD,
+    BOX_IDX_QTD,
+    BOX_IDX_WOW,
+    BOX_IDX_YOY_MTD,
+    BOX_IDX_YOY_QTD,
+    BOX_IDX_YOY_WK,
+    BOX_IDX_YOY_YTD,
+    BOX_IDX_YTD,
+    MONTHLY_DATA_START_INDEX,
+    NUM_BOX_TOTAL_ROWS,
+    NUM_TRAILING_WEEKS,
+    PCT_MULTIPLIER,
+    PY_WEEKLY_OFFSET_DAYS,
+    YOY_IDX_CY_MTD,
+    YOY_IDX_CY_QTD,
+    YOY_IDX_CY_WK5,
+    YOY_IDX_CY_WK6,
+    YOY_IDX_CY_YTD,
+    YOY_IDX_PY_MTD,
+    YOY_IDX_PY_QTD,
+    YOY_IDX_PY_WK6,
+    YOY_IDX_PY_YTD,
+)
 import src.wbr_utility as wbr_util
 
 
@@ -123,7 +149,7 @@ class WBR:
 
         self.py_trailing_six_weeks = wbr_util.create_trailing_six_weeks(
             self.dyna_data_frame,
-            self.cy_week_ending - timedelta(days=364),
+            self.cy_week_ending - timedelta(days=PY_WEEKLY_OFFSET_DAYS),
             self.metric_aggregation
         ).add_prefix('PY__')
 
@@ -275,8 +301,10 @@ class WBR:
         box_totals_wow_df = pd.DataFrame([['N/A'] * len(operated_data_frame.columns)],
                                          columns=operated_data_frame.columns)
 
-        # Repeat the row 9 times to match your original approach
-        box_totals_wow_df = box_totals_wow_df.loc[box_totals_wow_df.index.repeat(9)].reset_index(drop=True)
+        # Repeat the row to match box totals structure
+        box_totals_wow_df = box_totals_wow_df.loc[
+            box_totals_wow_df.index.repeat(NUM_BOX_TOTAL_ROWS)
+        ].reset_index(drop=True)
 
         # Concatenate the new DataFrame with the existing one
         self.box_totals = pd.concat([self.box_totals, box_totals_wow_df], axis=1)
@@ -335,7 +363,7 @@ class WBR:
             columns={col: col + 'MOM' for col in operated_data_frame.columns})
 
         # Append None values to align the index with metric_df
-        nan_rows = pd.DataFrame(np.nan, index=range(7), columns=operated_data_frame.columns)
+        nan_rows = pd.DataFrame(np.nan, index=range(MONTHLY_DATA_START_INDEX), columns=operated_data_frame.columns)
         operated_data_frame = pd.concat([nan_rows, operated_data_frame], ignore_index=True)
 
         # Concatenate the operated data frame with the original metric DataFrame
@@ -345,8 +373,10 @@ class WBR:
         box_total_mom_df = pd.DataFrame([['N/A'] * len(operated_data_frame.columns)],
                                         columns=operated_data_frame.columns)
 
-        # Repeat the row 9 times to match your original approach
-        box_total_mom_df = box_total_mom_df.loc[box_total_mom_df.index.repeat(9)].reset_index(drop=True)
+        # Repeat the row to match box totals structure
+        box_total_mom_df = box_total_mom_df.loc[
+            box_total_mom_df.index.repeat(NUM_BOX_TOTAL_ROWS)
+        ].reset_index(drop=True)
 
         # Concatenate the new DataFrame with the existing one
         self.box_totals = pd.concat([self.box_totals, box_total_mom_df], axis=1)
@@ -383,9 +413,9 @@ class WBR:
                 ],
                 axis=1
             )
-            # Multiply by 10,000 if required for basis points
+            # Multiply by BPS_MULTIPLIER if required for basis points
             if do_multiply:
-                operated_data_frame = operated_data_frame.mul(10000)
+                operated_data_frame = operated_data_frame.mul(BPS_MULTIPLIER)
 
         # Calculate differences for function basis points metrics
         if len(self.function_bps_metrics) > 0:
@@ -397,9 +427,9 @@ class WBR:
                 ],
                 axis=1
             )
-            # Multiply by 10,000 if required for basis points
+            # Multiply by BPS_MULTIPLIER if required for basis points
             if do_multiply:
-                operated_data_frame = operated_data_frame.mul(10000)
+                operated_data_frame = operated_data_frame.mul(BPS_MULTIPLIER)
 
         # Calculate percentage changes for percentile metrics
         if len(self.percentile_metrics) > 0:
@@ -411,9 +441,9 @@ class WBR:
                 ],
                 axis=1
             )
-            # Multiply by 100 if required for percentage
+            # Multiply by PCT_MULTIPLIER if required for percentage
             if do_multiply:
-                operated_data_frame = operated_data_frame.mul(100)
+                operated_data_frame = operated_data_frame.mul(PCT_MULTIPLIER)
 
         # Calculate percentage changes for function percentile metrics
         if len(self.function_percentile_metrics) > 0:
@@ -425,9 +455,9 @@ class WBR:
                 ],
                 axis=1
             )
-            # Multiply by 100 if required for percentage
+            # Multiply by PCT_MULTIPLIER if required for percentage
             if do_multiply:
-                operated_data_frame = operated_data_frame.mul(100)
+                operated_data_frame = operated_data_frame.mul(PCT_MULTIPLIER)
 
         return operated_data_frame  # Return the DataFrame with calculated values
 
@@ -459,8 +489,8 @@ class WBR:
                                                                                py_weekly_and_monthly_data, False)
 
         # Extract week 6 and week 5 data for further calculations
-        week_6_df = pd.DataFrame(operated_data_frame.iloc[5]).T.reset_index(drop=True)
-        week_5_df = pd.DataFrame(operated_data_frame.iloc[4]).T.reset_index(drop=True)
+        week_6_df = pd.DataFrame(operated_data_frame.iloc[NUM_TRAILING_WEEKS - 1]).T.reset_index(drop=True)
+        week_5_df = pd.DataFrame(operated_data_frame.iloc[NUM_TRAILING_WEEKS - 2]).T.reset_index(drop=True)
 
         # Calculate WoW for the extracted weeks
         wow_dataframe = self.calculate_mom_wow_yoy_bps_or_percent_values(week_6_df, week_5_df, True)
@@ -482,13 +512,13 @@ class WBR:
         # Fill missing values and update with WoW values
         for j in range(len(box_data_frame.columns)):
             column_name = box_data_frame.columns[j]
-            box_data_frame.loc[1, column_name] = wow_dataframe.loc[0, column_name]
+            box_data_frame.loc[BOX_IDX_WOW, column_name] = wow_dataframe.loc[0, column_name]
 
-        # Fill missing values in specific rows
-        box_data_frame.loc[0] = box_data_frame.loc[0].fillna(0)
-        box_data_frame.loc[3] = box_data_frame.loc[3].fillna(0)
-        box_data_frame.loc[5] = box_data_frame.loc[5].fillna(0)
-        box_data_frame.loc[7] = box_data_frame.loc[7].fillna(0)
+        # Fill missing values in absolute-value rows (not comparison rows)
+        box_data_frame.loc[BOX_IDX_LAST_WK] = box_data_frame.loc[BOX_IDX_LAST_WK].fillna(0)
+        box_data_frame.loc[BOX_IDX_MTD] = box_data_frame.loc[BOX_IDX_MTD].fillna(0)
+        box_data_frame.loc[BOX_IDX_QTD] = box_data_frame.loc[BOX_IDX_QTD].fillna(0)
+        box_data_frame.loc[BOX_IDX_YTD] = box_data_frame.loc[BOX_IDX_YTD].fillna(0)
 
         # Rename columns for the box totals DataFrame
         box_data_frame = box_data_frame.rename(columns={col: col + 'YOY' for col in box_data_frame.columns})
@@ -774,38 +804,40 @@ class WBR:
         self.yoy_required_metrics_data[metric_name] = (self.yoy_required_metrics_data[columns[0]]
                                                        / self.yoy_required_metrics_data[columns[1]])
 
+        yoy = self.yoy_required_metrics_data
+
         # Calculate WoW (Week-over-Week) YOY values
-        box_totals[1] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][0] / self.yoy_required_metrics_data[columns[1]][0]),
-            (self.yoy_required_metrics_data[columns[0]][1] / self.yoy_required_metrics_data[columns[1]][1]),
+        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_WK6] / yoy[columns[1]][YOY_IDX_CY_WK6]),
+            (yoy[columns[0]][YOY_IDX_CY_WK5] / yoy[columns[1]][YOY_IDX_CY_WK5]),
             metric_name
         )
 
-        # Calculate WOW YOY values
-        box_totals[2] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][0] / self.yoy_required_metrics_data[columns[1]][0]),
-            (self.yoy_required_metrics_data[columns[0]][2] / self.yoy_required_metrics_data[columns[1]][2]),
+        # Calculate weekly YOY values
+        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_WK6] / yoy[columns[1]][YOY_IDX_CY_WK6]),
+            (yoy[columns[0]][YOY_IDX_PY_WK6] / yoy[columns[1]][YOY_IDX_PY_WK6]),
             metric_name
         )
 
         # Calculate MTD (Month-to-Date) YOY values
-        box_totals[4] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][4] / self.yoy_required_metrics_data[columns[1]][4]),
-            (self.yoy_required_metrics_data[columns[0]][5] / self.yoy_required_metrics_data[columns[1]][5]),
+        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_MTD] / yoy[columns[1]][YOY_IDX_CY_MTD]),
+            (yoy[columns[0]][YOY_IDX_PY_MTD] / yoy[columns[1]][YOY_IDX_PY_MTD]),
             metric_name
         )
 
         # Calculate QTD (Quarter-to-Date) YOY values
-        box_totals[6] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][6] / self.yoy_required_metrics_data[columns[1]][6]),
-            (self.yoy_required_metrics_data[columns[0]][7] / self.yoy_required_metrics_data[columns[1]][7]),
+        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_QTD] / yoy[columns[1]][YOY_IDX_CY_QTD]),
+            (yoy[columns[0]][YOY_IDX_PY_QTD] / yoy[columns[1]][YOY_IDX_PY_QTD]),
             metric_name
         )
 
         # Calculate YTD (Year-to-Date) YOY values
-        box_totals[8] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][8] / self.yoy_required_metrics_data[columns[1]][8]),
-            (self.yoy_required_metrics_data[columns[0]][9] / self.yoy_required_metrics_data[columns[1]][9]),
+        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_YTD] / yoy[columns[1]][YOY_IDX_CY_YTD]),
+            (yoy[columns[0]][YOY_IDX_PY_YTD] / yoy[columns[1]][YOY_IDX_PY_YTD]),
             metric_name
         )
 
@@ -836,28 +868,28 @@ class WBR:
         value_list = wbr_util.apply_operation_and_return_denominator_values('sum', columns, yoy_field_values)
 
         # Calculate WoW (Week-over-Week) YOY values and store in box_totals
-        box_totals[1] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, 0), value_list[0], metric_name
+        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
+            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_WK6), value_list[0], metric_name
         )
 
-        # Calculate WOW YOY values and store in box_totals
-        box_totals[2] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, 0), value_list[1], metric_name
+        # Calculate weekly YOY values and store in box_totals
+        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
+            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_WK6), value_list[1], metric_name
         )
 
         # Calculate MTD (Month-to-Date) YOY values and store in box_totals
-        box_totals[4] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, 4), value_list[2], metric_name
+        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
+            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_MTD), value_list[2], metric_name
         )
 
         # Calculate QTD (Quarter-to-Date) YOY values and store in box_totals
-        box_totals[6] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, 6), value_list[3], metric_name
+        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
+            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_QTD), value_list[3], metric_name
         )
 
         # Calculate YTD (Year-to-Date) YOY values and store in box_totals
-        box_totals[8] = self.calculate_yoy_box_total(
-            wbr_util.apply_sum_operations(yoy_field_values, columns, 8), value_list[4], metric_name
+        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
+            wbr_util.apply_sum_operations(yoy_field_values, columns, YOY_IDX_CY_YTD), value_list[4], metric_name
         )
 
     def box_total_diff_calculation(self, metric_name, columns, box_totals):
@@ -891,28 +923,33 @@ class WBR:
         )
 
         # Calculate WoW (Week-over-Week) YOY difference and store in box_totals
-        box_totals[1] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][0] - yoy_field_values[columns[1]][0]), value_list[0], metric_name
+        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
+            (yoy_field_values[columns[0]][YOY_IDX_CY_WK6] - yoy_field_values[columns[1]][YOY_IDX_CY_WK6]),
+            value_list[0], metric_name
         )
 
-        # Calculate WOW YOY difference and store in box_totals
-        box_totals[2] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][0] - yoy_field_values[columns[1]][0]), value_list[1], metric_name
+        # Calculate weekly YOY difference and store in box_totals
+        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
+            (yoy_field_values[columns[0]][YOY_IDX_CY_WK6] - yoy_field_values[columns[1]][YOY_IDX_CY_WK6]),
+            value_list[1], metric_name
         )
 
         # Calculate MTD (Month-to-Date) YOY difference and store in box_totals
-        box_totals[4] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][4] - yoy_field_values[columns[1]][4]), value_list[2], metric_name
+        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
+            (yoy_field_values[columns[0]][YOY_IDX_CY_MTD] - yoy_field_values[columns[1]][YOY_IDX_CY_MTD]),
+            value_list[2], metric_name
         )
 
         # Calculate QTD (Quarter-to-Date) YOY difference and store in box_totals
-        box_totals[6] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][6] - yoy_field_values[columns[1]][6]), value_list[3], metric_name
+        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
+            (yoy_field_values[columns[0]][YOY_IDX_CY_QTD] - yoy_field_values[columns[1]][YOY_IDX_CY_QTD]),
+            value_list[3], metric_name
         )
 
         # Calculate YTD (Year-to-Date) YOY difference and store in box_totals
-        box_totals[8] = self.calculate_yoy_box_total(
-            (yoy_field_values[columns[0]][8] - yoy_field_values[columns[1]][8]), value_list[4], metric_name
+        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
+            (yoy_field_values[columns[0]][YOY_IDX_CY_YTD] - yoy_field_values[columns[1]][YOY_IDX_CY_YTD]),
+            value_list[4], metric_name
         )
 
     def box_total_product_calculation(self, metric_name, columns, box_totals):
@@ -933,44 +970,46 @@ class WBR:
                 self.yoy_required_metrics_data[columns[0]] * self.yoy_required_metrics_data[columns[1]]
         )
 
+        yoy = self.yoy_required_metrics_data
+
         # Calculate WoW (Week-over-Week) YOY product and store in box_totals
-        box_totals[1] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][0] * self.yoy_required_metrics_data[columns[1]][0]),
-            (self.yoy_required_metrics_data[columns[0]][1] * self.yoy_required_metrics_data[columns[1]][1]),
+        box_totals[BOX_IDX_WOW] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_WK6] * yoy[columns[1]][YOY_IDX_CY_WK6]),
+            (yoy[columns[0]][YOY_IDX_CY_WK5] * yoy[columns[1]][YOY_IDX_CY_WK5]),
             metric_name
         )
 
-        # Calculate WOW YOY product and store in box_totals
-        box_totals[2] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][0] * self.yoy_required_metrics_data[columns[1]][0]),
-            (self.yoy_required_metrics_data[columns[0]][2] * self.yoy_required_metrics_data[columns[1]][2]),
+        # Calculate weekly YOY product and store in box_totals
+        box_totals[BOX_IDX_YOY_WK] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_WK6] * yoy[columns[1]][YOY_IDX_CY_WK6]),
+            (yoy[columns[0]][YOY_IDX_PY_WK6] * yoy[columns[1]][YOY_IDX_PY_WK6]),
             metric_name
         )
 
         # Calculate MTD (Month-to-Date) YOY product and store in box_totals
-        box_totals[4] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][4] * self.yoy_required_metrics_data[columns[1]][4]),
-            (self.yoy_required_metrics_data[columns[0]][5] * self.yoy_required_metrics_data[columns[1]][5]),
+        box_totals[BOX_IDX_YOY_MTD] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_MTD] * yoy[columns[1]][YOY_IDX_CY_MTD]),
+            (yoy[columns[0]][YOY_IDX_PY_MTD] * yoy[columns[1]][YOY_IDX_PY_MTD]),
             metric_name
         )
 
         # Calculate QTD (Quarter-to-Date) YOY product and store in box_totals
-        box_totals[6] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][6] * self.yoy_required_metrics_data[columns[1]][6]),
-            (self.yoy_required_metrics_data[columns[0]][7] * self.yoy_required_metrics_data[columns[1]][7]),
+        box_totals[BOX_IDX_YOY_QTD] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_QTD] * yoy[columns[1]][YOY_IDX_CY_QTD]),
+            (yoy[columns[0]][YOY_IDX_PY_QTD] * yoy[columns[1]][YOY_IDX_PY_QTD]),
             metric_name
         )
 
         # Calculate YTD (Year-to-Date) YOY product and store in box_totals
-        box_totals[8] = self.calculate_yoy_box_total(
-            (self.yoy_required_metrics_data[columns[0]][8] * self.yoy_required_metrics_data[columns[1]][8]),
-            (self.yoy_required_metrics_data[columns[0]][9] * self.yoy_required_metrics_data[columns[1]][9]),
+        box_totals[BOX_IDX_YOY_YTD] = self.calculate_yoy_box_total(
+            (yoy[columns[0]][YOY_IDX_CY_YTD] * yoy[columns[1]][YOY_IDX_CY_YTD]),
+            (yoy[columns[0]][YOY_IDX_PY_YTD] * yoy[columns[1]][YOY_IDX_PY_YTD]),
             metric_name
         )
 
     def calculate_yoy_box_total(self, operand_1, operand_2, metric_name):
-        return (operand_1 - operand_2) * 10000 if metric_name in self.function_bps_metrics else (
-                ((operand_1/operand_2) - 1) * 100)
+        return (operand_1 - operand_2) * BPS_MULTIPLIER if metric_name in self.function_bps_metrics else (
+                ((operand_1/operand_2) - 1) * PCT_MULTIPLIER)
 
     def compute_extra_months(self):
         if not wbr_util.is_last_day_of_month(self.cy_week_ending):
@@ -1138,8 +1177,12 @@ class WBR:
         py_box_totals = pd.DataFrame()
 
         # Extract specific rows from current year (cy) and previous year (py) trailing six weeks dataframes
-        cy_wk6, cy_wk5, py_wk6, py_wk5 = (self.cy_trailing_six_weeks.iloc[[5]], self.cy_trailing_six_weeks.iloc[[4]],
-                                          self.py_trailing_six_weeks.iloc[[5]], self.py_trailing_six_weeks.iloc[[4]])
+        cy_wk6, cy_wk5, py_wk6, py_wk5 = (
+            self.cy_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 1]],
+            self.cy_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 2]],
+            self.py_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 1]],
+            self.py_trailing_six_weeks.iloc[[NUM_TRAILING_WEEKS - 2]],
+        )
 
         # Remove 'PY__' prefix from column names for py_wk6 and py_wk5
         py_wk6.columns, py_wk5.columns = py_wk6.columns.str.replace('PY__', ''), py_wk5.columns.str.replace('PY__', '')
@@ -1219,38 +1262,41 @@ class WBR:
 
         # Calculate WOW and YoY for bps
         if len(list_bps_df) > 0:
-            cy_wk6_wow = pd.concat([cy_wk6_wow, pd.DataFrame(list_bps_df[0].subtract(list_bps_df[1])).mul(10000)],
-                                   axis=1)
-            cy_wk6_yoy = pd.concat([cy_wk6_yoy, pd.DataFrame(list_bps_df[0].subtract(list_bps_df[2])).mul(10000)],
-                                   axis=1)
-            cy_mtd_yoy = pd.concat([cy_mtd_yoy, pd.DataFrame(list_bps_df[4].subtract(list_bps_df[5])).mul(10000)],
-                                   axis=1)
-            cy_qtd_yoy = pd.concat([cy_qtd_yoy, pd.DataFrame(list_bps_df[6].subtract(list_bps_df[7])).mul(10000)],
-                                   axis=1)
-            cy_ytd_yoy = pd.concat([cy_ytd_yoy, pd.DataFrame(list_bps_df[8].subtract(list_bps_df[9])).mul(10000)],
-                                   axis=1)
+            cy_wk6_wow = pd.concat([cy_wk6_wow, pd.DataFrame(
+                list_bps_df[YOY_IDX_CY_WK6].subtract(list_bps_df[YOY_IDX_CY_WK5])).mul(BPS_MULTIPLIER)], axis=1)
+            cy_wk6_yoy = pd.concat([cy_wk6_yoy, pd.DataFrame(
+                list_bps_df[YOY_IDX_CY_WK6].subtract(list_bps_df[YOY_IDX_PY_WK6])).mul(BPS_MULTIPLIER)], axis=1)
+            cy_mtd_yoy = pd.concat([cy_mtd_yoy, pd.DataFrame(
+                list_bps_df[YOY_IDX_CY_MTD].subtract(list_bps_df[YOY_IDX_PY_MTD])).mul(BPS_MULTIPLIER)], axis=1)
+            cy_qtd_yoy = pd.concat([cy_qtd_yoy, pd.DataFrame(
+                list_bps_df[YOY_IDX_CY_QTD].subtract(list_bps_df[YOY_IDX_PY_QTD])).mul(BPS_MULTIPLIER)], axis=1)
+            cy_ytd_yoy = pd.concat([cy_ytd_yoy, pd.DataFrame(
+                list_bps_df[YOY_IDX_CY_YTD].subtract(list_bps_df[YOY_IDX_PY_YTD])).mul(BPS_MULTIPLIER)], axis=1)
 
         # Calculate WOW and YoY for percentiles
         if len(list_percentile_df) > 0:
-            cy_wk6_wow = pd.concat(
-                [cy_wk6_wow, pd.DataFrame(list_percentile_df[0].div(list_percentile_df[1]) - 1).mul(100)], axis=1
-            )
-            cy_wk6_yoy = pd.concat(
-                [cy_wk6_yoy, pd.DataFrame(list_percentile_df[0].div(list_percentile_df[2]) - 1).mul(100)], axis=1
-            )
-            cy_mtd_yoy = pd.concat(
-                [cy_mtd_yoy, pd.DataFrame(list_percentile_df[4].div(list_percentile_df[5]) - 1).mul(100)], axis=1
-            )
-            cy_qtd_yoy = pd.concat(
-                [cy_qtd_yoy, pd.DataFrame(list_percentile_df[6].div(list_percentile_df[7]) - 1).mul(100)], axis=1
-            )
-            cy_ytd_yoy = pd.concat(
-                [cy_ytd_yoy, pd.DataFrame(list_percentile_df[8].div(list_percentile_df[9]) - 1).mul(100)], axis=1
-            )
+            cy_wk6_wow = pd.concat([cy_wk6_wow, pd.DataFrame(
+                list_percentile_df[YOY_IDX_CY_WK6].div(list_percentile_df[YOY_IDX_CY_WK5]) - 1
+            ).mul(PCT_MULTIPLIER)], axis=1)
+            cy_wk6_yoy = pd.concat([cy_wk6_yoy, pd.DataFrame(
+                list_percentile_df[YOY_IDX_CY_WK6].div(list_percentile_df[YOY_IDX_PY_WK6]) - 1
+            ).mul(PCT_MULTIPLIER)], axis=1)
+            cy_mtd_yoy = pd.concat([cy_mtd_yoy, pd.DataFrame(
+                list_percentile_df[YOY_IDX_CY_MTD].div(list_percentile_df[YOY_IDX_PY_MTD]) - 1
+            ).mul(PCT_MULTIPLIER)], axis=1)
+            cy_qtd_yoy = pd.concat([cy_qtd_yoy, pd.DataFrame(
+                list_percentile_df[YOY_IDX_CY_QTD].div(list_percentile_df[YOY_IDX_PY_QTD]) - 1
+            ).mul(PCT_MULTIPLIER)], axis=1)
+            cy_ytd_yoy = pd.concat([cy_ytd_yoy, pd.DataFrame(
+                list_percentile_df[YOY_IDX_CY_YTD].div(list_percentile_df[YOY_IDX_PY_YTD]) - 1
+            ).mul(PCT_MULTIPLIER)], axis=1)
 
         # Combine calculated metrics into box totals dataframe
-        box_totals_df = [box_totals, dataframe_list[0], cy_wk6_wow, cy_wk6_yoy, dataframe_list[4], cy_mtd_yoy,
-                         dataframe_list[6], cy_qtd_yoy, dataframe_list[8], cy_ytd_yoy]
+        box_totals_df = [box_totals,
+                         dataframe_list[YOY_IDX_CY_WK6], cy_wk6_wow, cy_wk6_yoy,
+                         dataframe_list[YOY_IDX_CY_MTD], cy_mtd_yoy,
+                         dataframe_list[YOY_IDX_CY_QTD], cy_qtd_yoy,
+                         dataframe_list[YOY_IDX_CY_YTD], cy_ytd_yoy]
 
         # Concatenate the dataframes in the box_totals_df list
         box_totals = pd.concat([x.fillna(0) for x in box_totals_df], axis=0)
@@ -1259,7 +1305,7 @@ class WBR:
         box_totals = box_totals.reset_index(drop=True)
 
         # Extract py data for py_box_totals
-        py_box_totals = pd.concat([py_box_totals, dataframe_list[2]])
+        py_box_totals = pd.concat([py_box_totals, dataframe_list[YOY_IDX_PY_WK6]])
 
         # Add null columns for py_box_totals
         py_box_totals = pd.concat(
@@ -1268,15 +1314,15 @@ class WBR:
         py_box_totals = pd.concat(
             [py_box_totals.T, pd.Series(None, dtype='float64')], ignore_index=True, axis=1
         ).T
-        py_box_totals = pd.concat([py_box_totals, dataframe_list[5]])
+        py_box_totals = pd.concat([py_box_totals, dataframe_list[YOY_IDX_PY_MTD]])
         py_box_totals = pd.concat(
             [py_box_totals.T, pd.Series(None, dtype='float64')], ignore_index=True, axis=1
         ).T
-        py_box_totals = pd.concat((py_box_totals, dataframe_list[7]), axis=0)
+        py_box_totals = pd.concat((py_box_totals, dataframe_list[YOY_IDX_PY_QTD]), axis=0)
         py_box_totals = pd.concat(
             [py_box_totals.T, pd.Series(None, dtype='float64')], ignore_index=True, axis=1
         ).T
-        py_box_totals = pd.concat((py_box_totals, dataframe_list[9]), axis=0)
+        py_box_totals = pd.concat((py_box_totals, dataframe_list[YOY_IDX_PY_YTD]), axis=0)
         py_box_totals = pd.concat(
             [py_box_totals.T, pd.Series(None, dtype='float64')], ignore_index=True, axis=1
         ).T
