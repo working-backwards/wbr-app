@@ -10,7 +10,6 @@ from typing import List
 
 import dateutil
 import dateutil.relativedelta
-import numpy
 import numpy as np
 import pandas as pd
 import requests
@@ -132,17 +131,17 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     monthly_series = series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS]
 
     # Check if the series contains float or integer values and compute maximum values
-    if weekly_series.dtype.type is numpy.float64 or weekly_series.dtype.type is numpy.int:
+    if np.issubdtype(weekly_series.dtype, np.floating) or np.issubdtype(weekly_series.dtype, np.integer):
         # Mask NaN values and calculate the maximum of weekly and monthly series
-        weekly_max = numpy.ma.array(weekly_series, mask=numpy.isnan(series[0:NUM_TRAILING_WEEKS])).max()
-        monthly_max = numpy.ma.array(monthly_series, mask=numpy.isnan(
+        weekly_max = np.ma.array(weekly_series, mask=np.isnan(series[0:NUM_TRAILING_WEEKS])).max()
+        monthly_max = np.ma.array(monthly_series, mask=np.isnan(
             series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS])).max()
 
         # Determine if both weekly and monthly data can be shown on a single axis
         is_single_axis = True if weekly_max > 0 and 0 < monthly_max / weekly_max <= 3 else False
 
     # Replace empty strings or NaN values in the series with empty strings for display purposes
-    series = ["" if val == "" or np.isnan(val) else val for val in series]
+    series = ["" if val == "" or pd.isna(val) else val for val in series]
 
     # Initialize the list to hold primary and secondary axis values
     primary_and_secondary_axis_value_list = []
@@ -417,7 +416,7 @@ def _update_box_totals(metric, metrics_dictionary, box_totals, bps_metrics, func
 
     # Append the box total values for the metric, handling NaN and string values.
     if metrics_dictionary['lineStyle'] != 'target':
-        box_value_list.append([value if not isinstance(value, str) and not numpy.isnan(value) else "N/A"
+        box_value_list.append([value if not isinstance(value, str) and not pd.isna(value) else "N/A"
                                for value in box_totals[metric]])
 
     return box_value_list
@@ -645,7 +644,7 @@ def get_six_weeks_table_row_data(metrics, box_totals, metric, line_number):
     metric_data = metrics[metric]
 
     # Replace NaN values with blank spaces for the six weeks of data.
-    six_weeks_table_data = [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(0, NUM_TRAILING_WEEKS)]
+    six_weeks_table_data = [" " if pd.isna(metric_data[i]) else metric_data[i] for i in range(0, NUM_TRAILING_WEEKS)]
 
     # Raise an exception if the metric is a Month-over-Month (MOM) type, as it's unsupported for six weeks tables.
     if "MOM" in metric:
@@ -655,12 +654,12 @@ def get_six_weeks_table_row_data(metrics, box_totals, metric, line_number):
     # If the metric is not a Week-over-Week (WOW) type, append additional data from box_totals.
     if "WOW" not in metric:
         # Check the QTD box total value, append " " if it is NaN or 'N/A', otherwise append the value.
-        if_else(box_totals.loc[BOX_IDX_QTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
+        if_else(box_totals.loc[BOX_IDX_QTD, metric], lambda x: x == 'N/A' or pd.isna(x),
                 lambda x: append_to_list(" ", six_weeks_table_data),
                 lambda x: append_to_list(x, six_weeks_table_data))
 
         # Check the YTD box total value, and apply the same logic.
-        if_else(box_totals.loc[BOX_IDX_YTD, metric], lambda x: x == 'N/A' or numpy.isnan(x),
+        if_else(box_totals.loc[BOX_IDX_YTD, metric], lambda x: x == 'N/A' or pd.isna(x),
                 lambda x: append_to_list(" ", six_weeks_table_data),
                 lambda x: append_to_list(x, six_weeks_table_data))
     else:
@@ -688,7 +687,7 @@ def get_twelve_months_table_row(metrics, metric, itr_start):
     metric_data = metrics[metric]
 
     # Generate a list for twelve months of data, replacing NaN values with blank spaces.
-    return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
+    return [" " if pd.isna(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
 
 
 def _6_weeks_table(decks, plot, block_number, event_dict: dict, metrics=None,

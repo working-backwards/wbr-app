@@ -373,3 +373,163 @@ class TestCalculateBoxTotals:
         )
 
         assert len(period_summary) == 10
+
+
+# ---------------------------------------------------------------------------
+# compute_functional_metrics — cycle detection and dependency ordering
+# ---------------------------------------------------------------------------
+
+class TestComputeFunctionalMetrics:
+    """Test iterative DFS cycle detection and correct dependency resolution."""
+
+    def _make_stub_for_cycle_test(self):
+        """Minimal stub — cycle tests raise before any computation."""
+        stub = MagicMock(spec=WBR)
+        stub.compute_functional_metrics = WBR.compute_functional_metrics.__get__(stub)
+        stub.metrics_configs = {}
+        return stub
+
+    def test_self_loop_raises_value_error(self):
+        """A metric that depends on itself is a cycle."""
+        a_func = {
+            "sum": [
+                {"metric": {"name": "A", "function": {"sum": [{"column": {"name": "X"}}], "__line__": 10}}},
+                {"column": {"name": "X"}},
+            ],
+            "__line__": 10,
+        }
+        configs = {"A": {"function": a_func}}
+        stub = self._make_stub_for_cycle_test()
+
+        with pytest.raises(ValueError, match="Circular dependency.*A"):
+            stub.compute_functional_metrics(metrics_configs=configs)
+
+    def test_three_node_cycle_raises_value_error(self):
+        """A -> B -> C -> A is detected as a cycle."""
+        c_func = {
+            "sum": [
+                {"metric": {"name": "A", "function": {"sum": [{"column": {"name": "X"}}], "__line__": 10}}},
+                {"column": {"name": "X"}},
+            ],
+            "__line__": 30,
+        }
+        b_func = {
+            "sum": [
+                {"metric": {"name": "C", "function": c_func}},
+                {"column": {"name": "X"}},
+            ],
+            "__line__": 20,
+        }
+        a_func = {
+            "sum": [
+                {"metric": {"name": "B", "function": b_func}},
+                {"column": {"name": "X"}},
+            ],
+            "__line__": 10,
+        }
+        configs = {
+            "A": {"function": a_func},
+            "B": {"function": b_func},
+            "C": {"function": c_func},
+        }
+        stub = self._make_stub_for_cycle_test()
+
+        with pytest.raises(ValueError, match="Circular dependency"):
+            stub.compute_functional_metrics(metrics_configs=configs)
+
+    def test_diamond_dependency_resolves_correctly(self):
+        """Diamond: A->B,C; B->D; C->D — resolves in correct order, no cycle."""
+        d_func = {"sum": [{"column": {"name": "M1"}}, {"column": {"name": "M2"}}], "__line__": 10}
+        b_func = {
+            "sum": [
+                {"metric": {"name": "D", "function": d_func}},
+                {"column": {"name": "M1"}},
+            ],
+            "__line__": 20,
+        }
+        c_func = {
+            "sum": [
+                {"metric": {"name": "D", "function": d_func}},
+                {"column": {"name": "M2"}},
+            ],
+            "__line__": 30,
+        }
+        a_func = {
+            "sum": [
+                {"metric": {"name": "B", "function": b_func}},
+                {"metric": {"name": "C", "function": c_func}},
+            ],
+            "__line__": 40,
+        }
+        configs = {
+            "M1": {"aggf": "sum", "column": "M1"},
+            "M2": {"aggf": "sum", "column": "M2"},
+            "D": {"function": d_func},
+            "B": {"function": b_func},
+            "C": {"function": c_func},
+            "A": {"function": a_func},
+        }
+
+        stub = MagicMock(spec=WBR)
+        stub.compute_functional_metrics = WBR.compute_functional_metrics.__get__(stub)
+        stub._evaluate_function_metric = WBR._evaluate_function_metric.__get__(stub)
+        stub._apply_function_to_all_series = WBR._apply_function_to_all_series.__get__(stub)
+        stub._compute_box_total_yoy = WBR._compute_box_total_yoy.__get__(stub)
+        stub.calculate_yoy_box_total = WBR.calculate_yoy_box_total
+        stub.function_bps_metrics = []
+
+        stub.cy_trailing_six_weeks = _make_trailing_six(["M1", "M2"], [[10] * 6, [20] * 6])
+        stub.py_trailing_six_weeks = _make_trailing_six(["M1", "M2"], [[5] * 6, [10] * 6], prefix="PY__")
+        stub.cy_monthly = _make_monthly(["M1", "M2"], [[100] * 12, [200] * 12])
+        stub.py_monthly = _make_monthly(["M1", "M2"], [[50] * 12, [100] * 12], prefix="PY__")
+        stub.box_totals = pd.DataFrame({"M1": [10.0] * NUM_BOX_TOTAL_ROWS, "M2": [20.0] * NUM_BOX_TOTAL_ROWS})
+        stub.py_box_total = pd.DataFrame({"M1": [5.0] * NUM_BOX_TOTAL_ROWS, "M2": [10.0] * NUM_BOX_TOTAL_ROWS})
+        stub.period_summary = pd.DataFrame({"M1": [10.0] * 10, "M2": [20.0] * 10})
+
+        stub.compute_functional_metrics(metrics_configs=configs)
+
+        # All 4 function metrics should have been computed
+        assert "D" in stub.cy_trailing_six_weeks.columns
+        assert "B" in stub.cy_trailing_six_weeks.columns
+        assert "C" in stub.cy_trailing_six_weeks.columns
+        assert "A" in stub.cy_trailing_six_weeks.columns
+
+        # D = M1 + M2 = 30, B = D + M1 = 40, C = D + M2 = 50, A = B + C = 90
+        assert all(stub.cy_trailing_six_weeks["D"] == 30)
+        assert all(stub.cy_trailing_six_weeks["B"] == 40)
+        assert all(stub.cy_trailing_six_weeks["C"] == 50)
+        assert all(stub.cy_trailing_six_weeks["A"] == 90)
+
+    def test_interleaved_metric_column_operands(self):
+        """Operands interleaved as [metric, column, metric] are all captured."""
+        stub = MagicMock(spec=WBR)
+        stub._evaluate_function_metric = WBR._evaluate_function_metric.__get__(stub)
+        stub._apply_function_to_all_series = WBR._apply_function_to_all_series.__get__(stub)
+        stub._compute_box_total_yoy = WBR._compute_box_total_yoy.__get__(stub)
+        stub.calculate_yoy_box_total = WBR.calculate_yoy_box_total
+        stub.function_bps_metrics = []
+
+        cols = ["A", "Col1", "B"]
+        stub.cy_trailing_six_weeks = _make_trailing_six(cols, [[10] * 6, [20] * 6, [30] * 6])
+        stub.py_trailing_six_weeks = _make_trailing_six(cols, [[5] * 6, [10] * 6, [15] * 6], prefix="PY__")
+        stub.cy_monthly = _make_monthly(cols, [[100] * 12, [200] * 12, [300] * 12])
+        stub.py_monthly = _make_monthly(cols, [[50] * 12, [100] * 12, [150] * 12], prefix="PY__")
+        stub.box_totals = pd.DataFrame({"A": [10.0] * NUM_BOX_TOTAL_ROWS, "Col1": [20.0] * NUM_BOX_TOTAL_ROWS,
+                                         "B": [30.0] * NUM_BOX_TOTAL_ROWS})
+        stub.py_box_total = pd.DataFrame({"A": [5.0] * NUM_BOX_TOTAL_ROWS, "Col1": [10.0] * NUM_BOX_TOTAL_ROWS,
+                                           "B": [15.0] * NUM_BOX_TOTAL_ROWS})
+        stub.period_summary = pd.DataFrame({"A": [10.0] * 10, "Col1": [20.0] * 10, "B": [30.0] * 10})
+
+        func_config = {
+            "sum": [
+                {"metric": {"name": "A"}},
+                {"column": {"name": "Col1"}},
+                {"metric": {"name": "B"}},
+            ],
+            "__line__": 10,
+        }
+
+        stub._evaluate_function_metric("Z", func_config)
+
+        # Z = A + Col1 + B = 10 + 20 + 30 = 60 (all three operands captured)
+        assert all(stub.cy_trailing_six_weeks["Z"] == 60)

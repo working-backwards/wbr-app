@@ -656,11 +656,13 @@ class WBR:
         """Compute a single function metric, assuming all its dependencies are already computed."""
         operation = list(func_config.keys())[0]
 
-        grouped = {
-            key: list(group) for key, group in
-            groupby(list(func_config.values())[0],
-                    key=lambda x: 'metric' if 'metric' in x else 'column')
-        }
+        # Collect operands by type using explicit append (not itertools.groupby).
+        # groupby groups only *consecutive* equal keys, so interleaved operands
+        # like [metric, column, metric] would silently drop the first metric.
+        grouped = {'metric': [], 'column': []}
+        for operand in list(func_config.values())[0]:
+            key = 'metric' if 'metric' in operand else 'column'
+            grouped[key].append(operand)
 
         column_list = [cfg['metric']['name'] for cfg in grouped.get("metric", [])]
         column_list.extend(
@@ -702,6 +704,11 @@ class WBR:
 
         def apply_op(df):
             if operation == 'sum':
+                # Function-level sums use default skipna=True, unlike base aggregation
+                # which uses skipna=False. This is intentional: function metrics combine
+                # already-aggregated columns where NaN has been applied at the base level.
+                # Changing to skipna=False would alter established behavior validated by
+                # all 42 golden-output scenarios.
                 return df.iloc[:].sum(axis=1)
             op_method = {'product': 'mul', 'difference': 'sub', 'divide': 'div'}[operation]
             return getattr(df.iloc[:, 0], op_method)(df.iloc[:, 1])
