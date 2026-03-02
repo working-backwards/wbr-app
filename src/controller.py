@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-﻿import io
+import io
 import json
 import logging  # Already here, but good to double check
 import os
