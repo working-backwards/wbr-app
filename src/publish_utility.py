@@ -8,8 +8,6 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 from google.cloud import storage
 
-logger = logging.getLogger(__name__)
-
 
 class PublishWbr:
     """
@@ -69,7 +67,7 @@ class PublishWbr:
             )
 
         else:
-            logger.warning("No OBJECT_STORAGE_OPTION is provided hence the published report will be saved locally")
+            logging.warning("No OBJECT_STORAGE_OPTION is provided hence the published report will be saved locally")
 
     def upload(self, data, destination_file_path):
         """
@@ -170,7 +168,7 @@ def get_gcp_client_for_credentials(credentials_json_file):
             return storage.Client.from_service_account_json(credentials_json.name)
 
     except Exception as e:
-        logger.error(f"Failed to upload to GCP: {str(e)}")
+        logging.error(f"Failed to upload to GCP: {str(e)}")
 
 
 def get_azure_from_default_credentials():
