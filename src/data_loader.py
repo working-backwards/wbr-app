@@ -7,7 +7,7 @@ from pandas import DataFrame
 from yaml._yaml import ScannerError
 
 from src.connectors import get_connector  # Import connector factory
-from src.controller_utility import SafeLineLoader
+from src.controller_utility import SafeLineLoader, validate_url
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +228,9 @@ class DataLoader:
 def _load_annotation_csv(file_path_or_url: str) -> pd.DataFrame:
     """Loads a single annotation CSV file from a local path or URL."""
     if file_path_or_url.lower().startswith(('http://', 'https://')):
+        if not validate_url(file_path_or_url):
+            raise ConnectionError(f"Annotation csv source url must use https and not target private addresses")
+
         try:
             df = pd.read_csv(file_path_or_url, parse_dates=['Date'], thousands=',').sort_values(by='Date')
             logging.info(f"Successfully fetched annotations csv file from URL: {file_path_or_url}")
@@ -266,6 +269,9 @@ def _load_connections_from_url_or_path(url_or_path: str) -> dict:
         dict: A dictionary mapping connection names to their configurations.
     """
     if url_or_path.lower().startswith(('http://', 'https://')):
+        if not validate_url(url_or_path):
+            raise ConnectionError(f"Connection url must use https and not target private addresses")
+
         try:
             response = requests.get(url_or_path, allow_redirects=True)
             response.raise_for_status()  # Raise an exception for bad status codes
@@ -323,7 +329,11 @@ def _get_df_from_csv_source(data_source, df_list):
             continue
 
         url_or_path = source_config["url_or_path"]
-        if source_config["url_or_path"].lower().startswith(('http://', 'https://')):
+        if url_or_path.lower().startswith(('http://', 'https://')):
+
+            if not validate_url(url_or_path):
+                raise ConnectionError(f"Data csv source url must use https and not target private addresses")
+
             try:
                 df = pd.read_csv(url_or_path, parse_dates=['Date'], thousands=',').sort_values(by='Date')
                 logging.info(f"Successfully fetched csv file from URL: {url_or_path}")
