@@ -4,7 +4,6 @@ import logging
 import tempfile
 import traceback
 from json import JSONEncoder
-from typing import List
 from urllib.parse import urlparse
 
 import dateutil
@@ -46,7 +45,7 @@ class MetricObject:
 
 class Deck:
     def __init__(self):
-        self.blocks: List[SixTwelveChart, TrailingTable, EmbeddedContent, SectionBody] = list()
+        self.blocks: list[SixTwelveChart, TrailingTable, EmbeddedContent, SectionBody] = list()
         self.title = ""
         self.weekEnding = ""
         self.blockStartingNumber = 1
@@ -95,7 +94,7 @@ class Encoder(JSONEncoder):
 
 class SafeLineLoader(SafeLoader):
     def construct_mapping(self, node, deep=False):
-        mapping = super(SafeLineLoader, self).construct_mapping(node, deep=deep)
+        mapping = super().construct_mapping(node, deep=deep)
         # Add 1 so line numbering starts at 1
         mapping["__line__"] = node.start_mark.line + 1
         return mapping

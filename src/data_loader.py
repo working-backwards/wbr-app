@@ -225,7 +225,7 @@ def _load_annotation_csv(file_path_or_url: str) -> pd.DataFrame:
     """Loads a single annotation CSV file from a local path or URL."""
     if file_path_or_url.lower().startswith(('http://', 'https://')):
         if not validate_url(file_path_or_url):
-            raise ConnectionError(f"Annotation csv source url must use https and not target private addresses")
+            raise ConnectionError("Annotation csv source url must use https and not target private addresses")
 
         try:
             df = pd.read_csv(file_path_or_url, parse_dates=['Date'], thousands=',').sort_values(by='Date')
@@ -266,7 +266,7 @@ def _load_connections_from_url_or_path(url_or_path: str) -> dict:
     """
     if url_or_path.lower().startswith(('http://', 'https://')):
         if not validate_url(url_or_path):
-            raise ConnectionError(f"Connection url must use https and not target private addresses")
+            raise ConnectionError("Connection url must use https and not target private addresses")
 
         try:
             response = requests.get(url_or_path, allow_redirects=True)
@@ -330,7 +330,7 @@ def _get_df_from_csv_source(data_source, df_list):
         if url_or_path.lower().startswith(('http://', 'https://')):
 
             if not validate_url(url_or_path):
-                raise ConnectionError(f"Data csv source url must use https and not target private addresses")
+                raise ConnectionError("Data csv source url must use https and not target private addresses")
 
             try:
                 df = pd.read_csv(url_or_path, parse_dates=['Date'], thousands=',').sort_values(by='Date')
