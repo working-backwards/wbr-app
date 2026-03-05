@@ -33,7 +33,8 @@ class SnowflakeConnector(BaseConnector):
                 # You can add other snowflake-connector-python specific parameters here
             )
             logger.info(
-                f"Successfully connected to Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
+                f"Successfully connected to Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}"
+            )
         except snowflake.connector.errors.Error as e:
             logger.error(f"Error connecting to Snowflake: {e}")
             raise ConnectionError(f"Could not connect to Snowflake: {e}")
@@ -46,7 +47,8 @@ class SnowflakeConnector(BaseConnector):
             self.connection.close()
             self.connection = None
             logger.info(
-                f"Disconnected from Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}")
+                f"Disconnected from Snowflake account: {self.config.get('account')}, database: {self.config.get('database')}"
+            )
 
     def execute_query(self, query: str) -> pd.DataFrame:
         """
@@ -94,7 +96,7 @@ class SnowflakeConnector(BaseConnector):
 
 
 # Example Usage (for testing purposes)
-if __name__ == '__main__':
+if __name__ == "__main__":
     # This is a placeholder for actual testing, requires a running Snowflake instance
     # and appropriate configuration.
     #

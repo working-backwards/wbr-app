@@ -1,11 +1,11 @@
 import logging
 
+from ..secret_loader import get_loader
 from .athena import AthenaConnector
 from .base import BaseConnector
 from .postgres import PostgresConnector
 from .redshift import RedshiftConnector
 from .snowflake import SnowflakeConnector
-from ..secret_loader import get_loader
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,8 @@ def get_connector(connection_type: str, config: dict) -> BaseConnector:
     if not connector_class:
         logger.error(f"Unsupported database connection type: {connection_type}")
         raise ValueError(
-            f"Unsupported database connection type: {connection_type}. Supported types are: {list(_CONNECTOR_MAP.keys())}")
+            f"Unsupported database connection type: {connection_type}. Supported types are: {list(_CONNECTOR_MAP.keys())}"
+        )
 
     logger.info(f"Creating connector of type: {connection_type}")
 

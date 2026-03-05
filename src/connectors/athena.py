@@ -31,10 +31,10 @@ class AthenaConnector(BaseConnector):
             # Credentials can be sourced from environment variables, IAM roles, or explicitly in config.
             # It's best practice to rely on IAM roles or environment variables for credentials.
             self.client = boto3.client(
-                'athena',
+                "athena",
                 region_name=self.config.get("region_name"),
                 aws_access_key_id=self.config.get("aws_access_key_id"),  # Optional, prefers IAM role/env
-                aws_secret_access_key=self.config.get("aws_secret_access_key")  # Optional, prefers IAM role/env
+                aws_secret_access_key=self.config.get("aws_secret_access_key"),  # Optional, prefers IAM role/env
             )
             logger.info(f"Successfully created Athena client for region: {self.config.get('region_name')}")
         except ClientError as e:
@@ -58,15 +58,15 @@ class AthenaConnector(BaseConnector):
             response = self.client.start_query_execution(
                 QueryString=query,
                 QueryExecutionContext={
-                    'Database': self.config.get('database'),
-                    'Catalog': self.config.get('catalog', 'AwsDataCatalog')
+                    "Database": self.config.get("database"),
+                    "Catalog": self.config.get("catalog", "AwsDataCatalog"),
                 },
                 ResultConfiguration={
-                    'OutputLocation': self.s3_staging_dir,
+                    "OutputLocation": self.s3_staging_dir,
                 },
-                WorkGroup=self.config.get('workgroup', 'primary')
+                WorkGroup=self.config.get("workgroup", "primary"),
             )
-            return response['QueryExecutionId']
+            return response["QueryExecutionId"]
         except ClientError as e:
             logger.error(f"Error starting Athena query execution: {e}\nQuery: {query}")
             raise RuntimeError(f"Could not start Athena query: {e}")
@@ -76,19 +76,19 @@ class AthenaConnector(BaseConnector):
         while True:
             try:
                 response = self.client.get_query_execution(QueryExecutionId=query_execution_id)
-                state = response['QueryExecution']['Status']['State']
+                state = response["QueryExecution"]["Status"]["State"]
 
-                if state in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
-                    if state == 'FAILED':
-                        error_message = response['QueryExecution']['Status'].get('StateChangeReason', 'Unknown error')
+                if state in ["SUCCEEDED", "FAILED", "CANCELLED"]:
+                    if state == "FAILED":
+                        error_message = response["QueryExecution"]["Status"].get("StateChangeReason", "Unknown error")
                         logger.error(f"Athena query {query_execution_id} failed: {error_message}")
                         raise RuntimeError(f"Athena query {query_execution_id} failed: {error_message}")
-                    if state == 'CANCELLED':
+                    if state == "CANCELLED":
                         logger.warning(f"Athena query {query_execution_id} was cancelled.")
                         raise RuntimeError(f"Athena query {query_execution_id} was cancelled.")
                     return response
 
-                time.sleep(self.config.get('poll_interval_seconds', 1))  # Poll interval
+                time.sleep(self.config.get("poll_interval_seconds", 1))  # Poll interval
             except ClientError as e:
                 logger.error(f"Error checking Athena query status for {query_execution_id}: {e}")
                 raise RuntimeError(f"Could not check Athena query status: {e}")
@@ -96,42 +96,48 @@ class AthenaConnector(BaseConnector):
     def _get_query_results(self, query_execution_id: str) -> pd.DataFrame:
         """Helper to fetch query results and convert to DataFrame."""
         try:
-            results_paginator = self.client.get_paginator('get_query_results')
+            results_paginator = self.client.get_paginator("get_query_results")
             results_iter = results_paginator.paginate(
-                QueryExecutionId=query_execution_id,
-                PaginationConfig={'PageSize': 1000}
+                QueryExecutionId=query_execution_id, PaginationConfig={"PageSize": 1000}
             )
 
             rows = []
             column_names = None
             for results_page in results_iter:
                 if column_names is None:
-                    column_info = results_page['ResultSet']['ResultSetMetadata']['ColumnInfo']
-                    column_names = [info['Name'] for info in column_info]
+                    column_info = results_page["ResultSet"]["ResultSetMetadata"]["ColumnInfo"]
+                    column_names = [info["Name"] for info in column_info]
 
-                for row_data in results_page['ResultSet']['Rows']:
+                for row_data in results_page["ResultSet"]["Rows"]:
                     # Skip header row if present (Athena often includes it in the first page of results)
-                    if not column_names and len(row_data['Data']) > 0 and all(
-                            d.get('VarCharValue') == c for d, c in zip(row_data['Data'], column_names)):
+                    if (
+                        not column_names
+                        and len(row_data["Data"]) > 0
+                        and all(d.get("VarCharValue") == c for d, c in zip(row_data["Data"], column_names))
+                    ):
                         continue
 
                     # Check if this is the actual header row based on values matching column names
                     # This is a common pattern for the first row in Athena's CSV-like output
                     is_header_row = True
-                    if len(row_data['Data']) == len(column_names):
-                        for i, cell in enumerate(row_data['Data']):
-                            if cell.get('VarCharValue') != column_names[i]:
+                    if len(row_data["Data"]) == len(column_names):
+                        for i, cell in enumerate(row_data["Data"]):
+                            if cell.get("VarCharValue") != column_names[i]:
                                 is_header_row = False
                                 break
                     else:  # Mismatch in length, cannot be header
                         is_header_row = False
 
-                    if is_header_row and not rows:  # Only skip if it's the first row being processed and looks like a header
+                    if (
+                        is_header_row and not rows
+                    ):  # Only skip if it's the first row being processed and looks like a header
                         continue
 
-                    rows.append([d.get('VarCharValue') for d in row_data['Data']])
+                    rows.append([d.get("VarCharValue") for d in row_data["Data"]])
 
-            if not column_names and rows:  # If column_names were not set due to empty metadata but rows exist (e.g. from header row)
+            if (
+                not column_names and rows
+            ):  # If column_names were not set due to empty metadata but rows exist (e.g. from header row)
                 column_names = rows.pop(0)  # Assume first row is header
 
             df = pd.DataFrame(rows, columns=column_names)
@@ -178,7 +184,7 @@ class AthenaConnector(BaseConnector):
 
 
 # Example Usage (for testing purposes)
-if __name__ == '__main__':
+if __name__ == "__main__":
     # This is a placeholder for actual testing. Requires:
     #   - AWS credentials configured (e.g., via environment variables or IAM role)
     #   - An S3 bucket for Athena query results

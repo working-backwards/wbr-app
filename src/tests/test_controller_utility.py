@@ -1,10 +1,9 @@
 import unittest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
 import requests
-import yaml
 
-from src.controller_utility import load_connections_from_url_or_path, SafeLineLoader
+from src.controller_utility import load_connections_from_url_or_path
 
 VALID_CONNECTIONS_YAML = """
 version: 1.0
@@ -61,13 +60,12 @@ connections:
 
 
 class TestControllerUtility_Connections(unittest.TestCase):
-
     @patch("builtins.open", new_callable=mock_open, read_data=VALID_CONNECTIONS_YAML)
     def test_load_from_local_path_success(self, mock_file):
         loaded_conns = load_connections_from_url_or_path("dummy_path.yaml")
         self.assertIn("Postgres_Prod", loaded_conns)
         self.assertEqual(loaded_conns["Postgres_Prod"]["type"], "postgres")
-        mock_file.assert_called_once_with("dummy_path.yaml", 'r')
+        mock_file.assert_called_once_with("dummy_path.yaml")
 
     @patch("requests.get")
     def test_load_from_url_success(self, mock_requests_get):
@@ -118,5 +116,5 @@ class TestControllerUtility_Connections(unittest.TestCase):
             load_connections_from_url_or_path("connections_not_list.yaml")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
