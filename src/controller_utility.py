@@ -4,6 +4,7 @@ import logging
 import tempfile
 import traceback
 from json import JSONEncoder
+from typing import List
 from urllib.parse import urlparse
 
 import dateutil
@@ -45,7 +46,7 @@ class MetricObject:
 
 class Deck:
     def __init__(self):
-        self.blocks: list[SixTwelveChart, TrailingTable, EmbeddedContent, SectionBody] = list()
+        self.blocks: List[SixTwelveChart, TrailingTable, EmbeddedContent, SectionBody] = list()
         self.title = ""
         self.weekEnding = ""
         self.blockStartingNumber = 1
