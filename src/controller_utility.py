@@ -1,9 +1,11 @@
 import datetime
+import ipaddress
 import logging
 import tempfile
 import traceback
 from json import JSONEncoder
 from typing import List
+from urllib.parse import urlparse
 
 import dateutil
 import dateutil.relativedelta
@@ -1266,3 +1268,20 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
 
     logging.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
     return connections_map
+
+
+def validate_url(url: str) -> bool:
+    """Validate that a URL uses https and does not point to a private/internal IP."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_link_local:
+            return False
+    except ValueError:
+        pass
+    return True
