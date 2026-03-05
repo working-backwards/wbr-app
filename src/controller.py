@@ -11,7 +11,7 @@ import requests
 from cryptography.fernet import Fernet
 from flask import Flask, render_template, request, send_file
 from flask_cors import CORS
-from werkzeug.utils import redirect
+from werkzeug.utils import redirect, secure_filename
 
 import src.controller_utility as controller_util
 import src.test as test
@@ -102,7 +102,7 @@ def process_input(wbr_yaml_config: dict, data: any = None):
 
     try:
         # Generate the WBR deck using the WBR object
-        deck = controller_util.get_wbr_deck(report=report, event_data=data_loader.events)
+        deck = controller_util.get_wbr_deck(report=report, annotation_data=data_loader.annotations)
     except Exception as err:
         logging.error(err, exc_info=True)
         raise Exception(f"Error while creating deck, caused by: {err.__str__()}")
@@ -221,7 +221,7 @@ def build_wbr():
     filename = request.args["file"]
     logging.info(f"Received request to download {filename}")
     try:
-        data = publisher.download(which_env + "/" + filename)
+        data = publisher.download(which_env + "/" + secure_filename(filename))
     except Exception as e:
         logging.error(e, exc_info=True)
         return app.response_class(response=json.dumps({"message": "Failed to download your report!"}), status=500)
@@ -237,12 +237,12 @@ def login():
     # Get the file name from the request arguments
     file_name = request.args["file"]
 
-    if "password" in request.args:
+    if request.method == "POST" and 'password' in request.form:
         # If password is provided in the request arguments
-        auth_password = request.args["password"]
+        auth_password = request.form['password']
         try:
             # Retrieve the JSON file from S3 bucket
-            protected_data = publisher.download(which_env + "/" + file_name)
+            protected_data = publisher.download(which_env + "/" + secure_filename(file_name))
         except Exception as e:
             # Log any exceptions that occur during file retrieval
             logging.error(e, exc_info=True)
@@ -253,8 +253,9 @@ def login():
             file_name = request.args["file"]
             f = Fernet(key)
             # Encrypt the password and generate a token
-            token = f.encrypt(bytes(auth_password, "utf-8"))[:15]
-            return redirect("/build-wbr/publish/protected?file=" + file_name + "&password=" + str(token))
+            token = f.encrypt(bytes(auth_password, 'utf-8'))[:15]
+            return redirect("/build-wbr/publish/protected?file=" + secure_filename(file_name) +
+                            "&password=" + str(token))
         else:
             # If the provided password does not match the password in the JSON file
             return app.response_class(response=json.dumps({"message": "Unauthorised"}), status=403)
@@ -269,10 +270,10 @@ def build_wbr_protected():
     Builds the protected WBR report, if user is not authenticated to view report user is redirected to login page.
     :return: Rendered WBR html file
     """
-    if "file" in request.args:
-        auth_file_name = request.args["file"]
-        if "password" not in request.args:
-            return redirect("/login?file=" + auth_file_name)
+    if 'file' in request.args:
+        auth_file_name = secure_filename(request.args['file'])
+        if 'password' not in request.args:
+            return redirect('/login?file=' + auth_file_name)
         else:
             protected_data = publisher.download(which_env + "/" + auth_file_name)
             return flask.render_template("wbr_share.html", data=protected_data["data"])
@@ -286,7 +287,7 @@ def build_sample_wbr():
     """
     filename = request.args["file"]
     base_path = str(Path(os.path.dirname(__file__)).parent)
-    file = base_path + "/sample/" + filename
+    file = base_path + '/sample/' + secure_filename(filename)
     current_file = open(file)
     data = json.load(current_file)
     return flask.render_template("wbr_share.html", data=data)
@@ -333,7 +334,13 @@ def build_report():
 
     # Load WBR YAML config
     try:
-        if "configUrl" in request.args:
+        if 'configUrl' in request.args:
+            config_url = request.args["configUrl"]
+            if not controller_util.validate_url(config_url):
+                return app.response_class(
+                    response=json.dumps({"error": "configUrl must use https and not target private addresses"}),
+                    status=400
+                )
             wbr_yaml_config = controller_util.load_yaml_from_url(request.args["configUrl"])
         elif "configFile" in request.files:
             wbr_yaml_config = controller_util.load_yaml_from_stream(request.files["configFile"])
@@ -346,10 +353,16 @@ def build_report():
     # Load data (optional, for CSV override)
     data = None
     try:
-        if "dataFile" in request.files:
-            data = request.files["dataFile"]
-        elif "dataUrl" in request.args:
-            data = io.StringIO(requests.get(request.args["dataUrl"]).content.decode("utf-8"))
+        if 'dataFile' in request.files:
+            data = request.files['dataFile']
+        elif 'dataUrl' in request.args:
+            data_url = request.args["dataUrl"]
+            if not controller_util.validate_url(data_url):
+                return app.response_class(
+                    response=json.dumps({"error": "dataUrl must use https and not target private addresses"}),
+                    status=400
+                )
+            data = io.StringIO(requests.get(data_url).content.decode('utf-8'))
     except Exception as e:
         logging.error(f"Failed to load the data csv: {e}", exc_info=True)
         return app.response_class(response=json.dumps({"error": f"Failed to load the data csv: {e}"}), status=500)

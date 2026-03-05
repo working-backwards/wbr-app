@@ -144,7 +144,7 @@ curl -X POST https://<domain>/report \
     "weekEnding": "25 September 2021",
     "blockStartingNumber": 2,
     "xAxisMonthlyDisplay": null,
-    "eventErrors": null
+    "annotationErrors": null
   }
 ]
 ```
@@ -169,6 +169,36 @@ curl -X POST https://<domain>/report \
   "path": "https://<domain>/build-wbr/publish?file=<uniqueFileName>"
 }
 ```
+
+## Annotations Configuration
+
+Annotations add contextual notes to specific metrics in the report. They can be configured in the WBR YAML config in two
+formats:
+
+### Simple list format (CSV files only)
+
+```yaml
+annotations:
+  - /path/to/annotations.csv
+  - https://example.com/annotations.csv
+```
+
+### Dict format (CSV files and/or database sources)
+
+```yaml
+annotations:
+  csv_files:
+    - /path/to/annotations.csv
+  data_sources:
+    MyProdPostgres:
+      recent_annotations:
+        query: >
+          SELECT event_date as "Date", metric_name as "MetricName",
+                 description as "EventDescription"
+          FROM annotations ORDER BY event_date;
+```
+
+Annotation queries must return exactly three columns aliased as `Date`, `MetricName`, and `EventDescription`.
 
 ## Notes
 - Ensure that either csvUrl or csvfile is provided for the data source.

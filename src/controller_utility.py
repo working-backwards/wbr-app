@@ -1,8 +1,10 @@
 import datetime
+import ipaddress
 import logging
 import tempfile
 import traceback
 from json import JSONEncoder
+from urllib.parse import urlparse
 
 import dateutil
 import dateutil.relativedelta
@@ -32,7 +34,7 @@ class SixTwelveChart:
         self.yAxis = []
         self.table = {}
         self.tooltip = "false"
-        self.events = []
+        self.annotations = []
 
 
 class MetricObject:
@@ -48,7 +50,7 @@ class Deck:
         self.weekEnding = ""
         self.blockStartingNumber = 1
         self.xAxisMonthlyDisplay = None
-        self.eventErrors: str
+        self.annotationErrors: str
 
 
 class Rows:
@@ -65,7 +67,7 @@ class TrailingTable:
         self.title = ""
         self.headers = []
         self.rows = []
-        self.events = []
+        self.annotations = []
 
 
 class EmbeddedContent:
@@ -156,7 +158,7 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     return primary_and_secondary_axis_value_list, is_single_axis
 
 
-def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
+def _6_12_chart(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -167,7 +169,7 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
         plot (dict): Configuration for the plot block, containing parameters such as title, y-axis scaling, etc.
         wbr1 (WBR): Data object that contains the current week's report data, metrics, and configurations.
         block_number (str): The block number for which the chart is being built, useful for logging and error handling.
-        events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description
+        annotations_dict (dict): annotation dictionary to annotate the charts, contains metric name as key and value as description
     Raises:
         SyntaxError: If required metrics are not specified in the plot configuration.
         KeyError: If a specified metric is not found in the WBR data.
@@ -216,7 +218,7 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
         metrices,
         six_twelve_chart,
         wbr1,
-        events_dict,
+        annotations_dict
     )
 
     # Set the number of axes based on whether a single or dual-axis is needed.
@@ -227,7 +229,14 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, events_dict: dict):
 
 
 def process_metric(
-    block_number, fiscal_start, is_single_axis, is_trailing_twelve_months, metrics, six_twelve_chart, wbr1, events_dict
+        block_number,
+        fiscal_start,
+        is_single_axis,
+        is_trailing_twelve_months,
+        metrics,
+        six_twelve_chart,
+        wbr1,
+        annotations_dict
 ):
     """
     Processes metrics to build chart data for the 6-12 chart, including handling current and prior year data,
@@ -241,7 +250,7 @@ def process_metric(
         metrics (dict): Dictionary of metrics and their configuration from the plotting YAML.
         six_twelve_chart (SixTwelveChart): Chart object to which the processed data is added.
         wbr1 (WBR): Data object containing the report metrics and configurations.
-        events_dict (dict): event dictionary to annotate the charts, contains metric name as key and value as description.
+        annotations_dict (dict): annotation dictionary to annotate the charts, contains metric name as key and value as description.
 
     Returns:
         bool: Updated flag indicating if the chart should use a single axis.
@@ -272,8 +281,8 @@ def process_metric(
             # Configure the table headers for the box totals and append box total values.
             box_value_list = _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart)
 
-            if metric in events_dict:
-                six_twelve_chart.events.append(events_dict[metric])
+            if metric in annotations_dict:
+                six_twelve_chart.annotations.extend(annotations_dict[metric])
 
         except Exception as error:
             # Log any errors that occur during the chart-building process.
@@ -680,7 +689,7 @@ def get_twelve_months_table_row(wbr1, metric, itr_start):
     return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + 12)]
 
 
-def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
+def _6_weeks_table(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
     """
     Constructs a 6-week table block for a specified plot using data from a WBR object.
 
@@ -689,7 +698,7 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
         plot: A dictionary containing plotting configurations for the table block.
         wbr1 (WBR): The WBR object containing metrics data.
         block_number (str): The identifier for the block being constructed.
-        event_dict (dict): An dictionary consisting of the metric and the respective events
+        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
 
     Raises:
         SyntaxError: If rows are not specified in the plotting configuration.
@@ -712,19 +721,19 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, event_dict: dict):
     table_column_header = [wbr1.graph_axis_label[i] for i in range(0, 6)]
     table_column_header.append("QTD")  # Add QTD column header.
     table_column_header.append("YTD")  # Add YTD column header.
-    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1, event_dict)
+    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1, annotations_dict)
 
     # Append the completed six weeks table to the decks collection.
     decks.blocks.append(six_weeks_table)
 
 
 def build_six_weeks_table(
-    block_number: str,
-    plotting_dict: dict,
-    six_weeks_table: TrailingTable,
-    table_column_header: list,
-    wbr1: WBR,
-    event_dict: dict,
+        block_number: str,
+        plotting_dict: dict,
+        six_weeks_table: TrailingTable,
+        table_column_header: list,
+        wbr1: WBR,
+        annotations_dict: dict
 ):
     """
     Builds a six weeks table using the specified plotting configuration.
@@ -735,7 +744,7 @@ def build_six_weeks_table(
         six_weeks_table (TrailingTable): The table object to populate with rows and headers.
         table_column_header (list): The headers for the table, representing the weeks and additional metrics.
         wbr1 (WBR): The WBR object containing metric data necessary for building table rows.
-        event_dict (dict): An dictionary consisting of the metric and the respective events
+        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
 
     Raises:
         SyntaxError: If the 'rows' key is not present in the plotting configuration.
@@ -752,7 +761,7 @@ def build_six_weeks_table(
         # Iterate over each row configuration to build table rows.
         for row_configs in plotting_dict["rows"]:
             try:
-                row = build_six_week_table_row(six_weeks_table, row_configs, wbr1, event_dict)
+                row = build_six_week_table_row(six_weeks_table, row_configs, wbr1, annotations_dict)
 
                 # Append the constructed row to the table.
                 six_weeks_table.rows.append(row)
@@ -765,7 +774,7 @@ def build_six_weeks_table(
                 )
 
 
-def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, wbr1: WBR, event_dict: dict):
+def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, wbr1: WBR, annotations_dict: dict):
     """
     Constructs a row for the six weeks table based on the provided configuration.
 
@@ -774,7 +783,7 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
         row_configs (dict): A dictionary containing the configuration for the row, which includes
                             'header', 'metric', 'style', and 'y_scaling'.
         wbr1 (WBR): The WBR object containing metric data necessary for retrieving the metric values.
-        event_dict (dict): An dictionary consisting of the metric and the respective events
+        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
 
     Raises:
         KeyError: If the specified metric is not found in the WBR metrics dataframe.
@@ -795,9 +804,9 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
                 f"the dataframe, please check if you have defined this metric in metric section"
             )
         # Get data for the six weeks table row.
-        row.rowData = get_six_weeks_table_row_data(wbr1, row_config["metric"], row_config["__line__"])
-        if row_config["metric"] in event_dict:
-            six_weeks_table.events.append(event_dict[row_config["metric"]])
+        row.rowData = get_six_weeks_table_row_data(wbr1, row_config['metric'], row_config['__line__'])
+        if row_config['metric'] in annotations_dict:
+            six_weeks_table.annotations.extend(annotations_dict[row_config['metric']])
     # Set additional properties for the row if specified.
     if "style" in row_config:
         row.rowStyle = row_config["style"]
@@ -965,68 +974,73 @@ def append_embedded_content_to_deck(decks, plot):
     decks.blocks.append(embedded_content)
 
 
-def filter_metric(metric, metric_list, event_errors):
-    if metric not in metric_list:
-        event_errors.append(f"Metric {metric} not present the metric list")
-        return False
-
-    return True
-
-
-def filter_events(wbr: WBR, event_df, event_errors: list) -> dict:
-    if event_df is None:
+def filter_annotations(wbr: WBR, annotation_df, annotation_errors: list) -> dict[str:list]:
+    if annotation_df is None:
         return {}
     week_ending = wbr.cy_week_ending
     cy_six_weeks_ago = week_ending - datetime.timedelta(days=41)
     py_six_weeks_end = week_ending - datetime.timedelta(days=364)
     py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=41)
 
-    cy_six_weeks_events = event_df.query("Date >= @cy_six_weeks_ago and Date <= @week_ending")
-    py_six_weeks_events = event_df.query("Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end")
-
-    df = pd.concat([cy_six_weeks_events, py_six_weeks_events], axis=0)
-    events_metric_list = list(df["MetricName"])
+    cy_six_weeks_annotations = annotation_df.query('Date >= @cy_six_weeks_ago and Date <= @week_ending')
+    py_six_weeks_annotations = annotation_df.query('Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end')
 
     wbr_metric_list = wbr.metrics.columns
-    events_metric_list = list(
-        filter(lambda metric: filter_metric(metric, wbr_metric_list, event_errors), events_metric_list)
-    )
+    df = pd.concat([cy_six_weeks_annotations, py_six_weeks_annotations], axis=0)
 
-    events_desc_list = list(df["EventDescription"])
-    events_date_list = list(df["Date"])
-    events_dict = {}
-    for m, d, date in zip(events_metric_list, events_desc_list, events_date_list):
-        events_dict[m] = {"metric": m, "description": d, "date": date.strftime("%B %d %Y")}
+    annotation_metrics = list(df["MetricName"])
 
-    return events_dict
+    df = df[df["MetricName"].isin(wbr_metric_list)]
+
+    valid_annotation_metrics = list(df["MetricName"])
+
+    removed_annotation_metrics = set(annotation_metrics) - set(valid_annotation_metrics)
+
+    for rem in removed_annotation_metrics:
+        annotation_errors.append(f"Metric {rem} not present the metric list")
+
+    annotations_dict = {}
+
+    for idx, row in enumerate(df.itertuples(index=False), start=1):
+        d = {
+            "metric": row.MetricName,
+            "description": row.EventDescription,
+            "date": row.Date.strftime("%B %d %Y")
+        }
+        if row.MetricName in annotations_dict:
+            annotations_dict[row.MetricName].append(d)
+        else:
+            annotations_dict[row.MetricName] = [d]
+
+    return annotations_dict
 
 
-def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
+def get_wbr_deck(report: WBR, annotation_data: pd.DataFrame = None) -> Deck:
     """
     Constructs a Deck object based on the configuration provided in the wbr1 object.
 
     Args:
         report (WBR): An instance of the WBR class containing configuration data for the deck.
-        event_data (DataFrame): Event dataframe that consists the event data for the wbr metrics
+        annotation_data (DataFrame): Annotation dataframe that consists the annotation data for the wbr metrics
     Returns:
         Deck: A Deck object populated with plots, titles, and other settings defined in the wbr1 configuration.
     """
     plots = report.cfg["deck"]
     deck = Deck()
 
-    event_dict = {}
-    event_errors = []
+    annotations_dict = {}
+    annotation_errors = []
     try:
-        event_dict = filter_events(report, event_data, event_errors)
+        annotations_dict = filter_annotations(report, annotation_data, annotation_errors)
     except Exception as err:
-        logger.error(err, exc_info=True)
-        event_errors.append(err.__str__())
+        logging.error(err, exc_info=True)
+        annotation_errors.append(err.__str__())
 
     if "x_axis_monthly_display" in report.cfg["setup"]:
         deck.xAxisMonthlyDisplay = report.cfg["setup"]["x_axis_monthly_display"]
 
     for i in range(len(plots)):
-        build_a_block(deck, i, plots, report, event_dict)
+        build_a_block(deck, i, plots, report, annotations_dict)
 
     deck.title = report.cfg["setup"]["title"]
 
@@ -1036,12 +1050,12 @@ def get_wbr_deck(report: WBR, event_data: pd.DataFrame = None) -> Deck:
     if "block_starting_number" in report.cfg["setup"]:
         deck.blockStartingNumber = report.cfg["setup"]["block_starting_number"]
 
-    deck.eventErrors = "\n".join(event_errors) if len(event_errors) > 0 else None
+    deck.annotationErrors = "\n".join(annotation_errors) if len(annotation_errors) > 0 else None
 
     return deck
 
 
-def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict):
+def build_a_block(deck: Deck, i: int, plots: list, report: WBR, annotations_dict: dict):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1050,25 +1064,22 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, event_dict: dict
         i (int): The index of the current block in the plots list.
         plots (list): A list of plot configurations, each containing a block configuration.
         report (WBR): An instance of the WBR class containing additional configuration data.
-        event_dict (dict): An dictionary consisting of the metric and the respective events
+        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
     Raises:
         Exception: If the block configuration is invalid or if the UI type is not recognized.
     """
-    if "block" not in plots[i]:
-        raise Exception(
-            f"Invalid block configuration for block number {str(i + 1)} in DECK Section at line: {plots[i]['__line__']}"
-        )
-    plotting_dict = plots[i]["block"]
-    if "ui_type" not in plotting_dict or plotting_dict["ui_type"] is None:
-        raise Exception(
-            f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
-            f" {plotting_dict['__line__']}"
-        )
-    elif plotting_dict["ui_type"] == "6_12Graph":
-        _6_12_chart(deck, plots[i], report, str(i + 1), event_dict)
-    elif plotting_dict["ui_type"] == "6_WeeksTable":
-        _6_weeks_table(deck, plots[i], report, str(i + 1), event_dict)
-    elif plotting_dict["ui_type"] == "12_MonthsTable":
+    if 'block' not in plots[i]:
+        raise Exception(f"Invalid block configuration for block number {str(i + 1)} in DECK Section at line:"
+                        f" {plots[i]['__line__']}")
+    plotting_dict = plots[i]['block']
+    if 'ui_type' not in plotting_dict or plotting_dict['ui_type'] is None:
+        raise Exception(f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
+                        f" {plotting_dict['__line__']}")
+    elif plotting_dict['ui_type'] == '6_12Graph':
+        _6_12_chart(deck, plots[i], report, str(i + 1), annotations_dict)
+    elif plotting_dict['ui_type'] == '6_WeeksTable':
+        _6_weeks_table(deck, plots[i], report, str(i + 1), annotations_dict)
+    elif plotting_dict['ui_type'] == '12_MonthsTable':
         _12_months_table(deck, plots[i], report, str(i + 1))
     elif plotting_dict["ui_type"] == "section":
         append_section_to_deck(deck, plots[i])
@@ -1301,3 +1312,20 @@ def load_connections_from_url_or_path(url_or_path: str) -> dict:
 
     logger.info(f"Successfully loaded {len(connections_map)} connections from {url_or_path}.")
     return connections_map
+
+
+def validate_url(url: str) -> bool:
+    """Validate that a URL uses https and does not point to a private/internal IP."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_reserved or addr.is_link_local:
+            return False
+    except ValueError:
+        pass
+    return True
