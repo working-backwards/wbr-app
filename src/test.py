@@ -4,7 +4,6 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pandas
@@ -12,10 +11,12 @@ import yaml
 
 import src.wbr as wbr
 from src import validator
-from src.controller_utility import SixTwelveChart, TrailingTable, get_wbr_deck, SafeLineLoader
+from src.controller_utility import SafeLineLoader, SixTwelveChart, TrailingTable, get_wbr_deck
 from src.data_loader import DataLoader
 
-test_suite_folder = Path(os.path.dirname(__file__)) / 'unit_test_case'
+logger = logging.getLogger(__name__)
+
+test_suite_folder = Path(os.path.dirname(__file__)) / "unit_test_case"
 
 
 @dataclass
@@ -30,7 +31,7 @@ class ScenarioResult:
         self.scenario: str
         self.weekEnding: str
         self.fiscalMonth: str
-        self.testCases: List[Test]
+        self.testCases: list[Test]
 
 
 class Test:
@@ -56,7 +57,7 @@ class TrailingTableTest(Test):
     def __init__(self):
         super().__init__("TrailingTable")
         self.rowResult: TestResult
-        self.headerResult: List[TestResult]
+        self.headerResult: list[TestResult]
 
 
 class TestResult:
@@ -93,13 +94,13 @@ def test_wbr():
     result = Result()
     for i, scr in enumerate(sorted(os.walk(test_suite_folder))):
         scenario = scr[0]
-        if 'scenario' not in scenario:
+        if "scenario" not in scenario:
             continue
 
         scenario_name = scenario.split("/")[-1]
-        csv_file = scenario + '/original.csv'
-        config_file_path = scenario + '/config.yaml'
-        test_config_file = scenario + '/testconfig.yml'
+        csv_file = scenario + "/original.csv"
+        config_file_path = scenario + "/config.yaml"
+        test_config_file = scenario + "/testconfig.yml"
 
         config = yaml.load(open(config_file_path), SafeLineLoader)
         test_config = yaml.safe_load(open(test_config_file))
@@ -107,24 +108,21 @@ def test_wbr():
         try:
             data_loader = DataLoader(cfg=test_config, csv_data=csv_file)
         except Exception as e:
-            logging.error(f"WBR Data loading failed: {e}", exc_info=True)
+            logger.error(f"WBR Data loading failed: {e}", exc_info=True)
             raise Exception(f"Data loading error: {e}")
 
         try:
-            wbr_validator = validator.WBRValidator(
-                cfg=config,
-                daily_df=data_loader.daily_df
-            )
+            wbr_validator = validator.WBRValidator(cfg=config, daily_df=data_loader.daily_df)
             wbr_validator.validate_yaml()
         except Exception as e:
-            logging.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
+            logger.error(f"WBR Validation or data loading failed: {e}", exc_info=True)
             raise Exception(f"Invalid configuration or data loading error: {e}")
 
         try:
             # Create a WBR object using the CSV data and configuration
             wbr1 = wbr.WBR(config, daily_df=wbr_validator.daily_df)
         except Exception as error:
-            logging.error(error, exc_info=True)
+            logger.error(error, exc_info=True)
             raise error
 
         scenario_result = ScenarioResult()
@@ -169,13 +167,13 @@ def build_and_test_wbr(wbr1, test):
             function_bps_metrics=wbr1.function_bps_metrics,
         )
     except Exception as error:
-        logging.error(error, exc_info=True)
+        logger.error(error, exc_info=True)
         raise error
 
     blocks = list(filter(lambda x: x.title == test["metric_name"], deck.blocks))
 
     if len(blocks) == 0:
-        logging.warning(f"no metric found for {test['metric_name']}")
+        logger.warning(f"no metric found for {test['metric_name']}")
         return Test(None)
 
     block = blocks[0]
@@ -287,8 +285,9 @@ def extract_trailing_table(block: TrailingTable, test, wbr1):
         test_case.headerResult = TestResult("SUCCESS")  # Set success if headers match
     except AssertionError:
         # Log failure if headers do not match and provide details
-        test_case.headerResult = TestResult("FAILED", "Trailing table header test failed",
-                                            test["headers"], block.headers)
+        test_case.headerResult = TestResult(
+            "FAILED", "Trailing table header test failed", test["headers"], block.headers
+        )
 
     # Check the rows in the block against the expected values
     test_case.rowResult = check_row(block.rows, test)
@@ -326,8 +325,9 @@ def check_row(rows, test_config):
             assertion(row.rowData, list(test_config[row.rowHeader]))
         except AssertionError:
             # If an assertion fails, return a failed TestResult with details
-            return TestResult("FAILED", f"{row.rowHeader} test failed for table",
-                              list(test_config[row.rowHeader]), row.rowData)
+            return TestResult(
+                "FAILED", f"{row.rowHeader} test failed for table", list(test_config[row.rowHeader]), row.rowData
+            )
 
     # If all rows pass validation, return a successful TestResult
     return TestResult("SUCCESS")
@@ -368,8 +368,9 @@ def check_cy_df_shape(test, wbr1):
         return TestResult("SUCCESS")
     except AssertionError:
         # If the assertion fails, return a failed TestResult with details
-        return TestResult("FAILED", "cy data frame length test failed",
-                          test["cy_monthly_data_frame_length"], row_length)
+        return TestResult(
+            "FAILED", "cy data frame length test failed", test["cy_monthly_data_frame_length"], row_length
+        )
 
 
 def check_py_df_shape(test, wbr1):
@@ -407,8 +408,9 @@ def check_py_df_shape(test, wbr1):
         return TestResult("SUCCESS")
     except AssertionError:
         # If the assertion fails, return a failed TestResult with details
-        return TestResult("FAILED", "py data frame length test failed",
-                          test["py_monthly_data_frame_length"], row_length)
+        return TestResult(
+            "FAILED", "py data frame length test failed", test["py_monthly_data_frame_length"], row_length
+        )
 
 
 def py_validate_dataframe_length(wbr1: pandas.DataFrame, test):
@@ -434,7 +436,7 @@ def py_validate_dataframe_length(wbr1: pandas.DataFrame, test):
     """
 
     # Extract the metric name from the test configuration
-    metric_name = test['metric_name']
+    metric_name = test["metric_name"]
 
     # If the metric name contains "WOW", "MOM", or "YOY", return a success result immediately
     if "WOW" in metric_name or "MOM" in metric_name or "YOY" in metric_name:
@@ -449,8 +451,9 @@ def py_validate_dataframe_length(wbr1: pandas.DataFrame, test):
         return TestResult("SUCCESS")
     except AssertionError:
         # If the assertion fails, return a failed TestResult with details
-        return TestResult("FAILED", "py data frame length test failed",
-                          test["py_monthly_data_frame_length"], py_monthly_length)
+        return TestResult(
+            "FAILED", "py data frame length test failed", test["py_monthly_data_frame_length"], py_monthly_length
+        )
 
 
 def cy_validate_dataframe_length(wbr1, test):
@@ -476,7 +479,7 @@ def cy_validate_dataframe_length(wbr1, test):
     """
 
     # Extract the metric name from the test configuration
-    metric_name = test['metric_name']
+    metric_name = test["metric_name"]
 
     # Determine the length of the CY DataFrame based on whether the metric name includes special keywords
     if "WOW" in metric_name or "MOM" in metric_name or "YOY" in metric_name:
@@ -492,8 +495,9 @@ def cy_validate_dataframe_length(wbr1, test):
         return TestResult("SUCCESS")
     except AssertionError:
         # If the assertion fails, return a failed TestResult with details
-        return TestResult("FAILED", "cy data frame length test failed",
-                          test["cy_monthly_data_frame_length"], cy_monthly_length)
+        return TestResult(
+            "FAILED", "cy data frame length test failed", test["cy_monthly_data_frame_length"], cy_monthly_length
+        )
 
 
 def validate_axis(x_axis, test):
@@ -517,7 +521,7 @@ def validate_axis(x_axis, test):
     """
 
     # Remove any spaces from the x-axis labels
-    x_axis.remove(' ')
+    x_axis.remove(" ")
 
     try:
         # Assert that the cleaned x-axis labels match the expected values in the test configuration
@@ -549,8 +553,8 @@ def validate_cy_six_weeks(metric_object, test):
     """
 
     # Get the primary data for the current metric
-    primary = metric_object.current[0] if metric_object.current is not None else Exception(
-        "current missing from metric"
+    primary = (
+        metric_object.current[0] if metric_object.current is not None else Exception("current missing from metric")
     )
 
     # Extract the first six weeks of primary axis data and replace strings with NaN where applicable
@@ -589,7 +593,7 @@ def validate_py_six_weeks(metric_object, test):
     """
 
     # Check if the 'graph_prior_year_flag' is either not present or is set to True
-    if 'graph_prior_year_flag' not in test or test['graph_prior_year_flag']:
+    if "graph_prior_year_flag" not in test or test["graph_prior_year_flag"]:
         # Ensure that the previous data exists in the metric object
         if metric_object.previous is None:
             raise Exception("previous missing from metric")
@@ -632,8 +636,9 @@ def validate_cy_twelve_months(metric_object, test):
     """
 
     # Ensure that the current data exists in the metric object
-    secondary = metric_object.current[1] if metric_object.current is not None else Exception(
-        "current missing from metric")
+    secondary = (
+        metric_object.current[1] if metric_object.current is not None else Exception("current missing from metric")
+    )
 
     # Extract the twelve months of data from the secondary axis, starting from the eighth element
     twelve_month_values = replace_string_with_nan(secondary["secondaryAxis"][7:])
@@ -670,7 +675,7 @@ def validate_py_twelve_months(metric_object, test):
     """
 
     # Check if the test configuration allows for prior year validation
-    if 'graph_prior_year_flag' not in test or test['graph_prior_year_flag']:
+    if "graph_prior_year_flag" not in test or test["graph_prior_year_flag"]:
         # Ensure that the previous data exists in the metric object
         if metric_object.previous is None:
             raise Exception("previous missing from metric")
@@ -728,8 +733,7 @@ def string_assertion(real, expected):
 
 
 def assertion(real, expected):
-    assert all([nearly_equal(round_off(a, 2), round_off(b, 2), 1)
-                for a, b in zip(real, expected)])
+    assert all([nearly_equal(round_off(a, 2), round_off(b, 2), 1) for a, b in zip(real, expected)])
 
 
 def replace_nan_with_string_nan(actual_list):

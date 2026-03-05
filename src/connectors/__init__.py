@@ -37,7 +37,8 @@ def get_connector(connection_type: str, config: dict) -> BaseConnector:
     if not connector_class:
         logger.error(f"Unsupported database connection type: {connection_type}")
         raise ValueError(
-            f"Unsupported database connection type: {connection_type}. Supported types are: {list(_CONNECTOR_MAP.keys())}")
+            f"Unsupported database connection type: {connection_type}. Supported types are: {list(_CONNECTOR_MAP.keys())}"
+        )
 
     logger.info(f"Creating connector of type: {connection_type}")
 
