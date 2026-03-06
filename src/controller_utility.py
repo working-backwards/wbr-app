@@ -25,7 +25,7 @@ from src.constants import (
     PY_WEEKLY_OFFSET_DAYS,
     SIX_WEEKS_LOOKBACK_DAYS,
 )
-from src.wbr_utility import if_else, put_into_map, if_else_supplier, append_to_list, is_last_day_of_month
+from src.wbr_utility import append_to_list, if_else, if_else_supplier, is_last_day_of_month, put_into_map
 
 logger = logging.getLogger(__name__)
 

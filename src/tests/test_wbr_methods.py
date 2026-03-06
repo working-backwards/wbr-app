@@ -8,7 +8,7 @@ _compute_box_total_yoy) using hand-crafted DataFrames, without constructing
 a full WBR pipeline. This verifies the explicit-params pattern works and
 documents the expected behavior of each method in isolation.
 """
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -17,19 +17,10 @@ import pytest
 
 from src.constants import (
     BOX_IDX_LAST_WK,
-    BOX_IDX_MTD,
-    BOX_IDX_QTD,
-    BOX_IDX_WOW,
-    BOX_IDX_YOY_MTD,
-    BOX_IDX_YOY_QTD,
-    BOX_IDX_YOY_WK,
-    BOX_IDX_YOY_YTD,
-    BOX_IDX_YTD,
     BPS_MULTIPLIER,
     NUM_BOX_TOTAL_ROWS,
     NUM_TRAILING_WEEKS,
     PCT_MULTIPLIER,
-    PY_WEEKLY_OFFSET_DAYS,
 )
 from src.wbr import WBR
 

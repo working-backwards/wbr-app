@@ -6,7 +6,7 @@ Provides scenario loading utilities that create WBR objects and deck outputs
 from the golden-output test cases in src/unit_test_case/scenario_*.
 """
 import os
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 import yaml
@@ -19,7 +19,7 @@ from src.data_loader import DataLoader
 SCENARIO_DIR = Path(os.path.dirname(__file__)).parent / "unit_test_case"
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_scenario(scenario_name):
     """Load a scenario's WBR object and deck, cached per scenario name.
 

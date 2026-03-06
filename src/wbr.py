@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 from itertools import groupby
 
 import fiscalyear
@@ -9,7 +9,6 @@ from dateutil import relativedelta
 
 import src.wbr_utility as wbr_util
 from src.constants import (
-    BPS_MULTIPLIER,
     BOX_IDX_LAST_WK,
     BOX_IDX_MTD,
     BOX_IDX_QTD,
@@ -19,6 +18,7 @@ from src.constants import (
     BOX_IDX_YOY_WK,
     BOX_IDX_YOY_YTD,
     BOX_IDX_YTD,
+    BPS_MULTIPLIER,
     MONTHLY_DATA_START_INDEX,
     NUM_BOX_TOTAL_ROWS,
     NUM_TRAILING_WEEKS,
