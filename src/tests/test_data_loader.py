@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import io
 import unittest
 from unittest.mock import MagicMock, patch
@@ -98,8 +99,8 @@ class TestDataLoader(unittest.TestCase):
         config_no_source = self.base_config.copy()
 
         with self.assertRaisesRegex(
-            ValueError,
-            "No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config.",
+                ValueError,
+                "No data source provided. Please provide either a CSV file or a 'db_config_url' in your YAML config.",
         ):
             DataLoader(cfg=config_no_source, csv_data=None)
 

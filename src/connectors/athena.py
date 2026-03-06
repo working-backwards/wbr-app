@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import logging
 import time
 
@@ -111,9 +112,9 @@ class AthenaConnector(BaseConnector):
                 for row_data in results_page["ResultSet"]["Rows"]:
                     # Skip header row if present (Athena often includes it in the first page of results)
                     if (
-                        not column_names
-                        and len(row_data["Data"]) > 0
-                        and all(d.get("VarCharValue") == c for d, c in zip(row_data["Data"], column_names))
+                            not column_names
+                            and len(row_data["Data"]) > 0
+                            and all(d.get("VarCharValue") == c for d, c in zip(row_data["Data"], column_names))
                     ):
                         continue
 
@@ -129,14 +130,14 @@ class AthenaConnector(BaseConnector):
                         is_header_row = False
 
                     if (
-                        is_header_row and not rows
+                            is_header_row and not rows
                     ):  # Only skip if it's the first row being processed and looks like a header
                         continue
 
                     rows.append([d.get("VarCharValue") for d in row_data["Data"]])
 
             if (
-                not column_names and rows
+                    not column_names and rows
             ):  # If column_names were not set due to empty metadata but rows exist (e.g. from header row)
                 column_names = rows.pop(0)  # Assume first row is header
 

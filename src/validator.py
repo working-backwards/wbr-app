@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import logging
 from datetime import datetime
 
@@ -64,7 +65,7 @@ class WBRValidator:
 
             # Check for required metric config parameters
             if "function" not in config and (
-                "aggf" not in config or ("column" not in config and "filter" not in config)
+                    "aggf" not in config or ("column" not in config and "filter" not in config)
             ):
                 raise KeyError(
                     f"One of the required metric config parameters from the list [aggf, column, filter] is missing for"

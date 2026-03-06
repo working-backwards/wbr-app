@@ -3,7 +3,7 @@ repos:
     rev: v0.9.7
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [ --fix ]
       - id: ruff-format
 
   - repo: local
@@ -13,4 +13,4 @@ repos:
         entry: 'inplace\s*=\s*True'
         language: pygrep
         files: '^src/fp/.*\.py$'
-        types: [python]
+        types: [ python ]

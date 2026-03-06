@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import datetime
 import ipaddress
 import logging
@@ -8,7 +9,6 @@ from urllib.parse import urlparse
 
 import dateutil
 import dateutil.relativedelta
-import numpy
 import numpy as np
 import pandas as pd
 import requests
@@ -16,11 +16,18 @@ import yaml
 from yaml import SafeLoader
 from yaml._yaml import ScannerError
 
-from src.wbr import WBR
+from src.constants import (
+    BOX_IDX_QTD,
+    BOX_IDX_YTD,
+    MONTHLY_DATA_START_INDEX,
+    NUM_TRAILING_MONTHS,
+    NUM_TRAILING_WEEKS,
+    PY_WEEKLY_OFFSET_DAYS,
+    SIX_WEEKS_LOOKBACK_DAYS,
+)
 from src.wbr_utility import append_to_list, if_else, if_else_supplier, is_last_day_of_month, put_into_map
 
 logger = logging.getLogger(__name__)
-
 
 class SixTwelveChart:
     def __init__(self):
@@ -119,32 +126,33 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
                                      based on the ratio of monthly to weekly maximum values.
     """
 
-    # Extract weekly (first 7 elements) and monthly (next 13 elements) data from the series
-    weekly_series = series[0:6]
-    monthly_series = series[7:19]
+    # Extract weekly and monthly data from the series
+    weekly_series = series[0:NUM_TRAILING_WEEKS]
+    monthly_series = series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS]
 
     # Check if the series contains float or integer values and compute maximum values
-    if weekly_series.dtype.type is numpy.float64 or weekly_series.dtype.type is numpy.int:
+    if np.issubdtype(weekly_series.dtype, np.floating) or np.issubdtype(weekly_series.dtype, np.integer):
         # Mask NaN values and calculate the maximum of weekly and monthly series
-        weekly_max = numpy.ma.array(weekly_series, mask=numpy.isnan(series[0:6])).max()
-        monthly_max = numpy.ma.array(monthly_series, mask=numpy.isnan(series[7:19])).max()
+        weekly_max = np.ma.array(weekly_series, mask=np.isnan(series[0:NUM_TRAILING_WEEKS])).max()
+        monthly_max = np.ma.array(monthly_series, mask=np.isnan(
+            series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS])).max()
 
         # Determine if both weekly and monthly data can be shown on a single axis
         is_single_axis = True if weekly_max > 0 and 0 < monthly_max / weekly_max <= 3 else False
 
     # Replace empty strings or NaN values in the series with empty strings for display purposes
-    series = ["" if val == "" or np.isnan(val) else val for val in series]
+    series = ["" if val == "" or pd.isna(val) else val for val in series]
 
     # Initialize the list to hold primary and secondary axis values
     primary_and_secondary_axis_value_list = []
 
     # Prepare primary (weekly) axis values with padding to align with monthly data
-    wkd = series[0:6]
-    wkd.extend(["", "", "", "", "", "", "", "", "", "", "", "", ""])  # Pad to align with monthly data length
+    wkd = series[0:NUM_TRAILING_WEEKS]
+    wkd.extend([''] * (1 + NUM_TRAILING_MONTHS))  # Pad to align with monthly data length
 
     # Prepare secondary (monthly) axis values with padding to align with weekly data
-    md = ["", "", "", "", "", "", ""]  # Pad to align with weekly data length
-    md.extend(series[7:19])
+    md = [''] * MONTHLY_DATA_START_INDEX  # Pad to align with weekly data length
+    md.extend(series[MONTHLY_DATA_START_INDEX:MONTHLY_DATA_START_INDEX + NUM_TRAILING_MONTHS])
 
     # Store the primary and secondary axis values in dictionaries
     primary_axis_values = {"primaryAxis": wkd}
@@ -158,7 +166,20 @@ def get_primary_and_secondary_axis_value_list(series, is_single_axis):
     return primary_and_secondary_axis_value_list, is_single_axis
 
 
-def _6_12_chart(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
+def _6_12_chart(
+        decks,
+        plot,
+        block_number,
+        annotations_dict: dict,
+        metrics=None,
+        box_totals=None,
+        bps_metrics=None,
+        function_bps_metrics=None,
+        graph_axis_label=None,
+        cy_week_ending=None,
+        fiscal_month=None,
+        cfg=None
+):
     """
     Builds a "6-12 Chart" for data visualization, determining whether to use single or dual axes
     based on data series metrics. The chart includes current and prior year data, axis labels,
@@ -167,9 +188,13 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
     Args:
         decks (Deck): Object containing the deck of blocks/charts being created.
         plot (dict): Configuration for the plot block, containing parameters such as title, y-axis scaling, etc.
-        wbr1 (WBR): Data object that contains the current week's report data, metrics, and configurations.
         block_number (str): The block number for which the chart is being built, useful for logging and error handling.
         annotations_dict (dict): annotation dictionary to annotate the charts, contains metric name as key and value as description
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
+        cfg (dict): The WBR configuration dictionary.
     Raises:
         SyntaxError: If required metrics are not specified in the plot configuration.
         KeyError: If a specified metric is not found in the WBR data.
@@ -178,27 +203,28 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
     """
 
     is_single_axis = False  # Flag to determine if a single axis is sufficient for display.
-    plotting_dict = plot["block"]
-    six_twelve_chart = get_6_12_chart_instance(plotting_dict, wbr1)
+    plotting_dict = plot['block']
+    six_twelve_chart = get_6_12_chart_instance(plotting_dict, cfg)
 
     # Determine the end date, accounting for whether it's the last day of the month.
     end_date = if_else_supplier(
-        wbr1,
-        lambda wbr: is_last_day_of_month(wbr.cy_week_ending),
-        lambda wbr: wbr.cy_week_ending,
-        lambda wbr: wbr.cy_week_ending.replace(day=1) - datetime.timedelta(days=1),
+        cy_week_ending,
+        lambda we: is_last_day_of_month(we),
+        lambda we: we,
+        lambda we: we.replace(day=1) - datetime.timedelta(days=1)
     )
 
     # Get the fiscal start date based on the current week and fiscal month configuration.
     fiscal_start = get_month_start(
-        wbr1.cy_week_ending.month, wbr1.cy_week_ending.year, datetime.datetime.strptime(wbr1.fiscal_month, "%b").month
+        cy_week_ending.month, cy_week_ending.year, datetime.datetime.strptime(fiscal_month, '%b').month
     )
 
     # Determine the starting month for the x-axis display.
-    is_trailing_twelve_months, month_start = _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1)
+    is_trailing_twelve_months, month_start = _get_x_axis_start_month(block_number, decks, end_date, plotting_dict,
+                                                                     fiscal_month=fiscal_month)
 
     # Set the x-axis label based on the determined start month.
-    six_twelve_chart.xAxis = get_x_axis_label(wbr1, month_start)
+    six_twelve_chart.xAxis = get_x_axis_label(graph_axis_label, month_start)
 
     # Validate that metrics are defined in the plot configuration.
     if "metrics" not in plotting_dict:
@@ -217,8 +243,11 @@ def _6_12_chart(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
         is_trailing_twelve_months,
         metrices,
         six_twelve_chart,
-        wbr1,
-        annotations_dict
+        annotations_dict,
+        metrics=metrics,
+        box_totals=box_totals,
+        bps_metrics=bps_metrics,
+        function_bps_metrics=function_bps_metrics,
     )
 
     # Set the number of axes based on whether a single or dual-axis is needed.
@@ -233,10 +262,13 @@ def process_metric(
         fiscal_start,
         is_single_axis,
         is_trailing_twelve_months,
-        metrics,
+        block_metrics,
         six_twelve_chart,
-        wbr1,
-        annotations_dict
+        annotations_dict,
+        metrics=None,
+        box_totals=None,
+        bps_metrics=None,
+        function_bps_metrics=None,
 ):
     """
     Processes metrics to build chart data for the 6-12 chart, including handling current and prior year data,
@@ -247,10 +279,13 @@ def process_metric(
         fiscal_start (datetime): The start of the fiscal period.
         is_single_axis (bool): Flag indicating whether the chart should use a single axis.
         is_trailing_twelve_months (bool): Flag indicating if the data represents trailing twelve months.
-        metrics (dict): Dictionary of metrics and their configuration from the plotting YAML.
+        block_metrics (dict): Dictionary of metrics and their configuration from the plotting YAML.
         six_twelve_chart (SixTwelveChart): Chart object to which the processed data is added.
-        wbr1 (WBR): Data object containing the report metrics and configurations.
         annotations_dict (dict): annotation dictionary to annotate the charts, contains metric name as key and value as description.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
 
     Returns:
         bool: Updated flag indicating if the chart should use a single axis.
@@ -262,24 +297,32 @@ def process_metric(
 
     box_value_list = []
 
-    for metric, metric_configs in metrics.items():
+    for metric, metric_configs in block_metrics.items():
         try:
             if metric == "__line__":
                 continue  # Skip the '__line__' key used for configuration tracking.
 
             # Process the current and prior year data for the metric.
             metric_object, is_single_axis = _process_metric_data(
-                metric, metric_configs, wbr1, fiscal_start, is_trailing_twelve_months, is_single_axis
+                metric, metric_configs, metrics, fiscal_start, is_trailing_twelve_months, is_single_axis
             )
 
-            # Build the dictionary for the metric's line style, legend, and other configurations.
+            # Build the dictionary for the metrics' line style, legend, and other configurations.
             metrics_dictionary = _build_metric_dictionary(metric, metric_configs, metric_object)
 
             # Append the metric configuration to the chart's y-axis data.
             six_twelve_chart.yAxis.append(metrics_dictionary)
 
             # Configure the table headers for the box totals and append box total values.
-            box_value_list = _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart)
+            box_value_list = _update_box_totals(
+                metric,
+                metrics_dictionary,
+                box_totals,
+                bps_metrics,
+                function_bps_metrics,
+                box_value_list,
+                six_twelve_chart
+            )
 
             if metric in annotations_dict:
                 six_twelve_chart.annotations.extend(annotations_dict[metric])
@@ -296,14 +339,14 @@ def process_metric(
     return is_single_axis
 
 
-def _process_metric_data(metric, metric_configs, wbr1, fiscal_start, is_trailing_twelve_months, is_single_axis):
+def _process_metric_data(metric, metric_configs, metrics, fiscal_start, is_trailing_twelve_months, is_single_axis):
     """
     Retrieves and processes both current and prior year data for a metric.
 
     Args:
         metric (str): The metric to be processed.
         metric_configs (dict): Configuration for the metric from the plotting YAML.
-        wbr1 (WBR): Data object containing the report metrics.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
         fiscal_start (datetime): The start of the fiscal period.
         is_trailing_twelve_months (bool): Flag indicating if the data represents trailing twelve months.
         is_single_axis (bool): Flag indicating whether the chart should use a single axis.
@@ -316,22 +359,22 @@ def _process_metric_data(metric, metric_configs, wbr1, fiscal_start, is_trailing
         KeyError: If the metric is not found in the WBR data.
     """
 
-    if metric not in wbr1.metrics.columns:
+    if metric not in metrics.columns:
         raise KeyError(f"Metric '{metric}' not found in the data at line {metric_configs['__line__']}")
 
     metric_object = MetricObject()
 
     # Process current year data.
-    metric_data_series = get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months)
+    metric_data_series = get_metric_series_data(metrics, metric, fiscal_start, is_trailing_twelve_months)
     metric_object.current, is_single_axis = get_primary_and_secondary_axis_value_list(
         metric_data_series, is_single_axis
     )
 
     # Process prior year data if configured.
-    if "PY__" + metric in wbr1.metrics and (
-        "graph_prior_year_flag" not in metric_configs or metric_configs["graph_prior_year_flag"]
+    if "PY__" + metric in metrics and (
+            'graph_prior_year_flag' not in metric_configs or metric_configs['graph_prior_year_flag']
     ):
-        metric_data_series = get_metric_series_data(wbr1, "PY__" + metric, fiscal_start, is_trailing_twelve_months)
+        metric_data_series = get_metric_series_data(metrics, 'PY__' + metric, fiscal_start, is_trailing_twelve_months)
         metric_object.previous, is_single_axis = get_primary_and_secondary_axis_value_list(
             metric_data_series, is_single_axis
         )
@@ -341,12 +384,12 @@ def _process_metric_data(metric, metric_configs, wbr1, fiscal_start, is_trailing
 
 def _build_metric_dictionary(metric, metric_configs, metric_object):
     """
-    Builds a dictionary containing the metric's line style, legend name, and other configurations.
+    Builds a dictionary containing the metrics' line style, legend name, and other configurations.
 
     Args:
         metric (str): The name of the metric.
         metric_configs (dict): The configuration for the metric from the plotting YAML.
-        metric_object (MetricObject): The object containing the metric's current and prior year data.
+        metric_object (MetricObject): The object containing the metrics' current and prior year data.
 
     Returns:
         dict: A dictionary containing the line style, legend name, and other metric properties.
@@ -370,14 +413,17 @@ def _build_metric_dictionary(metric, metric_configs, metric_object):
     return metrics_dictionary
 
 
-def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twelve_chart):
+def _update_box_totals(metric, metrics_dictionary, box_totals, bps_metrics, function_bps_metrics,
+                       box_value_list, six_twelve_chart):
     """
     Updates the box totals for the given metric and configures the table headers.
 
     Args:
         metric (str): The metric being processed.
-        metrics_dictionary (dict): Dictionary containing the metric's properties.
-        wbr1 (WBR): Data object containing the report metrics.
+        metrics_dictionary (dict): Dictionary containing the metrics' properties.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
         box_value_list (list): List of box total values to update.
         six_twelve_chart (SixTwelveChart): Chart object to which the processed data is added.
 
@@ -386,47 +432,47 @@ def _update_box_totals(metric, metrics_dictionary, wbr1, box_value_list, six_twe
     """
 
     # Set the table headers for the box totals.
-    box_axis_list = list(wbr1.box_totals["Axis"])
+    box_axis_list = list(box_totals['Axis'])
     six_twelve_chart.table["tableHeader"] = box_axis_list
 
     # Configure the box total scale based on whether the metric is a BPS metric.
     six_twelve_chart.boxTotalScale = (
-        "bps" if (metric in wbr1.bps_metrics or metric in wbr1.function_bps_metrics) else "%"
+        'bps' if (metric in bps_metrics or metric in function_bps_metrics) else "%"
     )
 
     # Append the box total values for the metric, handling NaN and string values.
-    if metrics_dictionary["lineStyle"] != "target":
+    if metrics_dictionary['lineStyle'] != 'target':
         box_value_list.append(
             [
-                value if not isinstance(value, str) and not numpy.isnan(value) else "N/A"
-                for value in wbr1.box_totals[metric]
+                value if not isinstance(value, str) and not pd.isna(value) else "N/A"
+                for value in box_totals[metric]
             ]
         )
 
     return box_value_list
 
 
-def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, wbr1):
+def _get_x_axis_start_month(block_number, decks, end_date, plotting_dict, fiscal_month=None):
     """
     Determines the start month for the x-axis based on plot configuration or deck settings.
     """
     if "x_axis_monthly_display" in plotting_dict:
         month_start, is_trailing_twelve_months = get_x_axis_display_start_month(
-            block_number, end_date, plotting_dict["x_axis_monthly_display"], wbr1, plotting_dict["__line__"]
+            block_number, end_date, plotting_dict['x_axis_monthly_display'], fiscal_month, plotting_dict['__line__']
         )
     elif decks.xAxisMonthlyDisplay is not None:
         month_start, is_trailing_twelve_months = get_x_axis_display_start_month(
-            block_number, end_date, decks.xAxisMonthlyDisplay, wbr1, plotting_dict["__line__"]
+            block_number, end_date, decks.xAxisMonthlyDisplay, fiscal_month, plotting_dict['__line__']
         )
     else:
         # Default to a 12-month trailing view.
-        month_start = (end_date - dateutil.relativedelta.relativedelta(months=11)).strftime("%b")
+        month_start = (end_date - dateutil.relativedelta.relativedelta(months=NUM_TRAILING_MONTHS - 1)).strftime("%b")
         is_trailing_twelve_months = True
 
     return is_trailing_twelve_months, month_start
 
 
-def get_6_12_chart_instance(plotting_dict, wbr1):
+def get_6_12_chart_instance(plotting_dict, cfg):
     """
     Initializes the SixTwelveChart with basic properties such as title, y-scale, and tooltip.
     """
@@ -438,11 +484,11 @@ def get_6_12_chart_instance(plotting_dict, wbr1):
         plotting_dict["y_scaling"] if "y_scaling" in plotting_dict and plotting_dict["y_scaling"] is not None else ""
     )
     # Set tooltip based on the WBR configuration.
-    six_twelve_chart.tooltip = "true" if "tooltip" in wbr1.cfg["setup"] and wbr1.cfg["setup"]["tooltip"] else "false"
+    six_twelve_chart.tooltip = "true" if 'tooltip' in cfg['setup'] and cfg['setup']['tooltip'] else "false"
     return six_twelve_chart
 
 
-def get_x_axis_display_start_month(block_number, end_date: datetime, month_start, wbr1, line):
+def get_x_axis_display_start_month(block_number, end_date: datetime, month_start, fiscal_month, line):
     """
     Determines the start month for the X-axis display based on the provided `month_start` value.
     Supports two options: 'fiscal_year' and 'trailing_twelve_months'.
@@ -451,7 +497,7 @@ def get_x_axis_display_start_month(block_number, end_date: datetime, month_start
         block_number (int): The block number, useful for logging and error handling.
         end_date (datetime): The end date for the current period.
         month_start (str): The type of month start to display ('fiscal_year' or 'trailing_twelve_months').
-        wbr1 (WBR): The WBR object containing fiscal month and other configurations.
+        fiscal_month (str): The fiscal year-end month abbreviation (e.g. 'Dec').
         line (int): The line number in the configuration file, used for error logging.
 
     Returns:
@@ -465,16 +511,16 @@ def get_x_axis_display_start_month(block_number, end_date: datetime, month_start
 
     if month_start == "fiscal_year":
         # Return the month following the fiscal year-end month as the fiscal year start month.
-        # Convert the fiscal end month (wbr1.fiscal_month) into a datetime object, add one month,
+        # Convert the fiscal end month into a datetime object, add one month,
         # and return the month name in abbreviated format ("%b").
         return (
-            datetime.datetime.strptime(wbr1.fiscal_month, "%b") + dateutil.relativedelta.relativedelta(months=1)
+                datetime.datetime.strptime(fiscal_month, "%b") + dateutil.relativedelta.relativedelta(months=1)
         ).strftime("%b"), False
 
     elif month_start == "trailing_twelve_months":
         # Return the month that is 11 months prior to the `end_date`, representing the start of the trailing twelve
         # months.
-        return (end_date - dateutil.relativedelta.relativedelta(months=11)).strftime("%b"), True
+        return (end_date - dateutil.relativedelta.relativedelta(months=NUM_TRAILING_MONTHS - 1)).strftime("%b"), True
 
     else:
         # Raise an error if the `month_start` value is not 'fiscal_year' or 'trailing_twelve_months'.
@@ -509,8 +555,7 @@ def get_month_start(week_ending_month, week_ending_year, fiscal_month):
 
     # Return the last day of the fiscal month, subtracting 11 months to get the start of the 12-month period.
     return last_day_of_month(datetime.date(week_ending_year, fiscal_month, 1)) - dateutil.relativedelta.relativedelta(
-        months=11
-    )
+        months=NUM_TRAILING_MONTHS - 1)
 
 
 def last_day_of_month(any_day):
@@ -530,13 +575,13 @@ def last_day_of_month(any_day):
     return next_month - datetime.timedelta(days=next_month.day)
 
 
-def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months):
+def get_metric_series_data(metrics, metric, fiscal_start, is_trailing_twelve_months):
     """
     Retrieves and constructs a time series for the specified metric, aligning it with the fiscal start
     or a trailing twelve-month period.
 
     Args:
-        wbr1 (WBR): The WBR object containing metrics data and other configurations.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns and a 'Date' column.
         metric (str): The name of the metric to retrieve the time series data for.
         fiscal_start (datetime): The start date of the fiscal period.
         is_trailing_twelve_months (bool): If True, the series will cover the trailing twelve months.
@@ -546,30 +591,30 @@ def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months
         with up to 12 months of data.
     """
 
-    # Start by taking the first 6 data points of the metric.
-    metric_series = wbr1.metrics[metric].copy()[0:6]
+    # Start by taking the first NUM_TRAILING_WEEKS data points of the metric.
+    metric_series = metrics[metric].copy()[0:NUM_TRAILING_WEEKS]
 
     # Concatenate a NaN value for padding, then reset index for proper series alignment.
     metric_series = pd.concat([metric_series, pd.Series(np.nan)]).reset_index(drop=True)
 
-    # Copy the metric data for the months beyond the first 6 data points.
-    months_data = list(wbr1.metrics[metric].copy()[7:])
+    # Copy the metric data for the months beyond the weekly data points.
+    months_data = list(metrics[metric].copy()[MONTHLY_DATA_START_INDEX:])
 
     # Copy the corresponding dates from the 'Date' column in the WBR metrics.
-    axis_data = list(wbr1.metrics["Date"].copy()[7:])
+    axis_data = list(metrics['Date'].copy()[MONTHLY_DATA_START_INDEX:])
 
     # Initialize conditions to track the month matching and total number of months processed.
     month_cond = False
     total_months = 1
 
-    # Iterate through the months data to collect up to 12 months of aligned metric data.
+    # Iterate through the months data to collect up to NUM_TRAILING_MONTHS of aligned metric data.
     for i in range(len(months_data)):
         # Check if the current date aligns with the fiscal start date or the trailing twelve months condition is met.
         if (
-            str(axis_data[i]).replace(" 00:00:00", "").lower() == str(fiscal_start)
-            or is_trailing_twelve_months
-            or month_cond
-        ) and total_months <= 12:
+                str(axis_data[i]).replace(' 00:00:00', '').lower() == str(fiscal_start)
+                or is_trailing_twelve_months
+                or month_cond
+        ) and total_months <= NUM_TRAILING_MONTHS:
             # Set month condition to True after the first match, and increment total_months.
             month_cond = True
             total_months += 1
@@ -580,32 +625,32 @@ def get_metric_series_data(wbr1, metric, fiscal_start, is_trailing_twelve_months
     return metric_series
 
 
-def get_x_axis_label(wbr1, month_start):
+def get_x_axis_label(graph_axis_label, month_start):
     """
     Generates the x-axis labels for a chart, starting from a specific month and including up to 12 months of data.
 
     Args:
-        wbr1 (WBR): The WBR object that contains the graph axis labels.
+        graph_axis_label (list): The full list of graph axis labels (weeks + separator + months).
         month_start (str): The name of the month from which to start generating x-axis labels.
 
     Returns:
         list: A list of x-axis labels, starting with the first 7 labels from the WBR object, followed by
         up to 12 months of data starting from `month_start`.
     """
-    # Start with the first 7 x-axis labels.
-    x_axis_label = list(wbr1.graph_axis_label)[0:7]
+    # Start with the first MONTHLY_DATA_START_INDEX x-axis labels (weeks + separator).
+    x_axis_label = list(graph_axis_label)[0:MONTHLY_DATA_START_INDEX]
 
     # Track whether we've encountered the starting month and count the total number of months added.
     month_cond = False
     total_months = 1
 
-    # Extract the remaining month labels from the 8th element onward.
-    month_labels = list(wbr1.graph_axis_label[7:])
+    # Extract the remaining month labels from beyond the weekly section.
+    month_labels = list(graph_axis_label[MONTHLY_DATA_START_INDEX:])
 
     # Iterate over the month labels, appending them once the start month is found.
     for month_label in month_labels:
         # Check if the current month matches the start month or if the condition to append is already True.
-        if (str(month_label).lower() == month_start.lower() or month_cond) and total_months <= 12:
+        if (str(month_label).lower() == month_start.lower() or month_cond) and total_months <= NUM_TRAILING_MONTHS:
             month_cond = True  # Start appending months once the condition is satisfied.
             total_months += 1  # Increment the count of months added.
             x_axis_label.append(month_label)
@@ -613,12 +658,13 @@ def get_x_axis_label(wbr1, month_start):
     return x_axis_label
 
 
-def get_six_weeks_table_row_data(wbr1, metric, line_number):
+def get_six_weeks_table_row_data(metrics, box_totals, metric, line_number):
     """
     Retrieves and constructs row data for a six-week table block, using metric data from the WBR object.
 
     Args:
-        wbr1 (WBR): The WBR object containing metrics and box totals data.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
         metric (str): The name of the metric to retrieve the six-week data for.
         line_number (int): The line number in the configuration file, used for error reporting.
 
@@ -632,10 +678,10 @@ def get_six_weeks_table_row_data(wbr1, metric, line_number):
     """
 
     # Retrieve the metric data for the first 6 weeks.
-    metric_data = wbr1.metrics[metric]
+    metric_data = metrics[metric]
 
     # Replace NaN values with blank spaces for the six weeks of data.
-    six_weeks_table_data = [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(0, 6)]
+    six_weeks_table_data = [" " if pd.isna(metric_data[i]) else metric_data[i] for i in range(0, NUM_TRAILING_WEEKS)]
 
     # Raise an exception if the metric is a Month-over-Month (MOM) type, as it's unsupported for six weeks tables.
     if "MOM" in metric:
@@ -646,20 +692,20 @@ def get_six_weeks_table_row_data(wbr1, metric, line_number):
 
     # If the metric is not a Week-over-Week (WOW) type, append additional data from box_totals.
     if "WOW" not in metric:
-        # Check the 6th week's box total value, append " " if it is NaN or 'N/A', otherwise append the value.
+        # Check the QTD box total value, append " " if it is NaN or 'N/A', otherwise append the value.
         if_else(
-            wbr1.box_totals.loc[5, metric],
-            lambda x: x == "N/A" or numpy.isnan(x),
+            box_totals.loc[BOX_IDX_QTD, metric],
+            lambda x: x == 'N/A' or pd.isna(x),
             lambda x: append_to_list(" ", six_weeks_table_data),
-            lambda x: append_to_list(x, six_weeks_table_data),
+            lambda x: append_to_list(x, six_weeks_table_data)
         )
 
-        # Check the 8th week's box total value, and apply the same logic as for the 6th week's value.
+        # Check the YTD box total value, and apply the same logic.
         if_else(
-            wbr1.box_totals.loc[7, metric],
-            lambda x: x == "N/A" or numpy.isnan(x),
+            box_totals.loc[BOX_IDX_YTD, metric],
+            lambda x: x == 'N/A' or pd.isna(x),
             lambda x: append_to_list(" ", six_weeks_table_data),
-            lambda x: append_to_list(x, six_weeks_table_data),
+            lambda x: append_to_list(x, six_weeks_table_data)
         )
     else:
         # If the metric is WOW type, append two blank spaces as placeholders for the box total values.
@@ -669,12 +715,12 @@ def get_six_weeks_table_row_data(wbr1, metric, line_number):
     return six_weeks_table_data
 
 
-def get_twelve_months_table_row(wbr1, metric, itr_start):
+def get_twelve_months_table_row(metrics, metric, itr_start):
     """
     Retrieves a row of data for a twelve-month table block, extracting metric values from the WBR object.
 
     Args:
-        wbr1 (WBR): The WBR object containing metrics data.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
         metric (str): The name of the metric to retrieve data for.
         itr_start (int): The starting index for extracting twelve months of data.
 
@@ -683,22 +729,29 @@ def get_twelve_months_table_row(wbr1, metric, itr_start):
     """
 
     # Retrieve the metric data for the specified metric from the WBR object.
-    metric_data = wbr1.metrics[metric]
+    metric_data = metrics[metric]
 
     # Generate a list for twelve months of data, replacing NaN values with blank spaces.
-    return [" " if numpy.isnan(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + 12)]
+    return [" " if pd.isna(metric_data[i]) else metric_data[i] for i in range(itr_start, itr_start + NUM_TRAILING_MONTHS)]
 
 
-def _6_weeks_table(decks, plot, wbr1: WBR, block_number, annotations_dict: dict):
+def _6_weeks_table(
+        decks,
+        plot,
+        block_number,
+        annotation_dict: dict,
+        metrics=None,
+        box_totals=None,
+        graph_axis_label=None
+):
     """
     Constructs a 6-week table block for a specified plot using data from a WBR object.
 
     Args:
         decks: An object representing the collection of blocks for the report.
         plot: A dictionary containing plotting configurations for the table block.
-        wbr1 (WBR): The WBR object containing metrics data.
         block_number (str): The identifier for the block being constructed.
-        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
+        annotation_dict (dict): A dictionary consisting of the metric and the respective annotations
 
     Raises:
         SyntaxError: If rows are not specified in the plotting configuration.
@@ -718,10 +771,11 @@ def _6_weeks_table(decks, plot, wbr1: WBR, block_number, annotations_dict: dict)
         six_weeks_table.title = plotting_dict["title"]
 
     # Create the column headers for the table.
-    table_column_header = [wbr1.graph_axis_label[i] for i in range(0, 6)]
+    table_column_header = [graph_axis_label[i] for i in range(0, NUM_TRAILING_WEEKS)]
     table_column_header.append("QTD")  # Add QTD column header.
     table_column_header.append("YTD")  # Add YTD column header.
-    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, wbr1, annotations_dict)
+    build_six_weeks_table(block_number, plotting_dict, six_weeks_table, table_column_header, metrics, box_totals,
+                          annotation_dict)
 
     # Append the completed six weeks table to the decks collection.
     decks.blocks.append(six_weeks_table)
@@ -732,8 +786,9 @@ def build_six_weeks_table(
         plotting_dict: dict,
         six_weeks_table: TrailingTable,
         table_column_header: list,
-        wbr1: WBR,
-        annotations_dict: dict
+        metrics,
+        box_totals,
+        annotation_dict: dict
 ):
     """
     Builds a six weeks table using the specified plotting configuration.
@@ -743,8 +798,9 @@ def build_six_weeks_table(
         plotting_dict (dict): The configuration dictionary for the plotting that includes rows and other properties.
         six_weeks_table (TrailingTable): The table object to populate with rows and headers.
         table_column_header (list): The headers for the table, representing the weeks and additional metrics.
-        wbr1 (WBR): The WBR object containing metric data necessary for building table rows.
-        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        annotation_dict (dict): An dictionary consisting of the metric and the respective events
 
     Raises:
         SyntaxError: If the 'rows' key is not present in the plotting configuration.
@@ -761,7 +817,7 @@ def build_six_weeks_table(
         # Iterate over each row configuration to build table rows.
         for row_configs in plotting_dict["rows"]:
             try:
-                row = build_six_week_table_row(six_weeks_table, row_configs, wbr1, annotations_dict)
+                row = build_six_week_table_row(six_weeks_table, row_configs, metrics, box_totals, annotation_dict)
 
                 # Append the constructed row to the table.
                 six_weeks_table.rows.append(row)
@@ -774,7 +830,13 @@ def build_six_weeks_table(
                 )
 
 
-def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, wbr1: WBR, annotations_dict: dict):
+def build_six_week_table_row(
+        six_weeks_table: TrailingTable,
+        row_configs: dict,
+        metrics,
+        box_totals,
+        annotation_dict: dict
+):
     """
     Constructs a row for the six weeks table based on the provided configuration.
 
@@ -782,8 +844,9 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
         six_weeks_table (TrailingTable): The table object to populate with rows and headers.
         row_configs (dict): A dictionary containing the configuration for the row, which includes
                             'header', 'metric', 'style', and 'y_scaling'.
-        wbr1 (WBR): The WBR object containing metric data necessary for retrieving the metric values.
-        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        annotation_dict (dict): An dictionary consisting of the metric and the respective annotations
 
     Raises:
         KeyError: If the specified metric is not found in the WBR metrics dataframe.
@@ -797,16 +860,16 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
     if "header" in row_config:
         row.rowHeader = row_config["header"]
     # Validate and retrieve the metric data for the row.
-    if "metric" in row_config:
-        if row_config["metric"] not in wbr1.metrics.columns:
+    if 'metric' in row_config:
+        if row_config['metric'] not in metrics.columns:
             raise KeyError(
                 f"Error in yaml at line: {row_config['__line__']}, Metric {row_config['metric']} not found in "
                 f"the dataframe, please check if you have defined this metric in metric section"
             )
         # Get data for the six weeks table row.
-        row.rowData = get_six_weeks_table_row_data(wbr1, row_config['metric'], row_config['__line__'])
-        if row_config['metric'] in annotations_dict:
-            six_weeks_table.annotations.extend(annotations_dict[row_config['metric']])
+        row.rowData = get_six_weeks_table_row_data(metrics, box_totals, row_config['metric'], row_config['__line__'])
+        if row_config['metric'] in annotation_dict:
+            six_weeks_table.annotations.append(annotation_dict[row_config['metric']])
     # Set additional properties for the row if specified.
     if "style" in row_config:
         row.rowStyle = row_config["style"]
@@ -815,15 +878,17 @@ def build_six_week_table_row(six_weeks_table: TrailingTable, row_configs: dict, 
     return row
 
 
-def _12_months_table(decks, plot, wbr1: WBR, block_number):
+def _12_months_table(decks, plot, block_number, metrics=None, graph_axis_label=None, fiscal_month=None):
     """
     Constructs and populates a 12-months table based on the provided plotting configuration and WBR data.
 
     Args:
         decks (Decks): The Decks object to which the table will be appended.
         plot (dict): A dictionary containing the configuration for the plot, including block settings.
-        wbr1 (WBR): The WBR object containing financial data and metadata.
         block_number (str): The number representing the current block in the configuration.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        graph_axis_label (list): The full list of graph axis labels.
+        fiscal_month (str): The fiscal year-end month abbreviation (e.g. 'Dec').
 
     Raises:
         ValueError: If a valid month_start cannot be determined or if other configuration errors occur.
@@ -837,7 +902,7 @@ def _12_months_table(decks, plot, wbr1: WBR, block_number):
     if "title" in plotting_dict:
         twelve_months_table.title = plotting_dict["title"]
 
-    itr_start = 7
+    itr_start = MONTHLY_DATA_START_INDEX
 
     if "x_axis_monthly_display" in plotting_dict:
         month_start = plotting_dict["x_axis_monthly_display"]
@@ -847,23 +912,26 @@ def _12_months_table(decks, plot, wbr1: WBR, block_number):
         month_start = "trailing_twelve_months"
 
     # Determine the fiscal month if month_start is 'fiscal_year'
-    if month_start == "fiscal_year":
-        fiscal_month = (
-            datetime.datetime.strptime(wbr1.fiscal_month, "%b") + dateutil.relativedelta.relativedelta(months=1)
+    if month_start == 'fiscal_year':
+        fiscal_month_start = (
+                datetime.datetime.strptime(fiscal_month, "%b") + dateutil.relativedelta.relativedelta(months=1)
         ).strftime("%b")
 
         # Calculate the starting index for the twelve-month table
         itr_start = next(
-            (i for i, month in enumerate(wbr1.graph_axis_label[7:]) if month.lower() == fiscal_month.lower()),
-            len(wbr1.graph_axis_label[7:]),  # Fallback in case fiscal_month is not found
+            (i for i, month in enumerate(graph_axis_label[MONTHLY_DATA_START_INDEX:]) if
+             month.lower() == fiscal_month_start.lower()),
+            len(graph_axis_label[MONTHLY_DATA_START_INDEX:])  # Fallback in case fiscal_month is not found
         )
 
-    build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, wbr1)
+    build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table,
+                          metrics=metrics, graph_axis_label=graph_axis_label)
 
     decks.blocks.append(twelve_months_table)
 
 
-def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, wbr1):
+def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_table, metrics=None,
+                          graph_axis_label=None):
     """
     Constructs and populates a 12-months table with the specified headers and rows based on the provided
     plotting configuration and WBR data.
@@ -873,7 +941,8 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
         itr_start (int): The starting index for the 12-month period in the graph axis labels.
         plotting_dict (dict): A dictionary containing the configuration for the plot, including row settings.
         twelve_months_table (TrailingTable): The table object to be populated with data.
-        wbr1 (WBR): The WBR object containing financial data and metadata.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        graph_axis_label (list): The full list of graph axis labels.
 
     Raises:
         SyntaxError: If the 'rows' key is not present in the plotting_dict.
@@ -883,15 +952,15 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
         None: This function does not return a value; it appends the constructed rows to the twelve_months_table.
     """
     # Set the headers for the twelve-months table
-    twelve_months_table.headers = wbr1.graph_axis_label[itr_start : itr_start + 12]
-    if "rows" not in plotting_dict:
+    twelve_months_table.headers = graph_axis_label[itr_start:itr_start + NUM_TRAILING_MONTHS]
+    if 'rows' not in plotting_dict:
         raise SyntaxError(
             f"Bad Request! rows are not specified in the configuration at block: {block_number} at line: "
             f"{plotting_dict['__line__']}"
         )
-    for row_configs in plotting_dict["rows"]:
+    for row_configs in plotting_dict['rows']:
         try:
-            row = build_twelve_month_table_row(itr_start, row_configs, wbr1)
+            row = build_twelve_month_table_row(itr_start, row_configs, metrics)
 
             twelve_months_table.rows.append(row)
         except Exception as e:
@@ -902,14 +971,14 @@ def build_12_months_table(block_number, itr_start, plotting_dict, twelve_months_
             )
 
 
-def build_twelve_month_table_row(itr_start, row_configs, wbr1):
+def build_twelve_month_table_row(itr_start, row_configs, metrics):
     """
     Constructs a row for a twelve-months table based on the provided row configuration and WBR data.
 
     Args:
         itr_start (int): The starting index for the 12-month period in the graph axis labels.
         row_configs (dict): A dictionary containing the configuration for the row, including metric and style settings.
-        wbr1 (WBR): The WBR object containing financial data and metadata.
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
 
     Raises:
         KeyError: If the specified metric is not found in the WBR metrics dataframe.
@@ -919,19 +988,19 @@ def build_twelve_month_table_row(itr_start, row_configs, wbr1):
     """
     row_config = row_configs["row"]
     row = Rows()
-    if "header" in row_config:
-        row.rowHeader = row_config["header"]
-    if "style" in row_config:
-        row.rowStyle = row_config["style"]
-    if "y_scaling" in row_config:
-        row.yScale = row_config["y_scaling"]
-    if "metric" in row_config:
-        if row_config["metric"] not in wbr1.metrics.columns:
+    if 'header' in row_config:
+        row.rowHeader = row_config['header']
+    if 'style' in row_config:
+        row.rowStyle = row_config['style']
+    if 'y_scaling' in row_config:
+        row.yScale = row_config['y_scaling']
+    if 'metric' in row_config:
+        if row_config['metric'] not in metrics.columns:
             raise KeyError(
                 f"Error in yaml at line: {row_config['__line__']}, Metric {row_config['metric']} not found in "
                 f"the dataframe, please check if you have defined this metric in metric section"
             )
-        row.rowData = get_twelve_months_table_row(wbr1, row_config["metric"], itr_start)
+        row.rowData = get_twelve_months_table_row(metrics, row_config['metric'], itr_start)
     return row
 
 
@@ -974,18 +1043,18 @@ def append_embedded_content_to_deck(decks, plot):
     decks.blocks.append(embedded_content)
 
 
-def filter_annotations(wbr: WBR, annotation_df, annotation_errors: list) -> dict[str:list]:
+def filter_annotations(annotation_df, annotation_errors: list, metrics=None, cy_week_ending=None) -> dict[str:list]:
     if annotation_df is None:
         return {}
-    week_ending = wbr.cy_week_ending
-    cy_six_weeks_ago = week_ending - datetime.timedelta(days=41)
-    py_six_weeks_end = week_ending - datetime.timedelta(days=364)
-    py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=41)
+    week_ending = cy_week_ending
+    cy_six_weeks_ago = week_ending - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
+    py_six_weeks_end = week_ending - datetime.timedelta(days=PY_WEEKLY_OFFSET_DAYS)
+    py_six_weeks_ago = py_six_weeks_end - datetime.timedelta(days=SIX_WEEKS_LOOKBACK_DAYS)
 
     cy_six_weeks_annotations = annotation_df.query('Date >= @cy_six_weeks_ago and Date <= @week_ending')
     py_six_weeks_annotations = annotation_df.query('Date >= @py_six_weeks_ago and Date <= @py_six_weeks_end')
 
-    wbr_metric_list = wbr.metrics.columns
+    wbr_metric_list = metrics.columns
     df = pd.concat([cy_six_weeks_annotations, py_six_weeks_annotations], axis=0)
 
     annotation_metrics = list(df["MetricName"])
@@ -1015,47 +1084,94 @@ def filter_annotations(wbr: WBR, annotation_df, annotation_errors: list) -> dict
     return annotations_dict
 
 
-def get_wbr_deck(report: WBR, annotation_data: pd.DataFrame = None) -> Deck:
+def get_wbr_deck(
+    metrics,
+    box_totals,
+    cfg: dict,
+    cy_week_ending,
+    fiscal_month: str,
+    graph_axis_label: list,
+    bps_metrics: list,
+    function_bps_metrics: list,
+        annotation_data: pd.DataFrame = None,
+) -> Deck:
     """
-    Constructs a Deck object based on the configuration provided in the wbr1 object.
+    Constructs a Deck object from explicit WBR outputs.
+
+    The caller unpacks the WBR object's attributes and passes them individually,
+    so this function (and everything it calls) is decoupled from the WBR class.
 
     Args:
-        report (WBR): An instance of the WBR class containing configuration data for the deck.
-        annotation_data (DataFrame): Annotation dataframe that consists the annotation data for the wbr metrics
+        metrics (pd.DataFrame): The computed metrics DataFrame.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        cfg (dict): The WBR YAML configuration dictionary.
+        cy_week_ending (datetime): The current-year week-ending date.
+        fiscal_month (str): The fiscal year-end month abbreviation (e.g. 'Dec').
+        graph_axis_label (list): The full list of graph axis labels.
+        bps_metrics (list): Metrics compared using basis points.
+        function_bps_metrics (list): Function metrics compared using basis points.
+        annotation_data (pd.DataFrame): Optional annotation data for chart annotations.
     Returns:
-        Deck: A Deck object populated with plots, titles, and other settings defined in the wbr1 configuration.
+        Deck: A Deck object populated with charts, tables, and settings.
     """
-    plots = report.cfg["deck"]
+    plots = cfg['deck']
     deck = Deck()
 
     annotations_dict = {}
     annotation_errors = []
     try:
-        annotations_dict = filter_annotations(report, annotation_data, annotation_errors)
+        annotations_dict = filter_annotations(annotation_data, annotation_errors, metrics=metrics,
+                                              cy_week_ending=cy_week_ending)
     except Exception as err:
         logging.error(err, exc_info=True)
         annotation_errors.append(err.__str__())
 
-    if "x_axis_monthly_display" in report.cfg["setup"]:
-        deck.xAxisMonthlyDisplay = report.cfg["setup"]["x_axis_monthly_display"]
+    if 'x_axis_monthly_display' in cfg['setup']:
+        deck.xAxisMonthlyDisplay = cfg['setup']['x_axis_monthly_display']
 
     for i in range(len(plots)):
-        build_a_block(deck, i, plots, report, annotations_dict)
+        build_a_block(
+            deck,
+            i,
+            plots,
+            annotations_dict,
+            metrics=metrics,
+            box_totals=box_totals,
+            bps_metrics=bps_metrics,
+            function_bps_metrics=function_bps_metrics,
+            graph_axis_label=graph_axis_label,
+            cy_week_ending=cy_week_ending,
+            fiscal_month=fiscal_month,
+            cfg=cfg
+        )
 
-    deck.title = report.cfg["setup"]["title"]
+    deck.title = cfg['setup']['title']
 
-    week_ending = datetime.datetime.strptime(report.cfg["setup"]["week_ending"], "%d-%b-%Y")
+    week_ending = datetime.datetime.strptime(cfg['setup']['week_ending'], '%d-%b-%Y')
     deck.weekEnding = week_ending.strftime("%d") + " " + week_ending.strftime("%B") + " " + week_ending.strftime("%Y")
 
-    if "block_starting_number" in report.cfg["setup"]:
-        deck.blockStartingNumber = report.cfg["setup"]["block_starting_number"]
+    if 'block_starting_number' in cfg['setup']:
+        deck.blockStartingNumber = cfg['setup']['block_starting_number']
 
     deck.annotationErrors = "\n".join(annotation_errors) if len(annotation_errors) > 0 else None
 
     return deck
 
 
-def build_a_block(deck: Deck, i: int, plots: list, report: WBR, annotations_dict: dict):
+def build_a_block(
+        deck: Deck,
+        i: int,
+        plots: list,
+        annotation_dict: dict,
+        metrics=None,
+        box_totals=None,
+        bps_metrics=None,
+        function_bps_metrics=None,
+        graph_axis_label=None,
+        cy_week_ending=None,
+        fiscal_month=None,
+        cfg=None
+):
     """
     Builds a block in the given deck based on the configuration specified in the plots.
 
@@ -1063,8 +1179,12 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, annotations_dict
         deck (Deck): The Deck object to which the block will be added.
         i (int): The index of the current block in the plots list.
         plots (list): A list of plot configurations, each containing a block configuration.
-        report (WBR): An instance of the WBR class containing additional configuration data.
-        annotations_dict (dict): A dictionary consisting of the metric and the respective annotations
+        annotation_dict (dict): An dictionary consisting of the metric and the respective events
+        metrics (pd.DataFrame): The metrics DataFrame containing metric columns.
+        box_totals (pd.DataFrame): The box totals DataFrame.
+        bps_metrics (list): List of metrics compared using basis points.
+        function_bps_metrics (list): List of function metrics compared using basis points.
+        cfg (dict): The WBR configuration dictionary.
     Raises:
         Exception: If the block configuration is invalid or if the UI type is not recognized.
     """
@@ -1076,12 +1196,40 @@ def build_a_block(deck: Deck, i: int, plots: list, report: WBR, annotations_dict
         raise Exception(f"UI Type can not be Null for Block Number {str(i + 1)} in DECK Section at line:"
                         f" {plotting_dict['__line__']}")
     elif plotting_dict['ui_type'] == '6_12Graph':
-        _6_12_chart(deck, plots[i], report, str(i + 1), annotations_dict)
+        _6_12_chart(
+            deck,
+            plots[i],
+            str(i + 1),
+            annotation_dict,
+            metrics=metrics,
+            box_totals=box_totals,
+            bps_metrics=bps_metrics,
+            function_bps_metrics=function_bps_metrics,
+            graph_axis_label=graph_axis_label,
+            cy_week_ending=cy_week_ending,
+            fiscal_month=fiscal_month,
+            cfg=cfg
+        )
     elif plotting_dict['ui_type'] == '6_WeeksTable':
-        _6_weeks_table(deck, plots[i], report, str(i + 1), annotations_dict)
+        _6_weeks_table(
+            deck,
+            plots[i],
+            str(i + 1),
+            annotation_dict,
+            metrics=metrics,
+            box_totals=box_totals,
+            graph_axis_label=graph_axis_label
+        )
     elif plotting_dict['ui_type'] == '12_MonthsTable':
-        _12_months_table(deck, plots[i], report, str(i + 1))
-    elif plotting_dict["ui_type"] == "section":
+        _12_months_table(
+            deck,
+            plots[i],
+            str(i + 1),
+            metrics=metrics,
+            graph_axis_label=graph_axis_label,
+            fiscal_month=fiscal_month
+        )
+    elif plotting_dict['ui_type'] == 'section':
         append_section_to_deck(deck, plots[i])
     elif plotting_dict["ui_type"] == "embedded_content":
         append_embedded_content_to_deck(deck, plots[i])

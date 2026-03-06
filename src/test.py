@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import logging
 import math
 import os
@@ -155,7 +156,16 @@ def build_and_test_wbr(wbr1, test):
     """
     try:
         # Generate the WBR deck using the WBR object
-        deck = get_wbr_deck(wbr1)
+        deck = get_wbr_deck(
+            metrics=wbr1.metrics,
+            box_totals=wbr1.box_totals,
+            cfg=wbr1.cfg,
+            cy_week_ending=wbr1.cy_week_ending,
+            fiscal_month=wbr1.fiscal_month,
+            graph_axis_label=wbr1.graph_axis_label,
+            bps_metrics=wbr1.bps_metrics,
+            function_bps_metrics=wbr1.function_bps_metrics,
+        )
     except Exception as error:
         logger.error(error, exc_info=True)
         raise error
@@ -347,7 +357,7 @@ def check_cy_df_shape(test, wbr1):
     """
 
     # Retrieve the current year trailing twelve months DataFrame from the WBR object
-    cy_monthly_df = wbr1.cy_trailing_twelve_months
+    cy_monthly_df = wbr1.cy_monthly
 
     # Get the number of rows and columns in the DataFrame
     row_length, col_length = cy_monthly_df.shape
@@ -387,7 +397,7 @@ def check_py_df_shape(test, wbr1):
     """
 
     # Retrieve the previous year trailing twelve months DataFrame from the WBR object
-    py_monthly_df = wbr1.py_trailing_twelve_months
+    py_monthly_df = wbr1.py_monthly
 
     # Get the number of rows and columns in the DataFrame
     row_length, col_length = py_monthly_df.shape
@@ -477,7 +487,7 @@ def cy_validate_dataframe_length(wbr1, test):
         cy_monthly_length = len(wbr1.metrics[metric_name][7:])
     else:
         # For regular metrics, calculate the length of the metric in the current year DataFrame
-        cy_monthly_length = len(list(wbr1.cy_trailing_twelve_months[metric_name]))
+        cy_monthly_length = len(list(wbr1.cy_monthly[metric_name]))
 
     try:
         # Assert that the length of the CY DataFrame matches the expected length from the test configuration
@@ -739,17 +749,17 @@ def nearly_equal(a, b, sig_fig):
         return False
     elif np.isnan(b) and not np.isnan(a):
         return False
-    return a is b or int(a * 10**sig_fig) == int(b * 10**sig_fig) or round_off(a, 1) == round_off(b, 1)
+    return a is b or int(a * 10 ** sig_fig) == int(b * 10 ** sig_fig) or round_off(a, 1) == round_off(b, 1)
 
 
 def round_off(n, ndigits):
     if type(n) is float and np.isnan(n) or type(n) is str:
         return np.nan
-    part = n * 10**ndigits
+    part = n * 10 ** ndigits
     delta = part - int(part)
     # always round 'away from 0'
     if delta >= 0.5 or -0.5 < delta <= 0:
         part = math.ceil(part)
     else:
         part = math.floor(part)
-    return part / (10**ndigits) if ndigits >= 0 else part * 10 ** abs(ndigits)
+    return part / (10 ** ndigits) if ndigits >= 0 else part * 10 ** abs(ndigits)

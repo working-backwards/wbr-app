@@ -292,6 +292,7 @@ function swalConfigForCopyPopup(message) {
     return {
         title: "Copy this URL and share it with with those who need to view the WBR report.",
         confirmButtonText: "COPY",
+        confirmButtonColor: "#b59154",
         html: message,
         showCancelButton: true,
         cancelButtonColor: "#6c757d",
