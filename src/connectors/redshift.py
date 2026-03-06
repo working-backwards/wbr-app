@@ -3,6 +3,7 @@ import logging
 
 import pandas as pd
 import psycopg2  # Using psycopg2 for Redshift, as it's largely compatible
+
 # Alternatively, 'redshift_connector' could be used for specific features
 from psycopg2 import sql
 

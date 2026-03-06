@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 import logging
 
+from ..secret_loader import get_loader
 from .athena import AthenaConnector
 from .base import BaseConnector
 from .postgres import PostgresConnector
 from .redshift import RedshiftConnector
 from .snowflake import SnowflakeConnector
-from ..secret_loader import get_loader
 
 logger = logging.getLogger(__name__)
 

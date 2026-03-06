@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.connectors import get_connector
 from src.connectors.athena import AthenaConnector
+
 # Assuming src is in PYTHONPATH or tests are run from root
 from src.connectors.base import BaseConnector
 from src.connectors.postgres import PostgresConnector  # Import one for factory testing
