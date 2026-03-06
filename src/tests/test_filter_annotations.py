@@ -30,7 +30,7 @@ class TestFilterAnnotations_DuplicateMetric(unittest.TestCase):
         })
 
         errors = []
-        result = filter_annotations(wbr, annotations_df, errors)
+        result = filter_annotations(annotations_df, errors, wbr.metrics, wbr.cy_week_ending)
 
         self.assertIn("Impressions", result)
         self.assertEqual(len(result["Impressions"]), 2)
@@ -66,7 +66,7 @@ class TestFilterAnnotations_InvalidMetricAlignment(unittest.TestCase):
         })
 
         errors = []
-        result = filter_annotations(wbr, annotations_df, errors)
+        result = filter_annotations(annotations_df, errors, wbr.metrics, wbr.cy_week_ending)
 
         # NonExistentMetric must not appear in output
         self.assertNotIn("NonExistentMetric", result)
