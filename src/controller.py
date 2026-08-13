@@ -9,7 +9,7 @@ from pathlib import Path
 
 import flask
 import requests
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from flask import Flask, render_template, request, send_file
 from flask_cors import CORS
 from werkzeug.utils import redirect, secure_filename
@@ -264,9 +264,9 @@ def login():
             file_name = request.args["file"]
             f = Fernet(key)
             # Encrypt the password and generate a token
-            token = f.encrypt(bytes(auth_password, 'utf-8'))[:15]
+            token = f.encrypt(bytes(auth_password, 'utf-8'))
             return redirect("/build-wbr/publish/protected?file=" + secure_filename(file_name) +
-                            "&password=" + str(token))
+                            "&password=" + token.decode('utf-8'))
         else:
             # If the provided password does not match the password in the JSON file
             return app.response_class(response=json.dumps({"message": "Unauthorised"}), status=403)
@@ -286,7 +286,22 @@ def build_wbr_protected():
         if 'password' not in request.args:
             return redirect('/login?file=' + auth_file_name)
         else:
-            protected_data = publisher.download(which_env + "/" + auth_file_name)
+            try:
+                protected_data = publisher.download(which_env + "/" + auth_file_name)
+            except Exception as e:
+                logging.error(e, exc_info=True)
+                return e.__str__()
+
+            f = Fernet(key)
+            try:
+                # The token is only valid if it decrypts to the password stored for this report
+                decrypted_password = f.decrypt(request.args['password'].encode('utf-8')).decode('utf-8')
+            except InvalidToken:
+                decrypted_password = None
+
+            if decrypted_password != protected_data["password"]:
+                return app.response_class(response=json.dumps({"message": "Unauthorised"}), status=403)
+
             return flask.render_template("wbr_share.html", data=protected_data["data"])
 
 
